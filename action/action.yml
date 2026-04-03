@@ -1,0 +1,12 @@
+name: 'BountyNet Attest'
+description: 'Attest CI outcomes using GitHub OIDC. Enables bounty resolution + build provenance.'
+inputs:
+  gateway:
+    description: 'BountyNet gateway URL'
+    default: 'https://gateway.stare.network'
+  context-hash:
+    description: 'Override context hash (auto-generated if omitted)'
+    required: false
+runs:
+  using: 'node20'
+  main: 'index.js'
