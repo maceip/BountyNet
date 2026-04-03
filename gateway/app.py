@@ -32,6 +32,7 @@ from gateway.routes.oracle import oracle_bp
 from gateway.routes.inference import inference_bp
 from gateway.routes.identity import identity_bp
 from gateway.routes.bounties import bounties_bp
+from gateway.routes.attest import attest_bp
 
 app.register_blueprint(ens_bp)
 app.register_blueprint(github_bp)
@@ -39,6 +40,7 @@ app.register_blueprint(oracle_bp)
 app.register_blueprint(inference_bp)
 app.register_blueprint(identity_bp)
 app.register_blueprint(bounties_bp)
+app.register_blueprint(attest_bp)
 
 
 @app.route("/health")
