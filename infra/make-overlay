@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# make-overlay: Generate hackathon demo video with ETHGlobal Cannes overlay
+#
+# Usage:
+#   make-overlay "My Project Name" input.mp4 output.mp4
+#   make-overlay "My Project Name" input.mp4              # outputs submission.mp4
+#
+# Creates:
+#   1. Full-screen intro card (3s) — newscaster style with project name + event
+#   2. Main video with persistent bottom ribbon overlay:
+#      - Bottom ribbon bar (semi-transparent dark) with project name centered
+#      - "ETHGlobal Cannes 2026" anchored bottom-right on the ribbon
+#   3. Fade-out outro (1s)
+
+PROJECT_NAME="${1:?Usage: make-overlay \"Project Name\" input.mp4 [output.mp4]}"
+INPUT="${2:?Usage: make-overlay \"Project Name\" input.mp4 [output.mp4]}"
+OUTPUT="${3:-submission.mp4}"
+
+if [[ ! -f "$INPUT" ]]; then
+    echo "Error: Input file '$INPUT' not found"
+    exit 1
+fi
+
+# Get input video dimensions
+eval $(ffprobe -v quiet -select_streams v:0 -show_entries stream=width,height -of csv=p=0:s=x "$INPUT" | awk -Fx '{print "W="$1" H="$2}')
+W=${W:-1920}
+H=${H:-1080}
+
+RIBBON_H=$((H / 14))  # ribbon height ~7% of video height
+FONT_SIZE=$((RIBBON_H * 55 / 100))
+SMALL_FONT=$((RIBBON_H * 40 / 100))
+INTRO_FONT=$((H / 12))
+INTRO_SUB=$((H / 22))
+
+echo "Input: ${W}x${H}, Ribbon: ${RIBBON_H}px, Font: ${FONT_SIZE}px"
+echo "Project: $PROJECT_NAME"
+
+# Build the complex filter
+# Intro: 3s black screen with project name + event name (newscaster style)
+# Then: original video with bottom ribbon overlay throughout
+# Outro: 1s fade to black
+
+FILTER="
+[0:v]split=2[intro_bg][main];
+
+[intro_bg]trim=0:3,setpts=PTS-STARTPTS,
+drawbox=x=0:y=0:w=${W}:h=${H}:color=black@1:t=fill,
+drawbox=x=0:y=${H}-${RIBBON_H}-10:w=${W}:h=${RIBBON_H}+10:color=0x1a1a2e@0.95:t=fill,
+drawbox=x=0:y=${H}-${RIBBON_H}-12:w=${W}:h=2:color=0x00d4ff@0.8:t=fill,
+drawtext=text='${PROJECT_NAME}':
+  fontsize=${INTRO_FONT}:fontcolor=white:
+  x=(w-text_w)/2:y=(h-text_h)/2-${INTRO_SUB}:
+  fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf,
+drawtext=text='ETHGlobal Cannes 2026':
+  fontsize=${INTRO_SUB}:fontcolor=0x00d4ff:
+  x=(w-text_w)/2:y=(h+text_h)/2:
+  fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf,
+drawtext=text='${PROJECT_NAME}':
+  fontsize=${FONT_SIZE}:fontcolor=white:
+  x=(w-text_w)/2:y=${H}-${RIBBON_H}-10+(${RIBBON_H}+10-text_h)/2:
+  fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf,
+drawtext=text='ETHGlobal Cannes 2026':
+  fontsize=${SMALL_FONT}:fontcolor=0xcccccc:
+  x=w-text_w-20:y=${H}-${RIBBON_H}-10+(${RIBBON_H}+10-text_h)/2:
+  fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+[intro];
+
+[main]setpts=PTS-STARTPTS,
+drawbox=x=0:y=${H}-${RIBBON_H}-10:w=${W}:h=${RIBBON_H}+10:color=0x1a1a2e@0.85:t=fill,
+drawbox=x=0:y=${H}-${RIBBON_H}-12:w=${W}:h=2:color=0x00d4ff@0.6:t=fill,
+drawtext=text='${PROJECT_NAME}':
+  fontsize=${FONT_SIZE}:fontcolor=white:
+  x=(w-text_w)/2:y=${H}-${RIBBON_H}-10+(${RIBBON_H}+10-text_h)/2:
+  fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf,
+drawtext=text='ETHGlobal Cannes 2026':
+  fontsize=${SMALL_FONT}:fontcolor=0xcccccc:
+  x=w-text_w-20:y=${H}-${RIBBON_H}-10+(${RIBBON_H}+10-text_h)/2:
+  fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf,
+fade=t=out:st=DURATION_PLACEHOLDER:d=1
+[body];
+
+[intro][body]concat=n=2:v=1:a=0[outv]
+"
+
+# Get video duration for fade-out timing
+DURATION=$(ffprobe -v quiet -show_entries format=duration -of csv=p=0 "$INPUT" | cut -d. -f1)
+FADE_START=$((DURATION - 1))
+FILTER="${FILTER//DURATION_PLACEHOLDER/$FADE_START}"
+
+echo "Generating overlay video..."
+
+ffmpeg -y -i "$INPUT" \
+  -filter_complex "$FILTER" \
+  -map "[outv]" -map 0:a? \
+  -c:v libx264 -preset fast -crf 18 \
+  -c:a aac -b:a 192k \
+  -movflags +faststart \
+  "$OUTPUT" 2>&1 | grep -E "frame|error|Error" | tail -5
+
+echo ""
+echo "Done: $OUTPUT ($(du -h "$OUTPUT" | cut -f1))"
