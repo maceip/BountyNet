@@ -1,0 +1,28 @@
+[project]
+src = "src"
+out = "out"
+dot_env = ".env"
+
+[networks.pyevm]
+is_zksync = false
+
+[networks.anvil]
+url = "http://127.0.0.1:8545"
+prompt_live = false
+save_to_db = false
+chain_id = 31337
+
+[networks.arc-testnet]
+url = "https://boldest-spring-borough.arc-testnet.quiknode.pro/3193587ef0b02cd67f170536e7fb681d5b8c7e25"
+chain_id = 5042002
+prompt_live = true
+
+[networks.arc-testnet-public]
+url = "https://rpc.testnet.arc.network"
+chain_id = 5042002
+prompt_live = false
+
+[networks.sepolia]
+url = "https://sepolia.stare.network"
+chain_id = 11155111
+prompt_live = true

@@ -1,0 +1,5 @@
+flask>=3.0
+web3>=7.0
+eth-abi>=5.0
+eth-account>=0.13
+gunicorn>=22.0
