@@ -13,10 +13,11 @@ Tracked list. Everything here gets built or explicitly cut before submission.
 - [x] bountynet/attest GitHub Action (OIDC)
 - [x] Fleet reverse mapping (owner → agent IDs)
 - [x] E2E test: register → bounty → claim → validate → payout
+- [x] Proxy: API key budget mode (Joe deposits key + token budget)
+- [x] `be watch`: stdout bounty feed for custom solvers
+- [x] GitHub App: full webhook handler + solver PR submission
 
 ## In Progress
-- [ ] Proxy: API key budget mode (Joe stakes his Anthropic key, not EURC)
-- [ ] `be watch`: stdin feed for custom solvers
 
 ## Open
 - [ ] Default bounty pricing (progressive escalation, no config from Joe)
