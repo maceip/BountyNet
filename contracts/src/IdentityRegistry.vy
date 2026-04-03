@@ -21,6 +21,9 @@ agent_uri: public(HashMap[uint256, String[512]])
 metadata: HashMap[uint256, HashMap[String[64], bytes32]]
 agent_wallet: public(HashMap[uint256, address])
 
+# Fleet: reverse lookup owner → agents
+owner_agents: public(HashMap[address, DynArray[uint256, 100]])
+
 # ── Events ──────────────────────────────────────────────────────
 
 event Transfer:
@@ -79,6 +82,7 @@ def register(uri: String[512]) -> uint256:
     self._owners[agent_id] = msg.sender
     self._balances[msg.sender] += 1
     self.agent_uri[agent_id] = uri
+    self.owner_agents[msg.sender].append(agent_id)
 
     log Transfer(sender=empty(address), receiver=msg.sender, token_id=agent_id)
     log Registered(agent_id=agent_id, agent_uri=uri, owner=msg.sender)
@@ -122,6 +126,19 @@ def get_agent_wallet(agent_id: uint256) -> address:
     if w == empty(address):
         return self._owners[agent_id]
     return w
+
+# ── Fleet queries ────────────────────────────────────────────────
+
+@external
+@view
+def get_fleet(_owner: address) -> DynArray[uint256, 100]:
+    """@notice All agent IDs owned by this address."""
+    return self.owner_agents[_owner]
+
+@external
+@view
+def fleet_size(_owner: address) -> uint256:
+    return len(self.owner_agents[_owner])
 
 # ── ERC-721 Implementation ──────────────────────────────────────
 
