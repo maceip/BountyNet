@@ -203,22 +203,9 @@ def create_bounty_onchain(context_hash: bytes, amount: int, deadline_blocks: int
 
 
 def submit_validation(repo: str, sha: str, name: str) -> dict | None:
-    """Submit validation_response(100) to ValidationRegistry."""
-    if not VALIDATION:
-        return None
-    val_hash = keccak(f"ci-proof:{repo}:{sha}:{name}".encode())
-    data = "0x" + (
-        sig("validation_response(bytes32,uint8,bytes32,string)")
-        + encode(
-            ["bytes32", "uint8", "bytes32", "string"],
-            [val_hash, 100, keccak(b"green"), "ci-pass"],
-        )
-    ).hex()
-    try:
-        return {"validation_hash": "0x" + val_hash.hex(), **send_tx(VALIDATION, data)}
-    except Exception as e:
-        print(f"[github] validation_response tx failed: {e}")
-        return None
+    """Submit TEE-attested validation to Arc's ValidationRegistry."""
+    from gateway.routes.oracle import submit_tee_validation
+    return submit_tee_validation(repo, sha, name)
 
 
 def resolve_bounty_onchain(context_hash: bytes, validation_hash: bytes) -> dict | None:

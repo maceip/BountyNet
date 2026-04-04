@@ -1,0 +1,26 @@
+# BountyNet CI Oracle — Flare TEE Extension
+#
+# Runs the oracle as a Flare FCE extension (port 8080)
+# AND exposes a direct API for the gateway (port 8095).
+#
+# For hackathon: set ORACLE_KEY in .env to skip on-chain key injection.
+# For production: use Flare's key update flow via InstructionSender.
+#
+# Usage:
+#   cp .env.example .env  # fill in values
+#   docker compose up -d
+
+services:
+  oracle-tee:
+    build: .
+    env_file:
+      - .env
+    environment:
+      - EXTENSION_PORT=8080
+      - ORACLE_PORT=8095
+      - SIGN_PORT=${SIGN_PORT:-9090}
+      - ORACLE_KEY=${ORACLE_KEY:-}
+    ports:
+      - "${ORACLE_BIND:-0.0.0.0:8095}:8095"
+      - "${EXTENSION_BIND:-0.0.0.0:8080}:8080"
+    restart: unless-stopped
