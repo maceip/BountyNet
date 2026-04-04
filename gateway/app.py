@@ -25,6 +25,7 @@ from gateway.routes.identity import identity_bp
 from gateway.routes.bounties import bounties_bp
 from gateway.routes.attest import attest_bp
 from gateway.routes.chatgpt_connect import chatgpt_bp
+from gateway.routes.resources import resources_bp
 
 app.register_blueprint(ens_bp)
 app.register_blueprint(github_bp)
@@ -34,6 +35,7 @@ app.register_blueprint(identity_bp)
 app.register_blueprint(bounties_bp)
 app.register_blueprint(attest_bp)
 app.register_blueprint(chatgpt_bp)
+app.register_blueprint(resources_bp)
 
 
 # Emit startup event
