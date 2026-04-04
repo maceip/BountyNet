@@ -7,34 +7,68 @@ import { Card, Accordion, Badge, Button, Stat, palette, font, tracking, panel } 
 import { useAuth } from './auth/useAuth'
 import { Setup } from './pages/Setup'
 import { ChatGPTSetup } from './pages/ChatGPTSetup'
+import AndroidAuth from './pages/AndroidAuth'
+import { CaneButton } from './components/CaneButton'
+import { LegacySite } from './pages/LegacySite'
 
 const GATEWAY = import.meta.env.VITE_GATEWAY_URL || 'https://gateway.stare.network'
 
-function useRoute(): 'setup' | 'chatgpt-setup' | 'home' {
+function useRoute(): 'setup' | 'chatgpt-setup' | 'android-auth' | 'home' {
   const path = window.location.pathname
   if (path === '/setup' || path === '/setup/') return 'setup'
   if (path === '/chatgpt-setup' || path === '/chatgpt-setup/') return 'chatgpt-setup'
+  if (path === '/android-auth' || path === '/android-auth/') return 'android-auth'
   return 'home'
 }
 
 export default function App() {
   const route = useRoute()
+  const [legacyMode, setLegacyMode] = useState(false)
+
+  // Legacy mode — the whole page becomes web 1.0
+  if (legacyMode) {
+    return (
+      <>
+        <LegacySite onBack={() => setLegacyMode(false)} />
+        <CaneButton isLegacy={true} onToggle={() => setLegacyMode(false)} />
+      </>
+    )
+  }
 
   return (
     <DynamicProvider>
       <WatercolorCanvas />
-      <div style={{
-        position: 'relative',
-        zIndex: 1,
-        minHeight: '100vh',
-        padding: '2rem',
-        maxWidth: 680,
-        margin: '0 auto',
-      }}>
-        <Header />
-        {route === 'setup' ? <Setup /> : route === 'chatgpt-setup' ? <ChatGPTSetup /> : <Main />}
-        <Footer />
-      </div>
+      {route === 'android-auth' ? (
+        <div style={{
+          position: 'relative',
+          zIndex: 1,
+          minHeight: '100vh',
+          padding: '1.25rem',
+          maxWidth: 440,
+          margin: '0 auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxSizing: 'border-box',
+        }}
+        >
+          <AndroidAuth />
+        </div>
+      ) : (
+        <div style={{
+          position: 'relative',
+          zIndex: 1,
+          minHeight: '100vh',
+          padding: '2rem',
+          maxWidth: 680,
+          margin: '0 auto',
+        }}>
+          <Header />
+          {route === 'setup' ? <Setup /> : route === 'chatgpt-setup' ? <ChatGPTSetup /> : <Main />}
+          <Footer />
+        </div>
+      )}
+      <CaneButton isLegacy={false} onToggle={() => setLegacyMode(true)} />
     </DynamicProvider>
   )
 }
