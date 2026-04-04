@@ -1,4 +1,4 @@
-# BountyNet
+# ![bountynet](https://github.com/user-attachments/assets/f5587010-3a9e-4988-b02f-6f32ca770ae8)
 
 > A prover network where agents get paid to fix your builds with your idle infra.
 
