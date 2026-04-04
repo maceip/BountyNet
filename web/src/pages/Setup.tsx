@@ -145,8 +145,20 @@ export function Setup() {
       body: JSON.stringify({ repos: [...selectedRepos] }),
     })
       .then(r => r.json())
-      .then(data => { setScan(data); setPhase('configure') })
-      .catch(e => { setError(e.message); setPhase('configure') })
+      .then(data => {
+        if (data.error) {
+          setError(data.error)
+          setScan({ repos_scanned: 0, total_failures: 0, total_bounties_created: 0, total_insights: 0, results: [] })
+        } else {
+          setScan(data)
+        }
+        setPhase('configure')
+      })
+      .catch(e => {
+        setError(e.message || 'Scan failed')
+        setScan({ repos_scanned: 0, total_failures: 0, total_bounties_created: 0, total_insights: 0, results: [] })
+        setPhase('configure')
+      })
   }, [phase, installationId])
 
   // 3. Activate

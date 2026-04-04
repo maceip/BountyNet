@@ -34,10 +34,12 @@ export function EventFeed({ maxItems = 15 }: { maxItems?: number }) {
   const sinceRef = useRef(0)
 
   useEffect(() => {
+    let mounted = true
     const poll = () => {
       fetch(`${GATEWAY}/events?since=${sinceRef.current}&limit=${maxItems}`)
         .then(r => r.json())
         .then(data => {
+          if (!mounted) return
           const newEvents = data.events || []
           if (newEvents.length > 0) {
             sinceRef.current = newEvents[newEvents.length - 1].id
@@ -47,8 +49,8 @@ export function EventFeed({ maxItems = 15 }: { maxItems?: number }) {
         .catch(() => {})
     }
     poll()
-    const interval = setInterval(poll, 3000)
-    return () => clearInterval(interval)
+    const interval = setInterval(poll, 15000)
+    return () => { mounted = false; clearInterval(interval) }
   }, [maxItems])
 
   if (events.length === 0) return null

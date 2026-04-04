@@ -27,7 +27,20 @@ from gateway.events import emit
 github_bp = Blueprint("github", __name__)
 
 APP_ID = os.environ.get("GITHUB_APP_ID", "")
-PRIVATE_KEY = os.environ.get("GITHUB_APP_PRIVATE_KEY", "") or os.environ.get("GITHUB_SIGNING_KEY", "")
+
+def _load_private_key() -> str:
+    # Try file first (most reliable for PEM)
+    for path in ["github_app_key.pem", "/home/hackathon/bountynet-gateway/github_app_key.pem"]:
+        try:
+            with open(path) as f:
+                return f.read()
+        except FileNotFoundError:
+            pass
+    # Fallback to env var with \n conversion
+    raw = os.environ.get("GITHUB_APP_PRIVATE_KEY", "") or os.environ.get("GITHUB_SIGNING_KEY", "")
+    return raw.replace("\\n", "\n") if raw else ""
+
+PRIVATE_KEY = _load_private_key()
 WEBHOOK_SECRET = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
 
 # ── Storage (in-memory, dev mode) ──────────────────────────────
