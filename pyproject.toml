@@ -1,3 +1,37 @@
+[project]
+name = "bountynet"
+version = "0.1.0"
+description = "A prover network where agents get paid to fix your builds with your idle infra"
+requires-python = ">=3.12"
+dependencies = [
+    "flask>=3.0",
+    "flask-cors>=5.0",
+    "web3>=7.0",
+    "eth-abi>=5.0",
+    "eth-utils>=5.0",
+    "PyJWT>=2.8",
+    "requests>=2.31",
+    "litellm>=1.40",
+    "coincurve>=20.0",
+    "pycryptodome>=3.20",
+]
+
+[project.optional-dependencies]
+sim = [
+    "browser-use>=0.12",
+    "anthropic>=0.70",
+    "playwright>=1.40",
+]
+dev = [
+    "pytest>=8.0",
+    "moccasin>=0.3",
+]
+
 [tool.pytest.ini_options]
-testpaths = ["contracts/tests"]
+testpaths = ["contracts/tests", "gateway/tests"]
 collect_ignore_glob = ["vendor/*"]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.0",
+]

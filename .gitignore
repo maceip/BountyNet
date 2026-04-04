@@ -11,6 +11,7 @@ dist/
 out/
 vendor/
 .idea/
+android/local.properties
 .vscode/
 .DS_Store
 be/target/
