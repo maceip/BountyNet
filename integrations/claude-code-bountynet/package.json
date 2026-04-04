@@ -1,0 +1,33 @@
+{
+  "name": "@bountynet/claude-code-plugin",
+  "version": "0.1.0",
+  "description": "Claude Code plugin: BountyNet onboarding + pink bounty[] status line (zero runtime deps)",
+  "license": "MIT",
+  "author": "BountyNet",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maceip/BountyNet.git",
+    "directory": "integrations/claude-code-bountynet"
+  },
+  "type": "module",
+  "bin": {
+    "bountynet-statusline": "./lib/statusline.mjs",
+    "bountynet-setup": "./lib/setup.mjs"
+  },
+  "files": [
+    "lib",
+    "bin",
+    "skills",
+    ".claude-plugin",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "claude-code",
+    "bountynet",
+    "anthropic",
+    "plugin"
+  ]
+}
