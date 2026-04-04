@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import WatercolorCanvas from './scene/WatercolorCanvas'
 import { DynamicProvider } from './auth/DynamicProvider'
 import { DynamicWidget } from '@dynamic-labs/sdk-react-core'
-import { Card, Accordion, Badge, Button, Stat, palette, font, tracking, panel } from './components'
+import { Card, Accordion, Badge, Button, Stat, EventFeed, palette, font, tracking, panel } from './components'
 import { useAuth } from './auth/useAuth'
 import { Setup } from './pages/Setup'
 import { ChatGPTSetup } from './pages/ChatGPTSetup'
@@ -230,6 +230,13 @@ function LandingPage() {
       </div>
 
       <NetworkStats />
+
+      {/* Live activity feed */}
+      <div className="dashboard-card">
+        <Card title="Live Activity">
+          <EventFeed maxItems={10} />
+        </Card>
+      </div>
 
       {/* How It Works */}
       <div className="dashboard-card">

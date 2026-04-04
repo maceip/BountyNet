@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BountyNet</title>
+  <style>
+    :root {
+      color: #0b0b0f;
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
+    }
+    html, body { margin: 0; padding: 0; box-sizing: border-box; width: 100%; min-height: 100%; }
+    body { padding: 16px; background: #f6f8fb; }
+    main {
+      max-width: 400px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+    }
+    h2 { margin: 0 0 12px; font-size: 1.15rem; }
+    .meta { font-size: 0.75rem; color: #6c768a; margin-bottom: 16px; }
+    ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+    li {
+      background: #f2f4fb;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 0.88rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    code { font-family: ui-monospace, monospace; font-size: 0.72rem; color: #334155; word-break: break-all; }
+    .badge { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; color: #2563eb; }
+    .empty { color: #6c768a; font-size: 0.85rem; padding: 12px 0; }
+    .err { color: #b91c1c; font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h2>BountyNet feed</h2>
+    <div class="meta">MCP Apps bridge — live tool results</div>
+    <ul id="list"></ul>
+    <div id="empty" class="empty" style="display:none;">No active bounties (or escrow not configured).</div>
+    <div id="err" class="err" style="display:none;"></div>
+  </main>
+  <script type="module">
+    const listEl = document.querySelector("#list");
+    const emptyEl = document.querySelector("#empty");
+    const errEl = document.querySelector("#err");
+
+    const render = (structured) => {
+      const bounties = structured?.bounties ?? [];
+      const err = structured?.error;
+      errEl.style.display = err ? "block" : "none";
+      errEl.textContent = err ? String(err) : "";
+      listEl.innerHTML = "";
+      if (!bounties.length && !err) {
+        emptyEl.style.display = "block";
+        return;
+      }
+      emptyEl.style.display = "none";
+      for (const b of bounties) {
+        const li = document.createElement("li");
+        const badge = document.createElement("span");
+        badge.className = "badge";
+        badge.textContent = b.claimable ? "claimable" : "claimed";
+        const hash = document.createElement("code");
+        hash.textContent = b.context_hash || "";
+        const amt = document.createElement("span");
+        amt.textContent = (b.amount_eurc != null) ? `${b.amount_eurc} EURC` : "";
+        li.appendChild(badge);
+        li.appendChild(hash);
+        if (amt.textContent) li.appendChild(amt);
+        listEl.appendChild(li);
+      }
+    };
+
+    const updateFromResponse = (response) => {
+      const sc = response?.structuredContent;
+      if (sc) render(sc);
+    };
+
+    let rpcId = 0;
+    const pending = new Map();
+    const rpcNotify = (method, params) => {
+      window.parent.postMessage({ jsonrpc: "2.0", method, params }, "*");
+    };
+    const rpcRequest = (method, params) =>
+      new Promise((resolve, reject) => {
+        const id = ++rpcId;
+        pending.set(id, { resolve, reject });
+        window.parent.postMessage({ jsonrpc: "2.0", id, method, params }, "*");
+      });
+
+    window.addEventListener(
+      "message",
+      (event) => {
+        if (event.source !== window.parent) return;
+        const msg = event.data;
+        if (!msg || msg.jsonrpc !== "2.0") return;
+        if (typeof msg.id === "number") {
+          const p = pending.get(msg.id);
+          if (!p) return;
+          pending.delete(msg.id);
+          if (msg.error) {
+            p.reject(msg.error);
+            return;
+          }
+          p.resolve(msg.result);
+          return;
+        }
+        if (msg.method === "ui/notifications/tool-result") {
+          updateFromResponse(msg.params);
+        }
+      },
+      { passive: true }
+    );
+
+    const initBridge = async () => {
+      const appInfo = { name: "bountynet-widget", version: "0.1.0" };
+      const appCapabilities = {};
+      const protocolVersion = "2026-01-26";
+      await rpcRequest("ui/initialize", { appInfo, appCapabilities, protocolVersion });
+      rpcNotify("ui/notifications/initialized", {});
+    };
+
+    const ready = initBridge().catch((e) => console.error("MCP Apps bridge init failed:", e));
+
+    const refresh = async () => {
+      await ready;
+      try {
+        const response = await rpcRequest("tools/call", {
+          name: "bountynet_show_feed",
+          arguments: {},
+        });
+        updateFromResponse(response);
+      } catch (e) {
+        console.error(e);
+        errEl.style.display = "block";
+        errEl.textContent = "Could not refresh feed.";
+      }
+    };
+
+    await refresh();
+  </script>
+</body>
+</html>

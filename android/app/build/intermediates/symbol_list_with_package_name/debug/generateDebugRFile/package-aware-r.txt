@@ -1,0 +1,9 @@
+net.bountynet.app
+drawable bn_expressive_print_1
+drawable bn_expressive_print_2
+drawable bn_expressive_print_3
+drawable bn_expressive_print_4
+drawable bn_expressive_print_5
+string bountynet_web_login_url
+style Theme_BountyNet
+xml network_security_config

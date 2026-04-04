@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Prefer BuildConfig.WEB_AUTH_URL in app code (/android-auth). Kept for tooling / fallbacks. -->
+    <string name="bountynet_web_login_url" translatable="false">https://bountynet.example/android-auth</string>
+</resources>
