@@ -23,34 +23,38 @@ def bounty_feed_snapshot() -> dict:
     Active bounty feed as plain dict — shared by GET /bounties and MCP tools.
     Avoids HTTP self-calls from the MCP handler (would deadlock single-worker Flask).
     """
-    if not ESCROW:
-        return {"bounties": [], "error": "escrow not configured"}
+    bounties = []
+
+    # On-chain bounties (may fail if RPC has issues — don't let it block API-key bounties)
+    if ESCROW:
+        try:
+            current = w3.eth.block_number
+            lookback = min(current, 5000)
+
+            topic = "0x" + keccak(b"BountyCreated(bytes32,address,uint256,uint256,string)").hex()
+
+            logs = w3.eth.get_logs({
+                "fromBlock": current - lookback,
+                "toBlock": "latest",
+                "address": w3.to_checksum_address(ESCROW),
+                "topics": [topic],
+            })
+
+            for log_entry in logs[-20:]:
+                ctx_hash = log_entry["topics"][1] if len(log_entry["topics"]) > 1 else log_entry["data"][:32]
+                bounty = get_bounty(ctx_hash)
+                if bounty and not bounty["resolved"] and not bounty["cancelled"]:
+                    bounties.append({
+                        "context_hash": "0x" + ctx_hash.hex() if isinstance(ctx_hash, bytes) else ctx_hash,
+                        **bounty,
+                        "amount_eurc": f"{bounty['amount'] / 1e6:.2f}",
+                        "claimable": bounty["solver_agent_id"] == 0,
+                    })
+        except Exception as e:
+            # Don't fail — still return API-key bounties
+            pass
 
     try:
-        current = w3.eth.block_number
-        lookback = min(current, 10000)
-
-        topic = "0x" + keccak(b"BountyCreated(bytes32,address,uint256,uint256,string)").hex()
-
-        logs = w3.eth.get_logs({
-            "fromBlock": current - lookback,
-            "toBlock": "latest",
-            "address": w3.to_checksum_address(ESCROW),
-            "topics": [topic],
-        })
-
-        bounties = []
-        for log in logs[-20:]:
-            ctx_hash = log["topics"][1] if len(log["topics"]) > 1 else log["data"][:32]
-            bounty = get_bounty(ctx_hash)
-            if bounty and not bounty["resolved"] and not bounty["cancelled"]:
-                bounties.append({
-                    "context_hash": "0x" + ctx_hash.hex() if isinstance(ctx_hash, bytes) else ctx_hash,
-                    **bounty,
-                    "amount_eurc": f"{bounty['amount'] / 1e6:.2f}",
-                    "claimable": bounty["solver_agent_id"] == 0,
-                })
-
         # Merge in API-key-mode bounties (not on-chain)
         for ctx_hex, ab in apikey_bounties.items():
             if not ab.get("resolved"):

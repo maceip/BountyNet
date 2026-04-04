@@ -33,10 +33,10 @@ GATEWAY = os.environ.get("BOUNTYNET_GATEWAY", "https://gateway.stare.network")
 
 async def run_vishy(email: str = "", headless: bool = False, task: str = "explore"):
     from browser_use import Agent
-    from langchain_anthropic import ChatAnthropic
+    from browser_use.llm import ChatAnthropic
 
     llm = ChatAnthropic(
-        model_name="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-20250514",
         api_key=os.environ.get("ANTHROPIC_API_KEY", ""),
     )
 

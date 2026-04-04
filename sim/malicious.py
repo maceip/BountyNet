@@ -37,6 +37,11 @@ log = logging.getLogger("malicious")
 GATEWAY = os.environ.get("BOUNTYNET_GATEWAY", "https://gateway.stare.network")
 
 
+def set_gateway(url: str):
+    global GATEWAY
+    GATEWAY = url
+
+
 def gw(path, **kwargs):
     """Quick gateway request."""
     method = kwargs.pop("method", "GET")
@@ -332,8 +337,7 @@ def main():
     parser.add_argument("--json", action="store_true", help="JSON output")
     args = parser.parse_args()
 
-    global GATEWAY
-    GATEWAY = args.gateway
+    set_gateway(args.gateway)
 
     attacks = ALL_ATTACKS if args.attack == "all" else {args.attack: ALL_ATTACKS[args.attack]}
     results = {}
