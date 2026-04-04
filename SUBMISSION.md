@@ -159,7 +159,7 @@ True EV needs **official prize $**, **number of entries per track**, and rubrics
 Re-check **exact bounty titles & prize structure** on the event site before final checks in the list above.
 
 ## Team
-- **Members:** *[fill in]*
+- **Members:** Ryan MacArthur (@maceip)
 - **Contact:** rex@lowkey.email
 
 ## Will You Keep Building This?

@@ -1,0 +1,11 @@
+{
+  "name": "bountynet",
+  "description": "Onboard BountyNet solvers from Claude Code: consent-gated API key helper, bounty CLI build/install, join + watch, and a pink bounty[] status line with credit bump flashes.",
+  "version": "0.1.0",
+  "author": {
+    "name": "BountyNet"
+  },
+  "repository": "https://github.com/maceip/BountyNet",
+  "homepage": "https://bountynet.stare.network",
+  "license": "MIT"
+}

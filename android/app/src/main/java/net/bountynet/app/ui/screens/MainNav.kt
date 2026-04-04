@@ -45,6 +45,7 @@ import net.bountynet.app.BuildConfig
 import net.bountynet.app.auth.PartialCustomTabLogin
 import net.bountynet.app.auth.SessionStore
 import net.bountynet.app.ui.expressive.ExpressiveHeroSlideshow
+import net.bountynet.app.junglegym.JungleGymScreen
 import net.bountynet.app.ui.nav.TwoPaneScene
 import net.bountynet.app.ui.nav.rememberTwoPaneSceneStrategy
 import coil3.compose.AsyncImage
@@ -66,6 +67,9 @@ sealed interface AppRoute : NavKey {
 
     @Serializable
     data object Wallet : AppRoute
+
+    @Serializable
+    data object JungleGym : AppRoute
 }
 
 @Composable
@@ -108,6 +112,7 @@ fun MainNav(
                         onLogout = onLogout,
                         onBounties = { backStack.add(AppRoute.Bounties) },
                         onWallet = { backStack.add(AppRoute.Wallet) },
+                        onJungleGym = { backStack.add(AppRoute.JungleGym) },
                     )
                 }
                 entry<AppRoute.Bounties>(
@@ -120,6 +125,11 @@ fun MainNav(
                         sessionJwt = sessionJwt,
                         onBack = { backStack.removeLastOrNull() },
                     )
+                }
+                entry<AppRoute.JungleGym>(
+                    metadata = TwoPaneScene.twoPane(),
+                ) {
+                    JungleGymScreen(onBack = { backStack.removeLastOrNull() })
                 }
             },
         )
@@ -134,6 +144,7 @@ fun HomeScreen(
     onLogout: () -> Unit,
     onBounties: () -> Unit,
     onWallet: () -> Unit,
+    onJungleGym: () -> Unit,
 ) {
     Scaffold(topBar = { TopAppBar(title = { Text("BOUNTYNET", letterSpacing = 4.sp) }) }) { pad ->
         Column(
@@ -175,6 +186,8 @@ fun HomeScreen(
                 }
                 Spacer(Modifier.height(16.dp))
                 Button(onClick = onBounties) { Text("BOUNTIES") }
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(onClick = onJungleGym) { Text("AGENT JUNGLEGYM") }
                 Spacer(Modifier.height(12.dp))
                 OutlinedButton(onClick = onWallet) { Text("WALLET") }
             }

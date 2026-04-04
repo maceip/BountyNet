@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# BountyNet wizard: API key consent, build/install `bounty` CLI, Claude Code status line.
+set -euo pipefail
+
+PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+STATUSLINE_BIN="$PLUGIN_ROOT/bin/bountynet-statusline"
+BE_DIR_DEFAULT="$(cd "$PLUGIN_ROOT/../../be" 2>/dev/null && pwd)" || true
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo " BountyNet × Claude Code — setup (consent required for API keys)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "This wizard can:"
+echo "  • Confirm use of ANTHROPIC_API_KEY for BountyNet (gateway-routed inference where configured)"
+echo "  • Build the \`bounty\` CLI from this monorepo (when be/ is present)"
+echo "  • Run \`bounty join\` (Dynamic / GitHub OAuth in browser)"
+echo "  • Merge a Claude Code statusLine into ~/.claude/settings.json"
+echo ""
+
+if [[ "${ANTHROPIC_API_KEY:-}" ]]; then
+  echo "ANTHROPIC_API_KEY is already set in the environment."
+  read -r -p "Use it for this session documentation (y/N)? " ok || true
+  if [[ ! "${ok:-}" =~ ^[yY] ]]; then
+    echo "Skipping export hints that assume that key."
+  fi
+else
+  echo "No ANTHROPIC_API_KEY in the environment."
+  read -r -p "Paste Anthropic key now (hidden) or press Enter to skip: " -s key || true
+  echo ""
+  if [[ -n "${key:-}" ]]; then
+    export ANTHROPIC_API_KEY="$key"
+    echo "(Key set for this shell only — add to your profile if desired.)"
+  fi
+fi
+
+BOUNTY=""
+if command -v bounty >/dev/null 2>&1; then
+  BOUNTY="bounty"
+  echo "Found bounty in PATH: $(command -v bounty)"
+elif [[ -n "${BE_DIR_DEFAULT:-}" && -f "$BE_DIR_DEFAULT/Cargo.toml" ]]; then
+  echo "Building bounty from $BE_DIR_DEFAULT (release) …"
+  (cd "$BE_DIR_DEFAULT" && cargo build --release --bin bounty)
+  BOUNTY="$BE_DIR_DEFAULT/target/release/bounty"
+  export PATH="$(dirname "$BOUNTY"):$PATH"
+  echo "Using: $BOUNTY"
+else
+  echo "ERROR: \`bounty\` not on PATH and be/ not found next to this repo."
+  echo "  Build manually: cd be && cargo build --release --bin bounty"
+  exit 1
+fi
+
+chmod +x "$STATUSLINE_BIN" 2>/dev/null || true
+
+SETTINGS="$HOME/.claude/settings.json"
+mkdir -p "$HOME/.claude"
+CMD_NAME="bountynet-statusline"
+if command -v bountynet-statusline >/dev/null 2>&1; then
+  CMD_NAME="$(command -v bountynet-statusline)"
+else
+  CMD_NAME="$STATUSLINE_BIN"
+fi
+
+echo ""
+echo "Merging statusLine into $SETTINGS …"
+python3 - "$CMD_NAME" << 'PY'
+import json, os, sys
+
+cmd = sys.argv[1]
+path = os.path.expanduser("~/.claude/settings.json")
+data = {}
+if os.path.isfile(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError:
+        data = {}
+data["statusLine"] = {
+    "type": "command",
+    "command": cmd,
+    "padding": 2,
+}
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=2)
+print("Wrote statusLine.command =", cmd)
+PY
+
+echo ""
+read -r -p "Run \`bounty join\` now (opens browser for GitHub/Dynamic)? (Y/n) " djoin || true
+if [[ ! "${djoin:-Y}" =~ ^[nN] ]]; then
+  "$BOUNTY" join "$@" || true
+fi
+
+echo ""
+echo "Optional: start auto-claim watch in another terminal:"
+echo "  $BOUNTY bounties watch"
+echo ""
+echo "Restart Claude Code (or interact once) so the status line refresh picks up settings."
+echo "Done."

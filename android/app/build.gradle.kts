@@ -11,15 +11,17 @@ android {
 
     defaultConfig {
         applicationId = "net.bountynet.app"
-        minSdk = 28
+        minSdk = 30
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
         // Must match a deployed `/android-auth` page (see web/src/pages/AndroidAuth.tsx). Override in debug below for local Vite.
-        buildConfigField("String", "WEB_AUTH_URL", "\"https://your-web-origin.example.com/android-auth\"")
+        buildConfigField("String", "WEB_AUTH_URL", "\"https://bountynet.stare.network/android-auth\"")
         // Optional: POST JSON log batches (see net.bountynet.app.logging.RemoteShipTree). Empty = ship only to on-device file.
         buildConfigField("String", "LOG_SHIP_URL", "\"\"")
         buildConfigField("String", "LOG_SHIP_TOKEN", "\"\"")
+        // Same default as `sim/agent.py` / BOUNTYNET_GATEWAY — Agent Junglegym fetch + export targets.
+        buildConfigField("String", "GATEWAY_URL", "\"https://gateway.stare.network\"")
     }
 
     compileOptions {
@@ -36,6 +38,8 @@ android {
         debug {
             // Emulator → host machine Vite (web dev server). Physical device: use http://<LAN-IP>:3000/android-auth via buildConfigField or a dev flavor.
             buildConfigField("String", "WEB_AUTH_URL", "\"http://10.0.2.2:3000/android-auth\"")
+            // Emulator → host gateway (override if your Flask bind differs).
+            buildConfigField("String", "GATEWAY_URL", "\"http://10.0.2.2:8090\"")
         }
     }
 
