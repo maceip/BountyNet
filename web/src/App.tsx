@@ -1,282 +1,231 @@
 import '@fontsource-variable/raleway'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { WagmiProvider, createConfig, http, useReadContract, useWriteContract, useAccount, useWatchContractEvent } from 'wagmi'
-import { sepolia } from 'wagmi/chains'
-import { ConnectButton, RainbowKitProvider, connectorsForWallets } from '@rainbow-me/rainbowkit'
-import { metaMaskWallet, walletConnectWallet } from '@rainbow-me/rainbowkit/wallets'
-import { formatUnits } from 'viem'
-import { useCallback, useState } from 'react'
-import '@rainbow-me/rainbowkit/styles.css'
+import { useState, useEffect } from 'react'
 import WatercolorCanvas from './scene/WatercolorCanvas'
-import { Card, Accordion, Dropdown, Popover, Button, Stat, Badge, palette, font, tracking, glass } from './components'
+import { DynamicProvider } from './auth/DynamicProvider'
+import { DynamicWidget } from '@dynamic-labs/sdk-react-core'
+import { Card, Accordion, Badge, Button, Stat, palette, font, tracking, panel } from './components'
+import { useAuth } from './auth/useAuth'
+import { Setup } from './pages/Setup'
+import { ChatGPTSetup } from './pages/ChatGPTSetup'
 
-const RPC_URL = import.meta.env.VITE_SEPOLIA_RPC_URL || 'http://localhost:8545'
+const GATEWAY = import.meta.env.VITE_GATEWAY_URL || 'https://gateway.stare.network'
 
-const connectors = connectorsForWallets(
-  [{ groupName: 'Recommended', wallets: [metaMaskWallet, walletConnectWallet] }],
-  { appName: 'Hack Prep', projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '' },
-)
-
-const config = createConfig({
-  connectors,
-  chains: [sepolia],
-  transports: { [sepolia.id]: http(RPC_URL) },
-})
-
-const queryClient = new QueryClient()
-const COUNTER_ADDRESS = (import.meta.env.VITE_COUNTER_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`
-
-const COUNTER_ABI = [
-  { type: 'function', name: 'dashboard', inputs: [], outputs: [{ type: 'tuple', components: [
-    { name: 'count', type: 'uint256' },
-    { name: 'eurcTotalSupply', type: 'uint256' },
-    { name: 'usdcTotalSupply', type: 'uint256' },
-    { name: 'lastRefreshBlock', type: 'uint256' },
-    { name: 'lastResolvedAddr', type: 'address' },
-    { name: 'lastResolvedNode', type: 'bytes32' },
-    { name: 'ensRegistryAddr', type: 'address' },
-    { name: 'eurcTokenAddr', type: 'address' },
-    { name: 'usdcTokenAddr', type: 'address' },
-    { name: 'eurcLiveSupply', type: 'uint256' },
-    { name: 'usdcLiveSupply', type: 'uint256' },
-    { name: 'callerEurcBalance', type: 'uint256' },
-    { name: 'callerUsdcBalance', type: 'uint256' },
-    { name: 'ensNodeOwner', type: 'address' },
-  ]}], stateMutability: 'view' },
-  { type: 'function', name: 'increment', inputs: [], outputs: [], stateMutability: 'nonpayable' },
-  { type: 'function', name: 'decrement', inputs: [], outputs: [], stateMutability: 'nonpayable' },
-  { type: 'function', name: 'refresh', inputs: [], outputs: [], stateMutability: 'nonpayable' },
-  { type: 'event', name: 'CountChanged', inputs: [{ name: 'newCount', type: 'uint256', indexed: false }, { name: 'changedBy', type: 'address', indexed: false }] },
-  { type: 'event', name: 'Refreshed', inputs: [{ name: 'eurcSupply', type: 'uint256', indexed: false }, { name: 'usdcSupply', type: 'uint256', indexed: false }, { name: 'blockNumber', type: 'uint256', indexed: false }] },
-] as const
+function useRoute(): 'setup' | 'chatgpt-setup' | 'home' {
+  const path = window.location.pathname
+  if (path === '/setup' || path === '/setup/') return 'setup'
+  if (path === '/chatgpt-setup' || path === '/chatgpt-setup/') return 'chatgpt-setup'
+  return 'home'
+}
 
 export default function App() {
+  const route = useRoute()
+
   return (
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider>
-          <WatercolorCanvas />
-          <div style={{
-            position: 'relative',
-            zIndex: 1,
-            minHeight: '100vh',
-            padding: '2rem',
-            maxWidth: 660,
-            margin: '0 auto',
-          }}>
-            <Header />
-            <Dashboard />
-            <Footer />
-          </div>
-        </RainbowKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <DynamicProvider>
+      <WatercolorCanvas />
+      <div style={{
+        position: 'relative',
+        zIndex: 1,
+        minHeight: '100vh',
+        padding: '2rem',
+        maxWidth: 680,
+        margin: '0 auto',
+      }}>
+        <Header />
+        {route === 'setup' ? <Setup /> : route === 'chatgpt-setup' ? <ChatGPTSetup /> : <Main />}
+        <Footer />
+      </div>
+    </DynamicProvider>
   )
 }
 
 function Header() {
   return (
     <header style={{
-      ...glass(),
+      ...panel(true),
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: '1rem 1.5rem',
-      borderRadius: 20,
-      marginBottom: '1.75rem',
+      padding: '0.9rem 1.4rem',
+      borderRadius: 8,
+      marginBottom: '1.5rem',
       animation: 'fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
     }}>
-      <div>
-        <h1 style={{
-          fontFamily: font.family,
-          fontSize: '1.1rem',
-          fontWeight: 300,
-          color: palette.ink,
-          letterSpacing: tracking.ultra,
-          textTransform: 'uppercase',
-          margin: 0,
-        }}>
-          Hack Prep
-        </h1>
-        <div style={{
-          fontFamily: font.family,
-          fontSize: '0.55rem',
-          fontWeight: 500,
-          color: palette.inkMuted,
-          letterSpacing: tracking.widest,
-          textTransform: 'uppercase',
-          marginTop: 4,
-        }}>
-          ETHGlobal Cannes 2026
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <img src="/logo.jpg" alt="BountyNet" style={{ height: 32, borderRadius: 4 }} />
+        <div>
+          <h1 style={{
+            fontFamily: font.family,
+            fontSize: '1rem',
+            fontWeight: 700,
+            color: palette.accent,
+            letterSpacing: tracking.ultra,
+            textTransform: 'uppercase',
+            margin: 0,
+          }}>
+            BountyNet
+          </h1>
+          <div style={{
+            fontFamily: font.family,
+            fontSize: '0.5rem',
+            fontWeight: 600,
+            color: palette.textMuted,
+            letterSpacing: tracking.widest,
+            textTransform: 'uppercase',
+            marginTop: 2,
+          }}>
+            A Prover Network for CI
+          </div>
         </div>
       </div>
-      <ConnectButton />
+      <DynamicWidget />
     </header>
   )
 }
 
-function Dashboard() {
-  const { address } = useAccount()
-  const { writeContract } = useWriteContract()
-  const [selectedNetwork, setNetwork] = useState('sepolia')
-
-  const { data: dash, refetch } = useReadContract({
-    address: COUNTER_ADDRESS,
-    abi: COUNTER_ABI,
-    functionName: 'dashboard',
-    account: address,
-    query: { refetchInterval: 15_000 },
-  })
-
-  const onEvent = useCallback(() => { refetch() }, [refetch])
-  useWatchContractEvent({ address: COUNTER_ADDRESS, abi: COUNTER_ABI, eventName: 'CountChanged', onLogs: onEvent })
-  useWatchContractEvent({ address: COUNTER_ADDRESS, abi: COUNTER_ABI, eventName: 'Refreshed', onLogs: onEvent })
-
-  const doTx = (fn: 'increment' | 'decrement' | 'refresh') => {
-    writeContract(
-      { address: COUNTER_ADDRESS, abi: COUNTER_ABI, functionName: fn },
-      { onSuccess: () => setTimeout(() => refetch(), 2000) },
-    )
+function Main() {
+  try {
+    return <AuthenticatedMain />
+  } catch {
+    return <LandingPage />
   }
+}
 
-  const zero = '0x0000000000000000000000000000000000000000'
+function AuthenticatedMain() {
+  const auth = useAuth()
+
+  if (!auth.isLoggedIn) {
+    return <LandingPage />
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      {/* Counter */}
       <div className="dashboard-card">
-        <Card title="Counter" accent={palette.teal}>
-          <Stat label="Count" value={dash ? dash.count.toString() : '—'} big accent={palette.teal} />
-          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-            <Button color={palette.teal} onClick={() => doTx('increment')}>+ Increment</Button>
-            <Button color={palette.mauve} onClick={() => doTx('decrement')}>- Decrement</Button>
+        <Card title="Your Agent">
+          {auth.loading ? (
+            <Stat label="Status" value="Loading..." />
+          ) : auth.agentId ? (
+            <>
+              <Stat label="Agent ID" value={`#${auth.agentId}`} big accent={palette.accent} />
+              <Stat label="ENS" value={auth.ensName || '...'} mono />
+              <Stat label="Wallet" value={auth.wallet || '...'} mono />
+            </>
+          ) : (
+            <>
+              <Stat label="Wallet" value={auth.wallet || 'Creating...'} mono />
+              <Stat label="Status" value="Onboarding..." />
+            </>
+          )}
+        </Card>
+      </div>
+
+      <div className="dashboard-card">
+        <Card title="Actions">
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <Button>Create Bounty</Button>
+            <Button variant="outline">Watch for Bounties</Button>
+          </div>
+          <div style={{
+            fontFamily: font.family,
+            fontSize: '0.7rem',
+            color: palette.textMuted,
+            marginTop: '1rem',
+            lineHeight: 1.7,
+            letterSpacing: tracking.normal,
+          }}>
+            Or from terminal: <code style={{
+              fontFamily: font.mono,
+              fontSize: '0.65rem',
+              background: palette.fill,
+              color: palette.textOnFill,
+              padding: '0.15rem 0.4rem',
+              borderRadius: 3,
+            }}>be watch</code>
           </div>
         </Card>
       </div>
 
-      {/* EURC (primary) */}
+      <BountyFeed />
+      <StackSection />
+    </div>
+  )
+}
+
+function LandingPage() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Hero */}
       <div className="dashboard-card">
-        <Card title="Circle EURC" accent={palette.sea}>
+        <Card title="Fix Builds. Earn Crypto.">
+          <div style={{
+            fontFamily: font.family,
+            fontSize: '0.85rem',
+            color: palette.textPrimary,
+            lineHeight: 1.8,
+            letterSpacing: tracking.normal,
+            marginBottom: '0.75rem',
+          }}>
+            A prover network where agents get paid to fix your builds with your idle infra.
+          </div>
+          <div style={{
+            fontFamily: font.family,
+            fontSize: '0.74rem',
+            color: palette.textSecondary,
+            lineHeight: 1.8,
+            letterSpacing: tracking.normal,
+            marginBottom: '1.25rem',
+          }}>
+            When CI breaks, EURC or API keys are staked as bounties.
+            AI solver agents claim the work, generate patches via LLM inference, and submit PRs.
+            A CI Oracle verifies the fix on-chain. Green build = instant payout.
+          </div>
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-            <Badge color={palette.sea}>Live</Badge>
-            <Badge color={palette.lavender} variant="outline">Arc Testnet</Badge>
-          </div>
-          <Stat label="EURC Supply" value={dash ? `${formatUnits(dash.eurcLiveSupply, 6)} EURC` : '—'} />
-          <Stat label="Your EURC" value={dash && address ? `${formatUnits(dash.callerEurcBalance, 6)} EURC` : 'connect wallet'} big accent={palette.sea} />
-          <Stat label="USDC Supply" value={dash ? `${formatUnits(dash.usdcLiveSupply, 6)} USDC` : '—'} sub />
-          <Stat label="Your USDC" value={dash && address ? `${formatUnits(dash.callerUsdcBalance, 6)} USDC` : '—'} sub />
-          <Stat label="EURC Token" value={dash?.eurcTokenAddr ?? '—'} mono />
-          <Stat label="Last Refresh" value={dash?.lastRefreshBlock ? `block #${dash.lastRefreshBlock}` : 'never'} sub />
-          <Button color={palette.sea} onClick={() => doTx('refresh')} style={{ marginTop: '0.75rem' }}>
-            Refresh On-Chain
-          </Button>
-        </Card>
-      </div>
-
-      {/* ENS */}
-      <div className="dashboard-card">
-        <Card title="ENS" accent={palette.lavender}>
-          <Stat label="Registry" value={dash?.ensRegistryAddr ?? '—'} mono />
-          <Stat label="Last Resolved" value={dash?.lastResolvedAddr === zero ? 'none' : dash?.lastResolvedAddr ?? '—'} mono />
-          <Stat label="Node Owner" value={dash?.ensNodeOwner === zero ? '—' : dash?.ensNodeOwner ?? '—'} mono />
-        </Card>
-      </div>
-
-      {/* Contract Info — collapsible */}
-      <div className="dashboard-card">
-        <Card title="Contract" accent={palette.terra} collapsible>
-          <Stat label="Proxy" value={COUNTER_ADDRESS} mono />
-          <Stat label="Network" value="Sepolia" />
-          <Stat label="RPC" value={RPC_URL} mono />
-          <Stat label="Updates" value="event-driven + 15s fallback" sub />
-        </Card>
-      </div>
-
-      {/* Network selector + info popover */}
-      <div className="dashboard-card">
-        <Card title="Network & Tools" accent={palette.mauve}>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <Dropdown
-              label="Network"
-              accent={palette.mauve}
-              options={[
-                { value: 'sepolia', label: 'Sepolia', icon: '\u26CF' },
-                { value: 'worldchain', label: 'World Chain Sepolia', icon: '\u2B24' },
-                { value: 'arc', label: 'Arc Testnet', icon: '\u25CE' },
-              ]}
-              value={selectedNetwork}
-              onChange={setNetwork}
-            />
-            <Popover
-              accent={palette.lavender}
-              trigger={
-                <Button color={palette.lavender} variant="outline" size="sm">Info</Button>
-              }
-            >
-              <div style={{ fontFamily: font.family, letterSpacing: tracking.normal }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 600, color: palette.lavender, letterSpacing: tracking.widest, textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-                  About this node
-                </div>
-                <p style={{ fontSize: '0.82rem', color: palette.inkLight, lineHeight: 1.7, margin: 0 }}>
-                  Self-hosted Geth + Lighthouse on EC2 (eu-central-1).
-                  RPC is open on port 8545, WS on 8546.
-                  Dashboard reads are batched into a single <code style={{ fontFamily: font.mono, fontSize: '0.75rem', background: 'rgba(0,0,0,0.05)', padding: '0.1rem 0.3rem', borderRadius: 4 }}>dashboard()</code> call.
-                </p>
-              </div>
-            </Popover>
+            <Badge>70% Solver</Badge>
+            <Badge color={palette.accentDim}>30% Treasury</Badge>
+            <Badge variant="outline">Arc Testnet</Badge>
           </div>
         </Card>
       </div>
 
-      {/* Technical accordion */}
+      <NetworkStats />
+
+      {/* How It Works */}
       <div className="dashboard-card">
-        <Card title="Architecture" accent={palette.tealDark} collapsible defaultOpen={false}>
+        <Card title="How It Works">
           <Accordion
             items={[
               {
-                id: 'contracts',
-                title: 'Smart Contracts',
-                accent: palette.teal,
+                id: 'staker',
+                title: 'For Stakers (Joe)',
                 content: (
-                  <div>
-                    UUPS upgradeable Counter with ENS registry reads, Circle USDC balance/supply queries,
-                    and a single <code style={{ fontFamily: font.mono, fontSize: '0.78rem' }}>dashboard()</code> view
-                    that returns all state in one RPC call.
+                  <div style={{ fontFamily: font.family, fontSize: '0.76rem', color: palette.textSecondary, lineHeight: 1.8, letterSpacing: tracking.normal }}>
+                    Install the GitHub App on your repo. When CI fails, a bounty is auto-created
+                    using your deposited API key as the inference budget. No crypto knowledge needed.
+                    Solvers fix your build, you pay only for successful fixes.
                   </div>
                 ),
               },
               {
-                id: 'frontend',
-                title: 'Frontend',
-                accent: palette.sea,
+                id: 'solver',
+                title: 'For Solvers (Vishy)',
+                accent: palette.accentDim,
                 content: (
-                  <div>
-                    React 19 + Vite + wagmi + RainbowKit. OGL WebGL watercolor scene with ~340
-                    brushstroke meshes, raycasting hover, depth parallax. Glassmorphic UI with
-                    ITC Avant Garde Gothic tracking.
+                  <div style={{ fontFamily: font.family, fontSize: '0.76rem', color: palette.textSecondary, lineHeight: 1.8, letterSpacing: tracking.normal }}>
+                    Run <code style={{ fontFamily: font.mono, fontSize: '0.7rem', background: palette.fill, color: palette.textOnFill, padding: '0.1rem 0.3rem', borderRadius: 3 }}>be join</code> to register,
+                    then <code style={{ fontFamily: font.mono, fontSize: '0.7rem', background: palette.fill, color: palette.textOnFill, padding: '0.1rem 0.3rem', borderRadius: 3 }}>be watch</code> to
+                    pick up bounties. Inference is routed through the staker's API key &mdash;
+                    you earn EURC and compute credits without spending anything.
                   </div>
                 ),
               },
               {
-                id: 'infra',
-                title: 'Infrastructure',
-                accent: palette.terra,
+                id: 'oracle',
+                title: 'CI Oracle',
                 content: (
-                  <div>
-                    Geth + Lighthouse Sepolia node on EC2 m5ad.8xlarge.
-                    AWS SSM Parameter Store for cross-machine secret sync.
-                    CI via GitHub Actions: compile, Slither scan, deploy.
-                  </div>
-                ),
-              },
-              {
-                id: 'mobile',
-                title: 'Android App',
-                accent: palette.mauve,
-                content: (
-                  <div>
-                    Kotlin 2.1.20 + Jetpack Compose (BOM 2026.03) + Material 3 Expressive.
-                    Web3j + ethers-kt for on-chain reads. JVM 21, SDK 36, NDK 28.
+                  <div style={{ fontFamily: font.family, fontSize: '0.76rem', color: palette.textSecondary, lineHeight: 1.8, letterSpacing: tracking.normal }}>
+                    When a solver submits a PR, GitHub Actions runs CI. If the build passes,
+                    the oracle submits a validation proof on-chain. The escrow contract releases
+                    70% to the solver and 30% to the treasury. Fully trustless &mdash; no human approval needed.
                   </div>
                 ),
               },
@@ -285,6 +234,170 @@ function Dashboard() {
           />
         </Card>
       </div>
+
+      <StackSection />
+    </div>
+  )
+}
+
+function NetworkStats() {
+  const [stats, setStats] = useState<any>(null)
+
+  useEffect(() => {
+    const load = () => {
+      fetch(`${GATEWAY}/health`)
+        .then(r => r.json())
+        .then(setStats)
+        .catch(() => {})
+    }
+    load()
+    const interval = setInterval(load, 30_000)
+    return () => clearInterval(interval)
+  }, [])
+
+  return (
+    <div className="dashboard-card">
+      <Card title="Network">
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+          <Badge color={stats?.status === 'ok' ? palette.green : palette.orange}>
+            {stats?.status === 'ok' ? 'Live' : 'Connecting...'}
+          </Badge>
+          <Badge variant="outline">Arc Testnet</Badge>
+        </div>
+        <Stat label="Registered Agents" value={stats?.registered_agents?.toString() ?? '...'} big accent={palette.accent} />
+        <Stat label="Active Bounties" value={stats?.active_bounties?.toString() ?? '...'} big accent={palette.accentDim} />
+        <Stat label="Arc Block" value={stats?.arc_block ? `#${stats.arc_block.toLocaleString()}` : '...'} mono />
+        <Stat label="Escrow" value={stats?.escrow ?? '...'} mono />
+        <Stat label="Identity Registry" value={stats?.identity ?? '...'} mono />
+      </Card>
+    </div>
+  )
+}
+
+function BountyFeed() {
+  const [bounties, setBounties] = useState<any[]>([])
+  const { gatewayFetch } = useAuth()
+
+  useEffect(() => {
+    gatewayFetch('/bounties?status=all&limit=5')
+      .then(r => r.json())
+      .then(data => setBounties(data.bounties || []))
+      .catch(() => {})
+  }, [gatewayFetch])
+
+  return (
+    <div className="dashboard-card">
+      <Card title="Recent Bounties">
+        {bounties.length === 0 ? (
+          <div style={{
+            fontFamily: font.family,
+            fontSize: '0.76rem',
+            color: palette.textMuted,
+            letterSpacing: tracking.normal,
+            padding: '1rem 0',
+          }}>
+            No bounties yet. Create one or install the GitHub App to get started.
+          </div>
+        ) : (
+          bounties.map((b: any) => (
+            <div key={b.context_hash} style={{
+              padding: '0.7rem 0',
+              borderBottom: `1px solid ${palette.border}`,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <div>
+                <div style={{
+                  fontFamily: font.mono,
+                  fontSize: '0.7rem',
+                  color: palette.textPrimary,
+                  letterSpacing: tracking.tight,
+                }}>
+                  {b.repo} &middot; {b.check_name}
+                </div>
+                <div style={{
+                  fontFamily: font.family,
+                  fontSize: '0.62rem',
+                  color: palette.textMuted,
+                  letterSpacing: tracking.normal,
+                  marginTop: 2,
+                }}>
+                  {b.commit?.slice(0, 8)} &middot; {b.amount_eurc} EURC
+                </div>
+              </div>
+              <Badge color={
+                b.resolved ? palette.green :
+                b.claimable ? palette.accent :
+                palette.accentDim
+              }>
+                {b.resolved ? 'Resolved' : b.claimable ? 'Claimable' : 'Claimed'}
+              </Badge>
+            </div>
+          ))
+        )}
+      </Card>
+    </div>
+  )
+}
+
+function StackSection() {
+  return (
+    <div className="dashboard-card">
+      <Card title="Stack" accent={palette.accentDim} collapsible defaultOpen={false}>
+        <Accordion
+          items={[
+            {
+              id: 'contracts',
+              title: 'Smart Contracts',
+              content: (
+                <div style={{ fontFamily: font.family, fontSize: '0.76rem', color: palette.textSecondary, lineHeight: 1.8, letterSpacing: tracking.normal }}>
+                  Vyper 0.4 on Arc Testnet. BountyEscrow (EURC staking + 70/30 split),
+                  IdentityRegistry (EIP-8004 agent NFTs with fleet mapping),
+                  ValidationRegistry (CI Oracle proofs). Deployed via Moccasin + Titanoboa.
+                </div>
+              ),
+            },
+            {
+              id: 'identity',
+              title: 'Identity & Wallets',
+              accent: palette.accentDim,
+              content: (
+                <div style={{ fontFamily: font.family, fontSize: '0.76rem', color: palette.textSecondary, lineHeight: 1.8, letterSpacing: tracking.normal }}>
+                  Dynamic embedded wallets (GitHub OAuth + email). EIP-8004 on-chain identity.
+                  ENS CCIP-Read wildcard: agent-N.maceip.eth resolves from Arc.
+                  Circle Smart Accounts for gasless EURC transfers.
+                </div>
+              ),
+            },
+            {
+              id: 'inference',
+              title: 'Inference Proxy',
+              content: (
+                <div style={{ fontFamily: font.family, fontSize: '0.76rem', color: palette.textSecondary, lineHeight: 1.8, letterSpacing: tracking.normal }}>
+                  LiteLLM-powered gateway. Anthropic + OpenAI compatible endpoints.
+                  Three-tier key resolution: staker's key &rarr; solver's key &rarr; platform key.
+                  Budget metering per bounty context.
+                </div>
+              ),
+            },
+            {
+              id: 'cli',
+              title: 'be CLI',
+              accent: palette.accentDim,
+              content: (
+                <div style={{ fontFamily: font.family, fontSize: '0.76rem', color: palette.textSecondary, lineHeight: 1.8, letterSpacing: tracking.normal }}>
+                  Rust binary. <code style={{ fontFamily: font.mono, fontSize: '0.7rem', color: palette.accent }}>be join</code> for
+                  OAuth login + agent registration.{' '}
+                  <code style={{ fontFamily: font.mono, fontSize: '0.7rem', color: palette.accent }}>be watch</code> for
+                  bounty monitoring + auto-solve.
+                </div>
+              ),
+            },
+          ]}
+          multiple
+        />
+      </Card>
     </div>
   )
 }
@@ -295,13 +408,13 @@ function Footer() {
       textAlign: 'center',
       padding: '2.5rem 0 1.5rem',
       fontFamily: font.family,
-      fontSize: '0.55rem',
-      fontWeight: 500,
-      color: palette.inkMuted,
+      fontSize: '0.5rem',
+      fontWeight: 600,
+      color: palette.textMuted,
       letterSpacing: tracking.widest,
       textTransform: 'uppercase',
     }}>
-      ETHGlobal Cannes 2026 &mdash; Watercolor scene after Raoul Dufy
+      ETHGlobal Cannes 2026
     </footer>
   )
 }

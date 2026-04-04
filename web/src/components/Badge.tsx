@@ -7,22 +7,23 @@ interface BadgeProps {
   variant?: 'solid' | 'soft' | 'outline'
 }
 
-export function Badge({ children, color = palette.teal, variant = 'soft' }: BadgeProps) {
+export function Badge({ children, color, variant = 'soft' }: BadgeProps) {
+  const c = color || palette.accent
   const styles: Record<string, React.CSSProperties> = {
-    solid: { background: color, color: palette.white, border: 'none' },
-    soft: { background: `${color}20`, color, border: `1px solid ${color}30` },
-    outline: { background: 'transparent', color, border: `1px solid ${color}50` },
+    solid: { background: c, color: palette.textOnAccent, border: 'none' },
+    soft: { background: `${c}18`, color: c, border: `1px solid ${c}30` },
+    outline: { background: 'transparent', color: c, border: `1px solid ${c}50` },
   }
 
   return (
     <span style={{
       display: 'inline-flex',
       alignItems: 'center',
-      padding: '0.2rem 0.7rem',
-      borderRadius: 100,
+      padding: '0.2rem 0.65rem',
+      borderRadius: 3,
       fontFamily: font.family,
-      fontSize: '0.6rem',
-      fontWeight: 600,
+      fontSize: '0.58rem',
+      fontWeight: 700,
       letterSpacing: tracking.widest,
       textTransform: 'uppercase',
       ...styles[variant],

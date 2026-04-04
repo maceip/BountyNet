@@ -8,8 +8,8 @@ html, body {
   font-family: "Raleway Variable", "Raleway", "Century Gothic", "ITC Avant Garde Gothic", sans-serif;
   font-weight: 400;
   letter-spacing: 0.04em;
-  background: #F5F0E8;
-  color: #1A1A2A;
+  background: #f5f0e8;
+  color: #1a1f3a;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -17,7 +17,6 @@ html, body {
 
 canvas { display: block; }
 
-/* Animations for dropdown/popover */
 @keyframes dropIn {
   from { opacity: 0; transform: translateY(-8px) scale(0.97); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
@@ -33,7 +32,6 @@ canvas { display: block; }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Stagger cards on load */
 .dashboard-card {
   animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
@@ -44,20 +42,17 @@ canvas { display: block; }
 .dashboard-card:nth-child(5) { animation-delay: 0.33s; }
 .dashboard-card:nth-child(6) { animation-delay: 0.40s; }
 
-/* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(26, 26, 42, 0.12); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(26, 26, 42, 0.25); }
+::-webkit-scrollbar-thumb { background: rgba(230, 126, 34, 0.2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(230, 126, 34, 0.35); }
 
-/* Selection color from palette */
 ::selection {
-  background: rgba(60, 200, 170, 0.25);
-  color: #1A1A2A;
+  background: rgba(230, 126, 34, 0.2);
+  color: #1a1f3a;
 }
 
-/* RainbowKit glass override */
-[data-rk] button {
+[data-dynamic-widget] button {
   font-family: inherit !important;
   letter-spacing: 0.04em !important;
 }

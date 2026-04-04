@@ -1,5 +1,5 @@
-import { type ReactNode, useState, useRef, useEffect } from 'react'
-import { glass, glassInner, font, tracking, palette } from './theme'
+import { useState, useRef, useEffect } from 'react'
+import { panel, panelInner, font, tracking, palette } from './theme'
 
 interface DropdownOption {
   value: string
@@ -15,7 +15,7 @@ interface DropdownProps {
   accent?: string
 }
 
-export function Dropdown({ label, options, value, onChange, accent = palette.sea }: DropdownProps) {
+export function Dropdown({ label, options, value, onChange, accent = palette.cyan }: DropdownProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const selected = options.find(o => o.value === value)
@@ -33,12 +33,12 @@ export function Dropdown({ label, options, value, onChange, accent = palette.sea
       {/* Label */}
       <div style={{
         fontFamily: font.family,
-        fontSize: '0.6rem',
-        fontWeight: 600,
+        fontSize: '0.58rem',
+        fontWeight: 700,
         color: accent,
         textTransform: 'uppercase',
         letterSpacing: tracking.ultra,
-        marginBottom: '0.4rem',
+        marginBottom: '0.35rem',
       }}>
         {label}
       </div>
@@ -51,21 +51,21 @@ export function Dropdown({ label, options, value, onChange, accent = palette.sea
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '0.75rem 1rem',
-          ...glassInner(0.45),
-          borderRadius: 12,
+          padding: '0.7rem 1rem',
+          ...panelInner(),
+          borderRadius: 6,
           cursor: 'pointer',
           fontFamily: font.family,
-          fontSize: '0.85rem',
-          color: palette.ink,
+          fontSize: '0.8rem',
+          color: palette.textPrimary,
           letterSpacing: tracking.wide,
           textAlign: 'left',
         }}
       >
         <span>{selected?.icon ? `${selected.icon} ` : ''}{selected?.label || 'Select...'}</span>
         <span style={{
-          fontSize: '0.6rem',
-          color: palette.inkMuted,
+          fontSize: '0.55rem',
+          color: palette.textMuted,
           transition: 'transform 0.25s',
           transform: open ? 'rotate(180deg)' : 'rotate(0)',
         }}>&#9660;</span>
@@ -78,10 +78,10 @@ export function Dropdown({ label, options, value, onChange, accent = palette.sea
           top: '100%',
           left: 0,
           right: 0,
-          marginTop: 6,
-          ...glass(0.85, 24),
-          borderRadius: 14,
-          padding: '0.4rem',
+          marginTop: 4,
+          ...panel(true),
+          borderRadius: 6,
+          padding: '0.3rem',
           zIndex: 100,
           animation: 'dropIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
         }}>
@@ -92,19 +92,19 @@ export function Dropdown({ label, options, value, onChange, accent = palette.sea
               style={{
                 width: '100%',
                 display: 'block',
-                padding: '0.6rem 0.8rem',
+                padding: '0.55rem 0.75rem',
                 border: 'none',
-                borderRadius: 10,
-                background: opt.value === value ? `${accent}20` : 'transparent',
+                borderRadius: 4,
+                background: opt.value === value ? `${accent}18` : 'transparent',
                 cursor: 'pointer',
                 fontFamily: font.family,
-                fontSize: '0.82rem',
-                color: opt.value === value ? accent : palette.ink,
+                fontSize: '0.78rem',
+                color: opt.value === value ? accent : palette.textPrimary,
                 letterSpacing: tracking.wide,
                 textAlign: 'left',
                 transition: 'background 0.15s',
               }}
-              onMouseEnter={e => { if (opt.value !== value) e.currentTarget.style.background = 'rgba(255,255,255,0.5)' }}
+              onMouseEnter={e => { if (opt.value !== value) e.currentTarget.style.background = palette.navyMid }}
               onMouseLeave={e => { if (opt.value !== value) e.currentTarget.style.background = 'transparent' }}
             >
               {opt.icon ? `${opt.icon}  ` : ''}{opt.label}

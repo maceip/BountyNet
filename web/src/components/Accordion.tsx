@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from 'react'
-import { glassInner, font, tracking, palette } from './theme'
+import { panelInner, font, tracking, palette } from './theme'
 
 interface AccordionItem {
   id: string
@@ -10,7 +10,7 @@ interface AccordionItem {
 
 interface AccordionProps {
   items: AccordionItem[]
-  multiple?: boolean  // allow multiple open
+  multiple?: boolean
 }
 
 export function Accordion({ items, multiple = false }: AccordionProps) {
@@ -26,14 +26,19 @@ export function Accordion({ items, multiple = false }: AccordionProps) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {items.map(item => {
         const open = openIds.has(item.id)
-        const accent = item.accent || palette.lavender
+        const accent = item.accent || palette.accent
 
         return (
-          <div key={item.id} style={{ ...glassInner(open ? 0.4 : 0.25), borderRadius: 14, overflow: 'hidden', transition: 'background 0.3s' }}>
-            {/* Trigger */}
+          <div key={item.id} style={{
+            ...panelInner(),
+            borderRadius: 6,
+            borderLeft: open ? `2px solid ${accent}` : '2px solid transparent',
+            overflow: 'hidden',
+            transition: 'border-color 0.3s',
+          }}>
             <button
               onClick={() => toggle(item.id)}
               style={{
@@ -41,34 +46,32 @@ export function Accordion({ items, multiple = false }: AccordionProps) {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '1rem 1.25rem',
+                padding: '0.9rem 1.1rem',
                 border: 'none',
                 background: 'transparent',
                 cursor: 'pointer',
                 fontFamily: font.family,
-                fontSize: '0.8rem',
-                fontWeight: 500,
-                color: palette.ink,
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: open ? accent : palette.textPrimary,
                 letterSpacing: tracking.wider,
                 textTransform: 'uppercase',
                 textAlign: 'left',
+                transition: 'color 0.2s',
               }}
             >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                 <span style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: accent,
-                  flexShrink: 0,
+                  fontSize: '0.45rem',
+                  color: accent,
                   transition: 'transform 0.3s',
-                  transform: open ? 'scale(1.6)' : 'scale(1)',
-                }} />
+                  transform: open ? 'scale(1.5)' : 'scale(1)',
+                }}>&#x2B22;</span>
                 {item.title}
               </span>
               <span style={{
-                fontSize: '0.65rem',
-                color: palette.inkMuted,
+                fontSize: '0.6rem',
+                color: palette.textMuted,
                 transition: 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
                 transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
               }}>
@@ -76,7 +79,6 @@ export function Accordion({ items, multiple = false }: AccordionProps) {
               </span>
             </button>
 
-            {/* Panel */}
             <div style={{
               maxHeight: open ? 600 : 0,
               opacity: open ? 1 : 0,
@@ -84,10 +86,10 @@ export function Accordion({ items, multiple = false }: AccordionProps) {
               transition: 'max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s',
             }}>
               <div style={{
-                padding: '0 1.25rem 1.25rem 2.25rem',
+                padding: '0 1.1rem 1.1rem 2rem',
                 fontFamily: font.family,
-                fontSize: '0.85rem',
-                color: palette.inkLight,
+                fontSize: '0.8rem',
+                color: palette.textSecondary,
                 letterSpacing: tracking.normal,
                 lineHeight: 1.7,
               }}>

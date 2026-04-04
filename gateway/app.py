@@ -1,22 +1,13 @@
 """
-BountyNet Gateway — unified API surface.
+BountyNet Gateway — Flask `app` is mounted by `gateway.factory.create_asgi_app()` (the only
+supported full-stack surface). Serve and test that ASGI app; see `gateway/tests/test_contract.py`.
 
-One process, one port, all routes:
+Run: `python -m gateway.app` (uvicorn + factory). Loaders may also use
+`uvicorn gateway.factory:combined_app` or `gateway.asgi:combined_app` (re-export).
 
-  /ens/{sender}/{data}.json  — CCIP-Read resolver for *.maceip.eth
-  /github                    — GitHub App webhook (CI failure → bounty)
-  /oracle                    — CI Oracle (green build → validation → payout)
-  /v1/messages               — Anthropic-compatible inference proxy
-  /v1/chat/completions       — OpenAI-compatible inference proxy
-  /identity/onboard          — Dynamic identity creation
-  /identity/status/{agent}   — Agent wallet + credit status
-  /bounties                  — Active bounty feed
-  /health                    — Gateway status
+Routes include POST|GET|DELETE `/mcp`, `/health`, `/bounties`, `/github`, …
 
-All auth flows through one pattern:
-  - GitHub webhooks: X-Hub-Signature-256
-  - Inference: Bearer bnet_<agent_id>:<context_hash>
-  - Public reads: no auth
+Auth: GitHub X-Hub-Signature-256; inference Bearer bnet_*; optional MCP OAuth per Apps SDK.
 """
 from flask import Flask
 from flask_cors import CORS
@@ -33,6 +24,7 @@ from gateway.routes.inference import inference_bp
 from gateway.routes.identity import identity_bp
 from gateway.routes.bounties import bounties_bp
 from gateway.routes.attest import attest_bp
+from gateway.routes.chatgpt_connect import chatgpt_bp
 
 app.register_blueprint(ens_bp)
 app.register_blueprint(github_bp)
@@ -41,6 +33,7 @@ app.register_blueprint(inference_bp)
 app.register_blueprint(identity_bp)
 app.register_blueprint(bounties_bp)
 app.register_blueprint(attest_bp)
+app.register_blueprint(chatgpt_bp)
 
 
 @app.route("/health")
@@ -51,6 +44,8 @@ def health():
 
 if __name__ == "__main__":
     import os
+
+    import uvicorn
+
     port = int(os.environ.get("GATEWAY_PORT", "8090"))
-    print(f"BountyNet Gateway on :{port}")
-    app.run(host="0.0.0.0", port=port)
+    uvicorn.run("gateway.factory:combined_app", host="0.0.0.0", port=port)

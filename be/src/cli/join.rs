@@ -1,8 +1,8 @@
+use crate::dirs;
 use clap::Args;
 use eyre::Result;
 use serde_derive::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
 
 /// Join the BountyNet network.
 ///
@@ -39,9 +39,7 @@ struct OnboardResponse {
 
 impl Join {
     pub fn run(self) -> Result<()> {
-        let config_dir = dirs::home_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join(".bountynet");
+        let config_dir = dirs::HOME.join(".bountynet");
         let config_file = config_dir.join("agent.json");
 
         // Check existing

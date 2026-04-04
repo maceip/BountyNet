@@ -16,13 +16,13 @@ export function Stat({ label, value, mono, sub, big, accent }: StatProps) {
       justifyContent: 'space-between',
       alignItems: 'baseline',
       padding: '0.35rem 0',
-      opacity: sub ? 0.45 : 1,
+      opacity: sub ? 0.5 : 1,
     }}>
       <span style={{
         fontFamily: font.family,
-        fontSize: sub ? '0.7rem' : '0.75rem',
-        fontWeight: 500,
-        color: palette.inkMuted,
+        fontSize: sub ? '0.65rem' : '0.7rem',
+        fontWeight: 600,
+        color: palette.textMuted,
         letterSpacing: tracking.wider,
         textTransform: 'uppercase',
       }}>
@@ -30,9 +30,9 @@ export function Stat({ label, value, mono, sub, big, accent }: StatProps) {
       </span>
       <span style={{
         fontFamily: mono ? font.mono : font.family,
-        fontSize: big ? '1.6rem' : mono ? '0.72rem' : sub ? '0.75rem' : '0.88rem',
-        fontWeight: big ? 300 : 400,
-        color: big && accent ? accent : big ? palette.ink : '#333',
+        fontSize: big ? '1.5rem' : mono ? '0.68rem' : sub ? '0.72rem' : '0.85rem',
+        fontWeight: big ? 300 : 500,
+        color: big && accent ? accent : big ? palette.accent : palette.textPrimary,
         letterSpacing: big ? tracking.wider : mono ? '0' : tracking.normal,
         wordBreak: 'break-all',
         textAlign: 'right',

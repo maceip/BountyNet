@@ -37,6 +37,7 @@ pub use hook_env::HookReason;
 pub(crate) mod edit;
 mod implode;
 mod install;
+mod bnet;
 mod join;
 mod install_into;
 mod latest;
@@ -223,8 +224,13 @@ pub enum Commands {
     Implode(implode::Implode),
     Edit(edit::Edit),
     Install(install::Install),
+    /// Manage bounties — list, create, claim, watch
+    Bounty(bnet::Bounty),
     /// Join the BountyNet network
     Join(join::Join),
+    /// Show BountyNet agent status — wallet, balances, reputation
+    #[clap(name = "bnet-status")]
+    BnetStatus(bnet::Status),
     InstallInto(install_into::InstallInto),
     Latest(latest::Latest),
     Link(link::Link),
@@ -294,7 +300,9 @@ impl Commands {
             Self::Implode(cmd) => cmd.run(),
             Self::Edit(cmd) => cmd.run().await,
             Self::Install(cmd) => cmd.run().await,
-            Self::Join(cmd) => cmd.run(),
+            Self::Bounty(cmd) => tokio::task::block_in_place(|| cmd.run()),
+            Self::Join(cmd) => tokio::task::block_in_place(|| cmd.run()),
+            Self::BnetStatus(cmd) => tokio::task::block_in_place(|| cmd.run()),
             Self::InstallInto(cmd) => cmd.run().await,
             Self::Latest(cmd) => cmd.run().await,
             Self::Link(cmd) => cmd.run().await,

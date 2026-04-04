@@ -12,23 +12,31 @@ interface ButtonProps {
   style?: React.CSSProperties
 }
 
+/**
+ * Hexagonal-chamfered button matching the design.
+ * Navy fill with orange hex endpoints in lite mode.
+ */
+
 const sizes = {
-  sm: { padding: '0.35rem 0.9rem', fontSize: '0.7rem', radius: 8, tracking: tracking.wider },
-  md: { padding: '0.55rem 1.4rem', fontSize: '0.78rem', radius: 11, tracking: tracking.wider },
-  lg: { padding: '0.75rem 2rem', fontSize: '0.85rem', radius: 14, tracking: tracking.widest },
+  sm: { padding: '0.4rem 1.2rem', fontSize: '0.65rem', tracking: tracking.wider },
+  md: { padding: '0.6rem 1.8rem', fontSize: '0.75rem', tracking: tracking.wider },
+  lg: { padding: '0.8rem 2.4rem', fontSize: '0.85rem', tracking: tracking.widest },
 }
 
-export function Button({ children, onClick, color = palette.teal, variant = 'ghost', size = 'md', disabled, fullWidth, style: extraStyle }: ButtonProps) {
+const chamfer = 'polygon(12px 0%, calc(100% - 12px) 0%, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0% 50%)'
+
+export function Button({ children, onClick, color, variant = 'filled', size = 'md', disabled, fullWidth, style: extraStyle }: ButtonProps) {
   const s = sizes[size]
+  const accent = color || palette.accent
+  const fill = palette.fill
 
   const base: React.CSSProperties = {
     fontFamily: font.family,
     fontSize: s.fontSize,
-    fontWeight: 600,
+    fontWeight: 700,
     letterSpacing: s.tracking,
     textTransform: 'uppercase',
     padding: s.padding,
-    borderRadius: s.radius,
     cursor: disabled ? 'not-allowed' : 'pointer',
     transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
     opacity: disabled ? 0.4 : 1,
@@ -37,27 +45,31 @@ export function Button({ children, onClick, color = palette.teal, variant = 'gho
     alignItems: 'center',
     justifyContent: 'center',
     gap: '0.5rem',
+    position: 'relative',
     ...extraStyle,
   }
 
   const variants: Record<string, React.CSSProperties> = {
     filled: {
       ...base,
-      background: color,
-      color: palette.white,
-      border: `1.5px solid ${color}`,
+      background: fill,
+      color: palette.textOnFill,
+      border: `2px solid ${accent}`,
+      clipPath: chamfer,
     },
     ghost: {
       ...base,
-      background: `${color}15`,
-      color: palette.ink,
-      border: `1.5px solid ${color}35`,
+      background: `${accent}15`,
+      color: palette.textPrimary,
+      border: `1.5px solid ${accent}40`,
+      clipPath: chamfer,
     },
     outline: {
       ...base,
       background: 'transparent',
-      color,
-      border: `1.5px solid ${color}60`,
+      color: accent,
+      border: `1.5px solid ${accent}60`,
+      borderRadius: 4,
     },
   }
 
@@ -67,23 +79,14 @@ export function Button({ children, onClick, color = palette.teal, variant = 'gho
       style={variants[variant]}
       onMouseEnter={e => {
         if (disabled) return
-        if (variant === 'ghost') {
-          e.currentTarget.style.background = `${color}28`
-          e.currentTarget.style.borderColor = `${color}70`
-          e.currentTarget.style.transform = 'translateY(-1px)'
-        } else if (variant === 'filled') {
-          e.currentTarget.style.filter = 'brightness(1.1)'
-          e.currentTarget.style.transform = 'translateY(-1px)'
-        } else {
-          e.currentTarget.style.background = `${color}12`
-          e.currentTarget.style.transform = 'translateY(-1px)'
-        }
+        e.currentTarget.style.filter = 'brightness(1.15)'
+        e.currentTarget.style.transform = 'translateY(-1px)'
+        e.currentTarget.style.boxShadow = `0 4px 16px ${accent}30`
       }}
       onMouseLeave={e => {
-        e.currentTarget.style.background = variants[variant].background as string
-        e.currentTarget.style.borderColor = variants[variant].border?.toString().split(' ').pop() || ''
         e.currentTarget.style.filter = ''
         e.currentTarget.style.transform = ''
+        e.currentTarget.style.boxShadow = ''
       }}
     >
       {children}

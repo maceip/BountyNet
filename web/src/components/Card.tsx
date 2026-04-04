@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from 'react'
-import { glass, font, tracking, palette } from './theme'
+import { panel, font, tracking, palette } from './theme'
 
 interface CardProps {
   title: string
@@ -9,20 +9,21 @@ interface CardProps {
   defaultOpen?: boolean
 }
 
-export function Card({ title, accent = palette.teal, children, collapsible, defaultOpen = true }: CardProps) {
+export function Card({ title, accent, children, collapsible, defaultOpen = true }: CardProps) {
   const [open, setOpen] = useState(defaultOpen)
+  const a = accent || palette.accent
 
   return (
     <div style={{
-      ...glass(),
-      borderRadius: 20,
-      borderLeft: `3px solid ${accent}`,
+      ...panel(true),
+      borderRadius: 8,
+      borderLeft: `3px solid ${a}`,
       overflow: 'hidden',
       transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s',
     }}
       onMouseEnter={e => {
-        e.currentTarget.style.transform = 'translateY(-3px) scale(1.005)'
-        e.currentTarget.style.boxShadow = '0 16px 48px rgba(26,26,42,0.12), 0 2px 6px rgba(26,26,42,0.06)'
+        e.currentTarget.style.transform = 'translateY(-2px)'
+        e.currentTarget.style.boxShadow = `0 0 24px ${palette.accentGlow}, 0 16px 48px rgba(0, 0, 0, 0.1)`
       }}
       onMouseLeave={e => {
         e.currentTarget.style.transform = ''
@@ -33,8 +34,8 @@ export function Card({ title, accent = palette.teal, children, collapsible, defa
       <div
         onClick={collapsible ? () => setOpen(o => !o) : undefined}
         style={{
-          padding: '1.25rem 1.5rem',
-          paddingBottom: open ? '0.5rem' : '1.25rem',
+          padding: '1.1rem 1.4rem',
+          paddingBottom: open ? '0.4rem' : '1.1rem',
           cursor: collapsible ? 'pointer' : 'default',
           display: 'flex',
           justifyContent: 'space-between',
@@ -44,21 +45,21 @@ export function Card({ title, accent = palette.teal, children, collapsible, defa
       >
         <span style={{
           fontFamily: font.family,
-          fontSize: '0.7rem',
-          fontWeight: 600,
-          color: accent,
+          fontSize: '0.68rem',
+          fontWeight: 700,
+          color: a,
           textTransform: 'uppercase',
           letterSpacing: tracking.widest,
         }}>
+          <span style={{ marginRight: '0.5rem', fontSize: '0.5rem' }}>&#x2B22;</span>
           {title}
         </span>
         {collapsible && (
           <span style={{
-            color: accent,
-            fontSize: '0.75rem',
+            color: a,
+            fontSize: '0.65rem',
             transition: 'transform 0.3s',
             transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-            letterSpacing: tracking.normal,
           }}>
             &#9660;
           </span>
@@ -67,7 +68,7 @@ export function Card({ title, accent = palette.teal, children, collapsible, defa
 
       {/* Body */}
       <div style={{
-        padding: open ? '0 1.5rem 1.5rem' : '0 1.5rem',
+        padding: open ? '0 1.4rem 1.4rem' : '0 1.4rem',
         maxHeight: open ? 800 : 0,
         opacity: open ? 1 : 0,
         overflow: 'hidden',
