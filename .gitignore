@@ -15,3 +15,5 @@ android/local.properties
 .vscode/
 .DS_Store
 be/target/
+android/app/build/
+webv2/

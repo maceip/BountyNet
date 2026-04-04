@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="bountynet_web_login_url" translatable="false">https://bountynet.example/android-auth</string>
-    <style name="Theme.BountyNet" parent="android:Theme.Material.Light.NoActionBar"/>
-</resources>
