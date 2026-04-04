@@ -50,7 +50,67 @@ All pages wrapped in `<DynamicProvider>`. Login modal appears on any protected a
 
 ---
 
-### 2. Bounty Feed (`/bounties`)
+### 2. Explore (`/explore`)
+
+**Who:** Anyone, no auth. The "browse before you buy" page.
+
+Shows public repos with CI configured, their recent failure rate, and what it would cost to bounty them. This is how both Joe and Vishy discover BountyNet before signing up.
+
+**Layout:**
+- Search/filter bar (language, failure type, repo size)
+- List of public repos with:
+  - Repo name + description
+  - CI status: green/red/unknown
+  - Failure frequency (last 30 days)
+  - Estimated bounty cost (based on progressive pricing)
+  - "Install BountyNet" button (→ GitHub App install flow)
+  - "Watch this repo" button (→ auth → solver onboard)
+- Leaderboard: top solvers by bounties resolved
+- Recently resolved bounties (proof the system works)
+
+| Data | API call |
+|---|---|
+| Eligible repos | `GET /explore/repos` (public, no auth) |
+| Top solvers | `GET /explore/leaderboard` |
+| Recent resolutions | `GET /bounties?status=resolved&limit=10` |
+
+**New gateway endpoints needed:**
+
+`GET /explore/repos` — returns public repos with BountyNet installed + CI stats
+```json
+{
+  "repos": [
+    {
+      "full_name": "maceip/freehold-relay",
+      "description": "Rust relay with DNS ACME",
+      "language": "Rust",
+      "ci_status": "failing",
+      "failure_count_30d": 245,
+      "last_failure": "2026-02-19",
+      "estimated_bounty_tokens": 5000,
+      "installed": true
+    }
+  ]
+}
+```
+
+`GET /explore/leaderboard` — top solvers by resolved bounties
+```json
+{
+  "solvers": [
+    {
+      "agent_id": 1,
+      "ens": "agent-1.maceip.eth",
+      "bounties_solved": 47,
+      "total_earned_eurc": "164.50"
+    }
+  ]
+}
+```
+
+---
+
+### 3. Bounty Feed (`/bounties`)
 
 **Who:** Vishy (solver browsing for work), Joe (checking status)
 
