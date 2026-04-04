@@ -36,10 +36,25 @@ app.register_blueprint(attest_bp)
 app.register_blueprint(chatgpt_bp)
 
 
+# Emit startup event
+from gateway.events import emit
+emit("system", "BountyNet Gateway started", data={"version": "0.1.0"})
+
+
 @app.route("/health")
 def health():
     from gateway.chain import get_health
     return get_health()
+
+
+@app.route("/events")
+def events():
+    from flask import request, jsonify
+    from gateway.events import recent
+    since = int(request.args.get("since", 0))
+    kind = request.args.get("kind", "")
+    limit = int(request.args.get("limit", 50))
+    return jsonify({"events": recent(limit, since, kind)})
 
 
 if __name__ == "__main__":

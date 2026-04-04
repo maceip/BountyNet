@@ -109,12 +109,17 @@ def detect_provider(model: str) -> str:
 
 
 def meter(agent_id, ctx_hash, input_t, output_t):
+    from gateway.events import emit
     total = input_t + output_t
     budget = staker_budgets.get(ctx_hash)
     if budget:
         budget["used_tokens"] += total
     if agent_id in credits:
         credits[agent_id]["used"] += total
+    if total > 0:
+        remaining = budget["budget_tokens"] - budget["used_tokens"] if budget else 0
+        emit("inference", f"Agent #{agent_id}: {total:,} tokens used ({remaining:,} remaining)",
+             context_hash=ctx_hash, agent_id=agent_id, data={"tokens": total, "remaining": remaining})
     return total
 
 

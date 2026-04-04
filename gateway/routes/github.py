@@ -22,11 +22,12 @@ from flask import Blueprint, request, jsonify
 from eth_utils import keccak
 from eth_abi import encode
 from gateway.chain import send_tx, sig, ESCROW, VALIDATION, w3
+from gateway.events import emit
 
 github_bp = Blueprint("github", __name__)
 
 APP_ID = os.environ.get("GITHUB_APP_ID", "")
-PRIVATE_KEY = os.environ.get("GITHUB_APP_PRIVATE_KEY", "")
+PRIVATE_KEY = os.environ.get("GITHUB_APP_PRIVATE_KEY", "") or os.environ.get("GITHUB_SIGNING_KEY", "")
 WEBHOOK_SECRET = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
 
 # ── Storage (in-memory, dev mode) ──────────────────────────────
@@ -282,6 +283,9 @@ def handle_installation(payload):
     except Exception:
         dynamic_user_id = None
 
+    emit("install", f"GitHub App installed by {login} on {len(repos)} repos",
+         data={"login": login, "repos": repos, "installation_id": installation_id})
+
     return jsonify({
         "status": "installed",
         "login": login,
@@ -367,6 +371,9 @@ def _on_ci_failure(installation_id, repo, sha, name, check):
             f"[View bounty]({bounty_url})"
         )
 
+    emit("bounty", f"CI failed: {name} on {repo}@{sha[:8]} — bounty created ({budget_tokens:,} tokens)",
+         repo=repo, context_hash=context_hash_hex, data={"check": name, "budget": budget_tokens})
+
     return jsonify({
         "status": "bounty_created",
         "repo": repo,
@@ -412,6 +419,9 @@ def _on_ci_success(installation_id, repo, sha, name, check):
             f"Bounty `{ctx_hash[:18]}...` resolved.\n"
             f"Solver agent #{pr_info.get('solver_agent_id', '?')} paid out (70/30 split)."
         )
+
+    emit("bounty", f"Bounty resolved! Agent #{pr_info.get('solver_agent_id', '?')} paid (70/30 split)",
+         repo=repo, context_hash=ctx_hash, agent_id=pr_info.get("solver_agent_id"))
 
     return jsonify({
         "status": "resolved",
@@ -617,6 +627,9 @@ def scan_repos(installation_id):
     total_bounties = sum(len(r["bounties_created"]) for r in results)
     total_insights = sum(len(r["insights"]) for r in results)
 
+    emit("scan", f"Scanned {len(results)} repos: {total_failures} failures, {total_insights} insights",
+         data={"repos": len(results), "failures": total_failures, "insights": total_insights})
+
     return jsonify({
         "status": "scanned",
         "installation_id": installation_id,
@@ -809,6 +822,10 @@ def submit_solver_pr():
             "solver_agent_id": agent_id,
             "branch": branch,
         }
+
+    emit("pr", f"Solver PR #{pr.get('number')} created on {repo} ({branch})",
+         repo=repo, context_hash=context_hash, agent_id=agent_id,
+         data={"pr_url": pr.get("html_url"), "pr_number": pr.get("number")})
 
     return jsonify({
         "status": "pr_created",

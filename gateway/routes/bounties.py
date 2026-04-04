@@ -10,6 +10,7 @@ from flask import Blueprint, request, jsonify
 from eth_utils import keccak
 from eth_abi import encode
 from gateway.chain import w3, ESCROW, get_bounty, sig, send_tx
+from gateway.events import emit
 
 bounties_bp = Blueprint("bounties", __name__)
 
@@ -152,6 +153,9 @@ def create_bounty():
             "created_at": int(time.time()),
         }
 
+        emit("bounty", f"Bounty created for {repo}:{check_name} ({budget_tokens:,} tokens)",
+             repo=repo, context_hash=context_hash_hex, data={"mode": "api_key", "budget": budget_tokens})
+
         return jsonify({
             "context_hash": context_hash_hex,
             "status": "created",
@@ -219,6 +223,9 @@ def claim_bounty(context_hash: str):
         credit_amount = int(budget * 0.7)
         credits[int(agent_id)] = credits.get(int(agent_id), {"total": 0, "used": 0})
         credits[int(agent_id)]["total"] += credit_amount
+
+        emit("bounty", f"Agent #{agent_id} claimed bounty ({budget:,} token budget)",
+             context_hash=context_hash, agent_id=int(agent_id))
 
         return jsonify({
             "status": "claimed",

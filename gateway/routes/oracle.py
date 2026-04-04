@@ -12,6 +12,7 @@ TEE-signed proof, then submits that signature to Arc's ValidationRegistry.
 import os
 import requests
 from flask import Blueprint, request, jsonify
+from gateway.events import emit
 from eth_utils import keccak
 from eth_abi import encode
 from gateway.routes.github import verify_webhook
@@ -132,6 +133,11 @@ def submit_tee_validation(repo: str, sha: str, check_name: str) -> dict | None:
 
     try:
         result = send_tx(VALIDATION, data)
+        tee_msg = f"TEE-attested proof signed by {proof['signer'][:10]}..." if proof else "Direct validation (no TEE)"
+        coston2_msg = f", stored on Coston2 (block #{coston2_result['coston2_block']})" if coston2_result else ""
+        emit("oracle", f"Oracle validated: {repo}@{sha} — {tee_msg}{coston2_msg}",
+             repo=repo, data={"tee": bool(proof), "coston2": bool(coston2_result)})
+
         return {
             "validation_hash": "0x" + val_hash.hex(),
             "tee_attested": proof is not None,
