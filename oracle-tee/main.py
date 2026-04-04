@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from base.server import Server
 from app.config import VERSION
-from app.handlers import register, report_state, set_sign_port, set_key_from_env, sign_ci_proof_direct
+from app.handlers import register, report_state, set_sign_port, set_key_from_env, sign_ci_proof_direct, init_identity
 
 
 def main() -> None:
@@ -35,6 +35,7 @@ def main() -> None:
     oracle_port = os.environ.get("ORACLE_PORT", "8095")
 
     set_sign_port(sign_port)
+    init_identity()
 
     # Testnet mode: load key from env
     oracle_key = os.environ.get("ORACLE_KEY", "")

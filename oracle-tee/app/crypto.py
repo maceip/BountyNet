@@ -13,14 +13,15 @@ from base.crypto import keccak256
 _N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 
 
-def sign_ci_proof(private_key: bytes, repo: str, sha: str, check_name: str, conclusion: str) -> dict:
+def sign_ci_proof(private_key: bytes, repo: str, sha: str, check_name: str, conclusion: str, source_hash: str = "", image_digest: str = "") -> dict:
     """
-    Sign a CI proof: keccak256(abi.encodePacked(repo, sha, check_name, conclusion))
+    Sign a CI proof: keccak256(abi.encodePacked(repo, sha, check_name, conclusion, source_hash))
 
-    Returns { message_hash, v, r, s } — ready for on-chain ecrecover.
+    The source_hash and image_digest bind the attestation to the exact oracle code.
+    Returns { message_hash, v, r, s, source_hash, image_digest } — ready for on-chain ecrecover.
     """
-    # Pack the proof data exactly as the on-chain verifier expects
-    packed = repo.encode() + sha.encode() + check_name.encode() + conclusion.encode()
+    # Pack the proof data — includes oracle identity for full attestation chain
+    packed = repo.encode() + sha.encode() + check_name.encode() + conclusion.encode() + source_hash.encode()
     msg_hash = keccak256(packed)
 
     # Ethereum signed message prefix (EIP-191)
@@ -41,6 +42,8 @@ def sign_ci_proof(private_key: bytes, repo: str, sha: str, check_name: str, conc
         "r": "0x" + r.hex(),
         "s": "0x" + s.hex(),
         "signer": get_address(private_key),
+        "source_hash": source_hash,
+        "image_digest": image_digest,
     }
 
 

@@ -1,0 +1,20 @@
+# BountyNet CI Runner
+#
+# Self-hosted GitHub Actions runner for staker repos.
+# Staker adds `runs-on: [self-hosted, bountynet]` to their workflow.
+#
+# Not wired to oracle yet — just runner infra.
+# Future: runs inside Flare TEE for hardware-attested CI.
+
+services:
+  runner:
+    build: .
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN:?Set GITHUB_TOKEN}
+      - REPO_URL=${REPO_URL:?Set REPO_URL}
+      - RUNNER_NAME=${RUNNER_NAME:-bountynet-runner-1}
+      - RUNNER_LABELS=${RUNNER_LABELS:-bountynet,tee,self-hosted}
+      - GATEWAY_URL=${GATEWAY_URL:-https://gateway.stare.network}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped

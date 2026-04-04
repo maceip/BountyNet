@@ -37,10 +37,55 @@ logger = logging.getLogger(__name__)
 _private_key: Optional[bytes] = None
 _sign_port: str = "9090"
 
+# Image identity — set at startup
+_source_hash: str = ""
+_image_digest: str = ""
+
+
+def _load_source_hash() -> str:
+    """Load pre-computed source hash from build, or compute live."""
+    import hashlib, glob, os
+    # Try build-time hash first
+    hash_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".source_hash")
+    if os.path.exists(hash_file):
+        return open(hash_file).read().strip()
+    # Compute live
+    h = hashlib.sha256()
+    base = os.path.dirname(os.path.dirname(__file__))
+    for f in sorted(glob.glob(os.path.join(base, "**/*.py"), recursive=True)):
+        h.update(open(f, "rb").read())
+    return h.hexdigest()
+
+
+def _load_image_digest() -> str:
+    """Get Docker image digest from /proc/self/cgroup or env."""
+    import os
+    # Check env first (set by docker inspect at deploy time)
+    d = os.environ.get("IMAGE_DIGEST", "")
+    if d:
+        return d
+    # Try to read container ID from cgroup
+    try:
+        with open("/proc/self/cgroup") as f:
+            for line in f:
+                if "docker" in line:
+                    return line.strip().split("/")[-1][:12]
+    except Exception:
+        pass
+    return "unknown"
+
 
 def set_sign_port(port: str) -> None:
     global _sign_port
     _sign_port = port
+
+
+def init_identity() -> None:
+    """Load source hash and image digest at startup."""
+    global _source_hash, _image_digest
+    _source_hash = _load_source_hash()
+    _image_digest = _load_image_digest()
+    logger.info("oracle identity: source=%s image=%s", _source_hash[:16], _image_digest[:16])
 
 
 def set_key_from_env(hex_key: str) -> None:
@@ -64,6 +109,8 @@ def report_state() -> Any:
     return {
         "hasKey": _private_key is not None,
         "signer": get_address(_private_key) if _private_key else None,
+        "source_hash": _source_hash,
+        "image_digest": _image_digest,
         "version": VERSION,
         "type": "bountynet-ci-oracle",
     }
@@ -115,7 +162,7 @@ def handle_validate(msg: str) -> tuple[Optional[str], int, Optional[str]]:
         return None, 0, "repo and sha required"
 
     try:
-        proof = sign_ci_proof(_private_key, repo, sha, check_name, conclusion)
+        proof = sign_ci_proof(_private_key, repo, sha, check_name, conclusion, _source_hash, _image_digest)
         result_json = json.dumps(proof).encode()
         return bytes_to_hex(result_json), 1, None
     except Exception as e:
@@ -161,4 +208,4 @@ def sign_ci_proof_direct(repo: str, sha: str, check_name: str, conclusion: str) 
     """
     if _private_key is None:
         raise RuntimeError("oracle TEE key not loaded")
-    return sign_ci_proof(_private_key, repo, sha, check_name, conclusion)
+    return sign_ci_proof(_private_key, repo, sha, check_name, conclusion, _source_hash, _image_digest)
