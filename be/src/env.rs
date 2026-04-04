@@ -385,6 +385,7 @@ pub static IS_RUNNING_AS_SHIM: Lazy<bool> = Lazy::new(|| {
 /// Handles "mise", "mise.exe", "mise.bat", "mise.cmd", "mise-doctor", etc.
 pub fn is_mise_binary(bin_name: &str) -> bool {
     bin_name == "mise" || bin_name.starts_with("mise.") || bin_name.starts_with("mise-")
+        || bin_name == "bounty" || bin_name.starts_with("bounty.")
 }
 
 #[cfg(test)]

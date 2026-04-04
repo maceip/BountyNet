@@ -83,29 +83,29 @@ impl Status {
         let data: IdentityResponse = serde_json::from_str(&text)?;
 
         if let Some(err) = data.error {
-            eprintln!("[be] error: {}", err);
+            eprintln!("[bounty] error: {}", err);
             return Err(eyre::eyre!("{}", err));
         }
 
-        eprintln!("[be] agent #{}", data.agent_id.unwrap_or(config.agent_id));
-        eprintln!("[be]   wallet: {}", data.wallet.unwrap_or(config.wallet));
-        eprintln!("[be]   ens:    {}", data.ens.unwrap_or(config.ens));
+        eprintln!("[bounty] agent #{}", data.agent_id.unwrap_or(config.agent_id));
+        eprintln!("[bounty]   wallet: {}", data.wallet.unwrap_or(config.wallet));
+        eprintln!("[bounty]   ens:    {}", data.ens.unwrap_or(config.ens));
 
         if let Some(bal) = data.balances {
-            eprintln!("[be]   eurc:   {} EURC", bal.eurc.unwrap_or_default());
-            eprintln!("[be]   native: {}", bal.native.unwrap_or_default());
+            eprintln!("[bounty]   eurc:   {} EURC", bal.eurc.unwrap_or_default());
+            eprintln!("[bounty]   native: {}", bal.native.unwrap_or_default());
         }
 
         if let Some(rep) = data.reputation {
             eprintln!(
-                "[be]   solved: {} bounties, {} EURC earned",
+                "[bounty]   solved: {} bounties, {} EURC earned",
                 rep.bounties_solved.unwrap_or(0),
                 rep.total_earned_eurc.unwrap_or_default()
             );
         }
 
         if let Some(escrow) = data.escrow {
-            eprintln!("[be]   escrow: {}", escrow);
+            eprintln!("[bounty]   escrow: {}", escrow);
         }
 
         Ok(())
@@ -211,16 +211,16 @@ impl BountyList {
         let data: BountiesResponse = serde_json::from_str(&text)?;
 
         if let Some(err) = data.error {
-            eprintln!("[be] error: {}", err);
+            eprintln!("[bounty] error: {}", err);
         }
 
         let bounties = data.bounties.unwrap_or_default();
         if bounties.is_empty() {
-            eprintln!("[be] no bounties found (status={})", self.status);
+            eprintln!("[bounty] no bounties found (status={})", self.status);
             return Ok(());
         }
 
-        eprintln!("[be] {} bounties:\n", bounties.len());
+        eprintln!("[bounty] {} bounties:\n", bounties.len());
         eprintln!(
             "  {:<18} {:<10} {:<12} {}",
             "CONTEXT", "EURC", "STATUS", "REPO"
@@ -329,18 +329,18 @@ impl BountyCreate {
         let data: CreateResponse = resp.json()?;
 
         if let Some(err) = data.error {
-            eprintln!("[be] error: {}", err);
+            eprintln!("[bounty] error: {}", err);
             return Err(eyre::eyre!("{}", err));
         }
 
-        eprintln!("[be] bounty created!");
+        eprintln!("[bounty] bounty created!");
         eprintln!(
-            "[be]   context: {}",
+            "[bounty]   context: {}",
             data.context_hash.unwrap_or_default()
         );
-        eprintln!("[be]   status:  {}", data.status.unwrap_or_default());
+        eprintln!("[bounty]   status:  {}", data.status.unwrap_or_default());
         if let Some(budget) = data.budget_tokens {
-            eprintln!("[be]   budget:  {} tokens", budget);
+            eprintln!("[bounty]   budget:  {} tokens", budget);
         }
 
         Ok(())
@@ -384,7 +384,7 @@ impl BountyClaim {
         let data: ClaimResponse = resp.json()?;
 
         if let Some(err) = data.error {
-            eprintln!("[be] error: {}", err);
+            eprintln!("[bounty] error: {}", err);
             return Err(eyre::eyre!("{}", err));
         }
 
@@ -393,20 +393,20 @@ impl BountyClaim {
             .inference_endpoint
             .unwrap_or_else(|| "https://gateway.stare.network/v1".to_string());
 
-        eprintln!("[be] bounty claimed!");
+        eprintln!("[bounty] bounty claimed!");
         eprintln!(
-            "[be]   context:   {}",
+            "[bounty]   context:   {}",
             data.context_hash.unwrap_or_default()
         );
-        eprintln!("[be]   agent:     #{}", data.agent_id.unwrap_or(0));
-        eprintln!("[be]   token:     {}", bnet_token);
-        eprintln!("[be]   endpoint:  {}", endpoint);
+        eprintln!("[bounty]   agent:     #{}", data.agent_id.unwrap_or(0));
+        eprintln!("[bounty]   token:     {}", bnet_token);
+        eprintln!("[bounty]   endpoint:  {}", endpoint);
         if let Some(budget) = data.budget_remaining {
-            eprintln!("[be]   budget:    {} tokens remaining", budget);
+            eprintln!("[bounty]   budget:    {} tokens remaining", budget);
         }
 
         eprintln!();
-        eprintln!("[be] to use inference, set:");
+        eprintln!("[bounty] to use inference, set:");
         if !bnet_token.is_empty() {
             eprintln!("  export ANTHROPIC_API_KEY={}", bnet_token);
             eprintln!("  export ANTHROPIC_BASE_URL={}", endpoint);
@@ -436,11 +436,11 @@ impl BountyWatch {
         let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
         let mut claimed: Vec<String> = Vec::new();
 
-        eprintln!("[be] watching for bounties (poll={}s)...", self.interval);
+        eprintln!("[bounty] watching for bounties (poll={}s)...", self.interval);
         if let Some(ref repo) = self.repo {
-            eprintln!("[be] filtering: repo={}", repo);
+            eprintln!("[bounty] filtering: repo={}", repo);
         }
-        eprintln!("[be] agent #{}, gateway: {}", config.agent_id, config.gateway);
+        eprintln!("[bounty] agent #{}, gateway: {}", config.agent_id, config.gateway);
         eprintln!();
 
         loop {
@@ -469,7 +469,7 @@ impl BountyWatch {
                             }
 
                             eprintln!(
-                                "[be] found: {} {} ({})",
+                                "[bounty] found: {} {} ({})",
                                 b.repo.as_deref().unwrap_or("?"),
                                 hash.get(..14).unwrap_or("?"),
                                 b.amount_eurc.as_deref().unwrap_or("?")
@@ -487,28 +487,28 @@ impl BountyWatch {
                                     if let Ok(claim) = resp.json::<ClaimResponse>() {
                                         if claim.error.is_some() {
                                             eprintln!(
-                                                "[be]   skip: {}",
+                                                "[bounty]   skip: {}",
                                                 claim.error.unwrap_or_default()
                                             );
                                         } else {
                                             eprintln!(
-                                                "[be]   claimed! token={}",
+                                                "[bounty]   claimed! token={}",
                                                 claim.bnet_token.as_deref().unwrap_or("?")
                                             );
                                             claimed.push(hash);
                                         }
                                     }
                                 }
-                                Err(e) => eprintln!("[be]   claim failed: {}", e),
+                                Err(e) => eprintln!("[bounty]   claim failed: {}", e),
                             }
                         }
                     }
                 }
-                Err(e) => eprintln!("[be] poll error: {}", e),
+                Err(e) => eprintln!("[bounty] poll error: {}", e),
             }
 
             eprintln!(
-                "[be] {} seen, {} claimed — next poll in {}s",
+                "[bounty] {} seen, {} claimed — next poll in {}s",
                 seen.len(),
                 claimed.len(),
                 self.interval

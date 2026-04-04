@@ -45,14 +45,14 @@ impl Join {
         // Check existing
         if config_file.exists() {
             let existing: AgentConfig = serde_json::from_str(&fs::read_to_string(&config_file)?)?;
-            eprintln!("[be] already joined as agent #{}", existing.agent_id);
-            eprintln!("[be] wallet: {}", existing.wallet);
-            eprintln!("[be] ens: {}", existing.ens);
-            eprintln!("[be] to re-join, delete {}", config_file.display());
+            eprintln!("[bounty] already joined as agent #{}", existing.agent_id);
+            eprintln!("[bounty] wallet: {}", existing.wallet);
+            eprintln!("[bounty] ens: {}", existing.ens);
+            eprintln!("[bounty] to re-join, delete {}", config_file.display());
             return Ok(());
         }
 
-        eprintln!("[be] joining BountyNet...");
+        eprintln!("[bounty] joining BountyNet...");
 
         // Start local callback server
         let server = tiny_http::Server::http("127.0.0.1:9876")
@@ -63,20 +63,20 @@ impl Join {
         let auth_url = format!("{}/identity/login?redirect_uri={}", self.gateway, callback);
 
         if self.no_browser {
-            eprintln!("[be] open this URL in your browser:");
+            eprintln!("[bounty] open this URL in your browser:");
             eprintln!("  {}", auth_url);
         } else {
-            eprintln!("[be] opening browser for login...");
+            eprintln!("[bounty] opening browser for login...");
             let _ = open::that(&auth_url);
         }
 
         // Wait for callback with token
-        eprintln!("[be] waiting for login...");
+        eprintln!("[bounty] waiting for login...");
         let token = wait_for_callback(&server)?;
-        eprintln!("[be] authenticated");
+        eprintln!("[bounty] authenticated");
 
         // Register via gateway
-        eprintln!("[be] registering agent...");
+        eprintln!("[bounty] registering agent...");
         let client = reqwest::blocking::Client::new();
         let resp = client
             .post(format!("{}/identity/onboard", self.gateway))
@@ -90,7 +90,7 @@ impl Join {
         let data: OnboardResponse = resp.json()?;
 
         if let Some(err) = data.error {
-            eprintln!("[be] registration failed: {}", err);
+            eprintln!("[bounty] registration failed: {}", err);
             return Err(eyre::eyre!("registration failed: {}", err));
         }
 
@@ -113,12 +113,12 @@ impl Join {
         }
 
         eprintln!();
-        eprintln!("[be] joined BountyNet!");
-        eprintln!("[be]   agent:  #{}", config.agent_id);
-        eprintln!("[be]   wallet: {}", config.wallet);
-        eprintln!("[be]   ens:    {}", config.ens);
+        eprintln!("[bounty] joined BountyNet!");
+        eprintln!("[bounty]   agent:  #{}", config.agent_id);
+        eprintln!("[bounty]   wallet: {}", config.wallet);
+        eprintln!("[bounty]   ens:    {}", config.ens);
         eprintln!();
-        eprintln!("[be] next: be watch");
+        eprintln!("[bounty] next: bounty watch");
 
         Ok(())
     }
