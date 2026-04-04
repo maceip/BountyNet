@@ -5,7 +5,12 @@ async function run() {
   const gateway = core.getInput('gateway');
 
   // Get GitHub OIDC token — proves repo, actor, sha, run
-  const oidc = await core.getIDToken('bountynet');
+  let oidc = '';
+  try {
+    oidc = await core.getIDToken('bountynet');
+  } catch (e) {
+    core.warning(`OIDC token unavailable: ${e.message}. Attestation will be unverified.`);
+  }
 
   // Build context from GitHub environment
   const context = {
@@ -16,6 +21,7 @@ async function run() {
     run_id: process.env.GITHUB_RUN_ID,
     workflow: process.env.GITHUB_WORKFLOW,
     runner: process.env.RUNNER_ENVIRONMENT || 'unknown',
+    job_status: process.env.BOUNTYNET_JOB_STATUS || 'unknown',
   };
 
   // Context hash — deterministic identifier for this build
@@ -24,12 +30,18 @@ async function run() {
       .update(`${context.repository}:${context.sha}:${context.workflow}`)
       .digest('hex');
 
+  // OIDC hash for TEE signing chain
+  const oidcHash = oidc
+    ? '0x' + createHash('sha256').update(oidc).digest('hex')
+    : '';
+
   // Post attestation to gateway
   const resp = await fetch(`${gateway}/attest`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       oidc_token: oidc,
+      oidc_hash: oidcHash,
       context,
       context_hash: contextHash,
     }),
@@ -38,12 +50,13 @@ async function run() {
   const result = await resp.json();
 
   core.setOutput('context-hash', contextHash);
+  core.setOutput('oidc-hash', oidcHash);
   core.setOutput('attestation-id', result.attestation_id || '');
   core.setOutput('principal', context.actor);
 
   core.info(`[bountynet] attested: ${context.repository}@${context.sha.slice(0, 8)}`);
-  core.info(`[bountynet] actor: ${context.actor}`);
   core.info(`[bountynet] context: ${contextHash.slice(0, 18)}...`);
+  if (oidcHash) core.info(`[bountynet] oidc: ${oidcHash.slice(0, 18)}...`);
 }
 
 run().catch(e => core.setFailed(e.message));

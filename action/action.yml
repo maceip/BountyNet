@@ -1,5 +1,8 @@
 name: 'BountyNet Attest'
-description: 'Attest CI outcomes using GitHub OIDC. Enables bounty resolution + build provenance.'
+description: 'Attest CI outcomes to BountyNet using GitHub OIDC. Enables trustless bounty resolution.'
+branding:
+  icon: 'shield'
+  color: 'orange'
 inputs:
   gateway:
     description: 'BountyNet gateway URL'
@@ -7,6 +10,15 @@ inputs:
   context-hash:
     description: 'Override context hash (auto-generated if omitted)'
     required: false
+outputs:
+  context-hash:
+    description: 'Deterministic hash identifying this CI run'
+  oidc-hash:
+    description: 'Hash of the GitHub OIDC token (for TEE signing chain)'
+  attestation-id:
+    description: 'Gateway attestation ID'
+  principal:
+    description: 'GitHub actor who triggered the run'
 runs:
   using: 'node20'
   main: 'index.js'
