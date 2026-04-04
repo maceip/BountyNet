@@ -20,6 +20,9 @@ from gateway.chain import send_tx, sig as fn_sig, call, VALIDATION, w3
 oracle_bp = Blueprint("oracle", __name__)
 
 ORACLE_TEE_URL = os.environ.get("ORACLE_TEE_URL", "http://localhost:8095")
+COSTON2_RPC = os.environ.get("COSTON2_RPC", "https://coston2-api.flare.network/ext/C/rpc")
+COSTON2_PROOF_STORE = os.environ.get("COSTON2_PROOF_STORE", "0xcb2D6156b37015aF6d743c8C0adfD21175e0D544")
+ORACLE_KEY = os.environ.get("ORACLE_TEE_KEY", os.environ.get("DEPLOYER_PRIVATE_KEY", ""))
 
 
 def get_tee_signature(repo: str, sha: str, check_name: str, conclusion: str) -> dict | None:
@@ -42,11 +45,53 @@ def get_tee_signature(repo: str, sha: str, check_name: str, conclusion: str) -> 
         return None
 
 
+def store_proof_coston2(val_hash: bytes, proof: dict, repo: str, check_name: str) -> dict | None:
+    """Store TEE-signed proof on Flare Coston2 OracleProofStore."""
+    if not ORACLE_KEY or not COSTON2_PROOF_STORE:
+        return None
+    try:
+        from web3 import Web3
+        from eth_account import Account
+        from eth_abi import encode as abi_encode
+
+        w3c = Web3(Web3.HTTPProvider(COSTON2_RPC))
+        acct = Account.from_key(ORACLE_KEY)
+
+        # storeProof(bytes32, uint8, bytes32, bytes32, string, string)
+        selector = keccak(b"storeProof(bytes32,uint8,bytes32,bytes32,string,string)")[:4]
+        v = proof["v"]
+        r = bytes.fromhex(proof["r"][2:])
+        s = bytes.fromhex(proof["s"][2:])
+
+        data = "0x" + (selector + abi_encode(
+            ["bytes32", "uint8", "bytes32", "bytes32", "string", "string"],
+            [val_hash, v, r, s, repo, check_name],
+        )).hex()
+
+        tx = {
+            "from": acct.address,
+            "to": w3c.to_checksum_address(COSTON2_PROOF_STORE),
+            "data": data,
+            "nonce": w3c.eth.get_transaction_count(acct.address),
+            "gas": 300_000,
+            "gasPrice": max(w3c.eth.gas_price, 25_000_000_000),
+            "chainId": 114,
+        }
+        signed = acct.sign_transaction(tx)
+        tx_hash = w3c.eth.send_raw_transaction(signed.raw_transaction)
+        receipt = w3c.eth.wait_for_transaction_receipt(tx_hash, timeout=30)
+        return {"coston2_tx": tx_hash.hex(), "coston2_block": receipt.blockNumber}
+    except Exception as e:
+        print(f"[oracle] coston2 store failed: {e}")
+        return None
+
+
 def submit_tee_validation(repo: str, sha: str, check_name: str) -> dict | None:
     """
     Full oracle flow:
       1. Get TEE-signed proof
-      2. Submit signature to Arc's ValidationRegistry
+      2. Store proof on Flare Coston2 (cross-chain attestation)
+      3. Submit signature to Arc's ValidationRegistry
     """
     if not VALIDATION:
         return None
@@ -57,10 +102,13 @@ def submit_tee_validation(repo: str, sha: str, check_name: str) -> dict | None:
     # Compute validation hash (same as before for on-chain lookup)
     val_hash = keccak(f"ci-proof:{repo}:{sha}:{check_name}".encode())
 
+    # Store proof on Flare Coston2 (cross-chain attestation)
+    coston2_result = None
     if proof:
-        # Submit validation with TEE attestation
-        # Pack: validation_response(bytes32 val_hash, uint8 score, bytes32 proof_hash, string memo)
-        # The proof_hash now contains the TEE signer address for verification
+        coston2_result = store_proof_coston2(val_hash, proof, repo, check_name)
+
+    if proof:
+        # Submit validation with TEE attestation to Arc
         proof_hash = keccak(
             bytes.fromhex(proof["signer"][2:])
             + bytes.fromhex(proof["message_hash"][2:])
@@ -89,6 +137,7 @@ def submit_tee_validation(repo: str, sha: str, check_name: str) -> dict | None:
             "tee_attested": proof is not None,
             "tee_signer": proof["signer"] if proof else None,
             "tee_proof": proof,
+            "coston2": coston2_result,
             **result,
         }
     except Exception as e:
