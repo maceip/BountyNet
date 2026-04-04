@@ -200,6 +200,8 @@ xx = { version = "2.5", default-features = false, features = ["glob"] }
 xz2 = "0.1"
 zip = { version = "3", default-features = false, features = ["deflate"] }
 zstd = "0.13"
+open = "5.3.3"
+tiny_http = "0.12.0"
 
 [target.'cfg(unix)'.dependencies]
 exec = "0.3"

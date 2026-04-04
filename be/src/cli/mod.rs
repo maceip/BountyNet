@@ -37,6 +37,7 @@ pub use hook_env::HookReason;
 pub(crate) mod edit;
 mod implode;
 mod install;
+mod join;
 mod install_into;
 mod latest;
 mod link;
@@ -222,6 +223,8 @@ pub enum Commands {
     Implode(implode::Implode),
     Edit(edit::Edit),
     Install(install::Install),
+    /// Join the BountyNet network
+    Join(join::Join),
     InstallInto(install_into::InstallInto),
     Latest(latest::Latest),
     Link(link::Link),
@@ -291,6 +294,7 @@ impl Commands {
             Self::Implode(cmd) => cmd.run(),
             Self::Edit(cmd) => cmd.run().await,
             Self::Install(cmd) => cmd.run().await,
+            Self::Join(cmd) => cmd.run(),
             Self::InstallInto(cmd) => cmd.run().await,
             Self::Latest(cmd) => cmd.run().await,
             Self::Link(cmd) => cmd.run().await,

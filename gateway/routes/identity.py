@@ -7,8 +7,10 @@ GET  /identity/<agent_id> — wallet, balances, ENS name, roles
 import os
 import json
 import subprocess
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, redirect
 from gateway.chain import get_agent_wallet, eurc_balance, get_next_agent_id, w3, ESCROW
+
+DYNAMIC_ENV_ID = os.environ.get("DYNAMIC_ENV_ID", "")
 
 identity_bp = Blueprint("identity", __name__)
 
@@ -22,6 +24,18 @@ def call_dynamic(cmd: str, arg: str) -> dict:
     if result.returncode != 0:
         return {"error": result.stderr.strip()}
     return json.loads(result.stdout)
+
+
+@identity_bp.route("/identity/login")
+def login():
+    """
+    Redirect to Dynamic auth. After login, Dynamic redirects back
+    to the redirect_uri with a JWT token.
+    Used by `be join` — opens browser to this URL.
+    """
+    redirect_uri = request.args.get("redirect_uri", "http://localhost:9876/callback")
+    dynamic_url = f"https://app.dynamic.xyz/connect/{DYNAMIC_ENV_ID}?redirect_uri={redirect_uri}"
+    return redirect(dynamic_url)
 
 
 @identity_bp.route("/identity/onboard", methods=["POST"])
