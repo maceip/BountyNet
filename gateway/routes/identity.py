@@ -69,14 +69,31 @@ def onboard():
 
     address = evm["address"] if evm else None
 
-    emit("agent", f"Agent onboarded: {external_id} → {address[:10]}..." if address else f"Agent onboarded: {external_id}",
-         data={"external_id": external_id, "wallet": address})
+    # Look up on-chain agent ID for this wallet
+    agent_id = None
+    ens_name = None
+    if address:
+        try:
+            from eth_abi import encode as abi_encode
+            next_id = get_next_agent_id()
+            for i in range(1, min(next_id, 200)):
+                w = get_agent_wallet(i)
+                if w and w.lower() == address.lower():
+                    agent_id = i
+                    ens_name = f"agent-{i}.maceip.eth"
+                    break
+        except Exception:
+            pass
+
+    emit("agent", f"Agent onboarded: {external_id} → {address[:10]}... (agent #{agent_id})" if address else f"Agent onboarded: {external_id}",
+         agent_id=agent_id, data={"external_id": external_id, "wallet": address})
 
     return jsonify({
         "external_id": external_id,
         "dynamic_user_id": user.get("userId"),
+        "agent_id": agent_id,
         "wallet": address,
-        "ens": None,  # assigned after on-chain registration
+        "ens": ens_name,
         "roles": ["staker", "solver"],
     })
 

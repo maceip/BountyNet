@@ -156,8 +156,11 @@ function AuthenticatedMain() {
       <div className="dashboard-card">
         <Card title="Actions">
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <Button>Create Bounty</Button>
-            <Button variant="outline">Watch for Bounties</Button>
+            <Button onClick={() => window.location.href = '/setup?installation_id=121423466'}>Create Bounty</Button>
+            <Button variant="outline" onClick={() => {
+              navigator.clipboard.writeText('be bounty watch --gateway https://gateway.stare.network')
+              alert('Copied to clipboard:\nbe bounty watch --gateway https://gateway.stare.network')
+            }}>Watch for Bounties</Button>
           </div>
           <div style={{
             fontFamily: font.family,
