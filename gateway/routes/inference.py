@@ -1,19 +1,25 @@
 """
-Inference proxy — routes solver LLM calls through staker's API key.
+Inference proxy — meters solver LLM calls against staker's deposited API key.
 
-Two modes:
-  1. API key budget: Joe deposits his Anthropic/OpenAI key + token budget.
-     Vishy's solver calls go through Joe's key. Joe never sees Vishy's prompts.
-  2. EURC escrow: staker locked EURC on-chain. Proxy uses platform key.
+No external dependency. No middleman. Direct to provider.
 
-Auth: Bearer bnet_<agent_id>:<context_hash>
+Key resolution:
+  1. Staker deposited their Anthropic/OpenAI key → route direct to that provider
+  2. Platform key → BountyNet's own key, metered against EURC escrow
+
+The proxy:
+  - Accepts OpenAI-compatible and Anthropic-compatible requests
+  - Detects provider from model name (claude* → Anthropic, gpt* → OpenAI)
+  - Uses the staker's key for that provider
+  - Meters tokens, deducts from budget
+  - Returns response with _bountynet metadata
 
 Endpoints:
-  POST /v1/messages          — Anthropic
-  POST /v1/chat/completions  — OpenAI
-  POST /budget/deposit       — Joe deposits API key + budget
-  GET  /budget/<context_hash> — check remaining budget
-  GET  /credits/<agent_id>   — solver's earned credits
+  POST /v1/messages          — Anthropic format
+  POST /v1/chat/completions  — OpenAI format
+  POST /budget/deposit       — staker deposits key + budget
+  GET  /budget/<context_hash>
+  GET  /credits/<agent_id>
 """
 import os
 from flask import Blueprint, request, jsonify, Response
@@ -22,40 +28,22 @@ from gateway.chain import get_bounty
 
 inference_bp = Blueprint("inference", __name__)
 
-# Platform fallback keys (used when staker pays EURC, not API key)
 PLATFORM_ANTHROPIC = os.environ.get("ANTHROPIC_API_KEY", "")
 PLATFORM_OPENAI = os.environ.get("OPENAI_API_KEY", "")
 
-PRICING = {
-    "claude-sonnet-4-20250514": {"input": 3_000_000, "output": 15_000_000},
-    "claude-haiku-3-5-20241022": {"input": 800_000, "output": 4_000_000},
-    "gpt-4o": {"input": 2_500_000, "output": 10_000_000},
-    "gpt-4o-mini": {"input": 150_000, "output": 600_000},
-    "default": {"input": 3_000_000, "output": 15_000_000},
+PROVIDERS = {
+    "anthropic": "https://api.anthropic.com/v1/messages",
+    "openai": "https://api.openai.com/v1/chat/completions",
 }
 
-# ── Budget store ────────────────────────────────────────────────
-# context_hash → { anthropic_key, openai_key, budget_tokens, used_tokens, staker }
 budgets: dict = {}
-
-# agent_id → { total, used } (for EURC escrow mode)
 credits: dict = {}
 
 
-# ── Budget management (Joe's path) ─────────────────────────────
+# ── Budget ──────────────────────────────────────────────────────
 
 @inference_bp.route("/budget/deposit", methods=["POST"])
-def deposit_budget():
-    """
-    Joe deposits his API key and sets a token budget for a bounty.
-    Body: {
-        "context_hash": "0x...",
-        "anthropic_key": "sk-ant-...",  (optional)
-        "openai_key": "sk-...",         (optional)
-        "budget_tokens": 100000,
-        "staker": "github:joe"
-    }
-    """
+def deposit():
     body = request.json or {}
     ctx = body.get("context_hash")
     if not ctx:
@@ -68,9 +56,7 @@ def deposit_budget():
         "openai_key": body.get("openai_key", ""),
         "budget_tokens": body.get("budget_tokens", 100_000),
         "used_tokens": 0,
-        "staker": body.get("staker", ""),
     }
-
     return jsonify({"status": "deposited", "context_hash": ctx, "budget": budgets[ctx]["budget_tokens"]})
 
 
@@ -79,63 +65,60 @@ def check_budget(context_hash):
     b = budgets.get(context_hash)
     if not b:
         return jsonify({"error": "no budget"}), 404
-    return jsonify({
-        "context_hash": context_hash,
-        "budget_tokens": b["budget_tokens"],
-        "used_tokens": b["used_tokens"],
-        "remaining": b["budget_tokens"] - b["used_tokens"],
-    })
+    return jsonify({"budget": b["budget_tokens"], "used": b["used_tokens"], "remaining": b["budget_tokens"] - b["used_tokens"]})
 
 
 @inference_bp.route("/credits/<int:agent_id>")
 def agent_credits(agent_id):
-    c = credits.get(agent_id)
-    if not c:
-        return jsonify({"agent_id": agent_id, "total": 0, "used": 0, "remaining": 0})
+    c = credits.get(agent_id, {"total": 0, "used": 0})
     return jsonify({"agent_id": agent_id, **c, "remaining": c["total"] - c["used"]})
 
 
-# ── Key resolution ──────────────────────────────────────────────
+# ── Internals ───────────────────────────────────────────────────
 
-def resolve_keys(ctx_hash: str) -> tuple[str, str, dict | None]:
-    """
-    Resolve which API keys to use for this bounty.
-    Returns (anthropic_key, openai_key, budget_or_none)
-    """
-    budget = budgets.get(ctx_hash)
-    if budget:
-        return budget["anthropic_key"] or PLATFORM_ANTHROPIC, budget["openai_key"] or PLATFORM_OPENAI, budget
-    return PLATFORM_ANTHROPIC, PLATFORM_OPENAI, None
-
-
-def check_and_deduct(budget: dict | None, agent_id: int, model: str, input_t: int, output_t: int) -> int:
-    """Deduct tokens from budget (API key mode) or credits (EURC mode)."""
-    total = input_t + output_t
-
-    if budget:
-        budget["used_tokens"] += total
-        return total
-
-    # EURC mode
-    p = PRICING.get(model, PRICING["default"])
-    cost = (input_t * p["input"] + output_t * p["output"]) // 1_000_000
-    if agent_id in credits:
-        credits[agent_id]["used"] += cost
-    return cost
-
-
-# ── Auth ────────────────────────────────────────────────────────
-
-def parse_token(auth: str):
-    for prefix in ["Bearer bnet_", "bnet_"]:
-        if auth.startswith(prefix):
+def parse_token(auth):
+    for pfx in ["Bearer bnet_", "bnet_"]:
+        if auth.startswith(pfx):
             try:
-                t = auth[len(prefix):]
-                a, c = t.split(":", 1)
+                a, c = auth[len(pfx):].split(":", 1)
                 return int(a), c
             except (ValueError, IndexError):
                 pass
     return None
+
+
+def detect_provider(model: str) -> str:
+    if "claude" in model.lower():
+        return "anthropic"
+    return "openai"
+
+
+def get_key(ctx_hash: str, provider: str) -> tuple[str, dict | None]:
+    budget = budgets.get(ctx_hash)
+    if budget:
+        key = budget.get(f"{provider}_key", "")
+        if key:
+            return key, budget
+    # Fallback to platform key
+    if provider == "anthropic":
+        return PLATFORM_ANTHROPIC, budget
+    return PLATFORM_OPENAI, budget
+
+
+def meter(budget, agent_id, input_t, output_t):
+    total = input_t + output_t
+    if budget:
+        budget["used_tokens"] += total
+    if agent_id in credits:
+        credits[agent_id]["used"] += total
+    return total
+
+
+def budget_remaining(agent_id, ctx_hash, budget):
+    if budget:
+        return budget["budget_tokens"] - budget["used_tokens"]
+    c = credits.get(agent_id)
+    return (c["total"] - c["used"]) if c else 0
 
 
 def init_credits(agent_id, ctx_hash):
@@ -146,39 +129,94 @@ def init_credits(agent_id, ctx_hash):
             credits[agent_id] = {"total": bounty["amount"] * 70 // 100, "used": 0}
 
 
-def remaining(agent_id, ctx_hash, budget):
-    if budget:
-        return budget["budget_tokens"] - budget["used_tokens"]
-    if agent_id in credits:
-        return credits[agent_id]["total"] - credits[agent_id]["used"]
-    return 0
-
-
-# ── Anthropic endpoint ──────────────────────────────────────────
-
-@inference_bp.route("/v1/messages", methods=["POST"])
-def anthropic():
+def check_auth():
     auth = request.headers.get("Authorization", "") or request.headers.get("x-api-key", "")
     bnet = parse_token(auth)
-
     if not bnet:
-        return jsonify({"error": "auth required: Bearer bnet_<agent>:<context>"}), 401
-
+        return None, None, None, None
     agent_id, ctx_hash = bnet
-    anthropic_key, _, budget = resolve_keys(ctx_hash)
-
+    budget = budgets.get(ctx_hash)
     if not budget:
         init_credits(agent_id, ctx_hash)
+    return agent_id, ctx_hash, budget, budget_remaining(agent_id, ctx_hash, budget)
 
-    if remaining(agent_id, ctx_hash, budget) <= 0:
-        return jsonify({"error": "budget exhausted", "type": "rate_limit_error"}), 429
 
-    if not anthropic_key:
-        return jsonify({"error": "no anthropic key configured for this bounty"}), 500
+# ── OpenAI-compatible ───────────────────────────────────────────
+
+@inference_bp.route("/v1/chat/completions", methods=["POST"])
+def chat_completions():
+    agent_id, ctx_hash, budget, rem = check_auth()
+    if agent_id is None:
+        return jsonify({"error": {"message": "Bearer bnet_<agent>:<context> required"}}), 401
+    if rem <= 0:
+        return jsonify({"error": {"message": "budget exhausted"}}), 429
 
     body = request.json
-    resp = http.post("https://api.anthropic.com/v1/messages", headers={
-        "x-api-key": anthropic_key,
+    model = body.get("model", "gpt-4o")
+    provider = detect_provider(model)
+    key, budget = get_key(ctx_hash, provider)
+
+    if not key:
+        return jsonify({"error": {"message": f"no {provider} key for this bounty"}}), 500
+
+    if provider == "anthropic":
+        # Convert OpenAI format → Anthropic, call direct, convert back
+        messages = body.get("messages", [])
+        system = next((m["content"] for m in messages if m["role"] == "system"), None)
+        user_msgs = [m for m in messages if m["role"] != "system"]
+        a_body = {"model": model, "max_tokens": body.get("max_tokens", 4096), "messages": user_msgs}
+        if system:
+            a_body["system"] = system
+
+        resp = http.post(PROVIDERS["anthropic"], headers={
+            "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json",
+        }, json=a_body)
+
+        if resp.status_code == 200:
+            data = resp.json()
+            u = data.get("usage", {})
+            cost = meter(budget, agent_id, u.get("input_tokens", 0), u.get("output_tokens", 0))
+            return jsonify({
+                "id": data.get("id"), "object": "chat.completion", "model": model,
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": data["content"][0]["text"]}, "finish_reason": data.get("stop_reason", "stop")}],
+                "usage": {"prompt_tokens": u.get("input_tokens", 0), "completion_tokens": u.get("output_tokens", 0)},
+                "_bountynet": {"cost": cost, "remaining": budget_remaining(agent_id, ctx_hash, budget)},
+            })
+        return Response(resp.content, status=resp.status_code, content_type=resp.headers.get("content-type"))
+
+    # OpenAI direct
+    resp = http.post(PROVIDERS["openai"], headers={
+        "Authorization": f"Bearer {key}", "Content-Type": "application/json",
+    }, json=body)
+
+    if resp.status_code == 200:
+        data = resp.json()
+        u = data.get("usage", {})
+        cost = meter(budget, agent_id, u.get("prompt_tokens", 0), u.get("completion_tokens", 0))
+        data["_bountynet"] = {"cost": cost, "remaining": budget_remaining(agent_id, ctx_hash, budget)}
+        return jsonify(data)
+    return Response(resp.content, status=resp.status_code, content_type=resp.headers.get("content-type"))
+
+
+# ── Anthropic-compatible ────────────────────────────────────────
+
+@inference_bp.route("/v1/messages", methods=["POST"])
+def anthropic_messages():
+    agent_id, ctx_hash, budget, rem = check_auth()
+    if agent_id is None:
+        return jsonify({"error": "auth required", "type": "authentication_error"}), 401
+    if rem <= 0:
+        return jsonify({"error": "budget exhausted", "type": "rate_limit_error"}), 429
+
+    body = request.json
+    model = body.get("model", "")
+    key, budget = get_key(ctx_hash, "anthropic")
+
+    if not key:
+        return jsonify({"error": "no anthropic key", "type": "authentication_error"}), 500
+
+    resp = http.post(PROVIDERS["anthropic"], headers={
+        "x-api-key": key,
         "anthropic-version": request.headers.get("anthropic-version", "2023-06-01"),
         "content-type": "application/json",
     }, json=body)
@@ -186,46 +224,7 @@ def anthropic():
     if resp.status_code == 200:
         data = resp.json()
         u = data.get("usage", {})
-        cost = check_and_deduct(budget, agent_id, body.get("model", ""), u.get("input_tokens", 0), u.get("output_tokens", 0))
-        data["_bountynet"] = {"cost": cost, "remaining": remaining(agent_id, ctx_hash, budget), "mode": "api_key" if budget else "eurc"}
+        cost = meter(budget, agent_id, u.get("input_tokens", 0), u.get("output_tokens", 0))
+        data["_bountynet"] = {"cost": cost, "remaining": budget_remaining(agent_id, ctx_hash, budget)}
         return jsonify(data)
-
-    return Response(resp.content, status=resp.status_code, content_type=resp.headers.get("content-type"))
-
-
-# ── OpenAI endpoint ─────────────────────────────────────────────
-
-@inference_bp.route("/v1/chat/completions", methods=["POST"])
-def openai():
-    auth = request.headers.get("Authorization", "")
-    bnet = parse_token(auth)
-
-    if not bnet:
-        return jsonify({"error": {"message": "auth required"}}), 401
-
-    agent_id, ctx_hash = bnet
-    _, openai_key, budget = resolve_keys(ctx_hash)
-
-    if not budget:
-        init_credits(agent_id, ctx_hash)
-
-    if remaining(agent_id, ctx_hash, budget) <= 0:
-        return jsonify({"error": {"message": "budget exhausted"}}), 429
-
-    if not openai_key:
-        return jsonify({"error": {"message": "no openai key for this bounty"}}), 500
-
-    body = request.json
-    resp = http.post("https://api.openai.com/v1/chat/completions", headers={
-        "Authorization": f"Bearer {openai_key}",
-        "Content-Type": "application/json",
-    }, json=body)
-
-    if resp.status_code == 200:
-        data = resp.json()
-        u = data.get("usage", {})
-        cost = check_and_deduct(budget, agent_id, body.get("model", ""), u.get("prompt_tokens", 0), u.get("completion_tokens", 0))
-        data["_bountynet"] = {"cost": cost, "remaining": remaining(agent_id, ctx_hash, budget), "mode": "api_key" if budget else "eurc"}
-        return jsonify(data)
-
     return Response(resp.content, status=resp.status_code, content_type=resp.headers.get("content-type"))
