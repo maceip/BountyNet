@@ -1,0 +1,158 @@
+"""
+SimJoe — automated staker that exercises the Joe journey through the browser.
+
+Uses browser-use to automate:
+  1. Visit bountynet.stare.network
+  2. Click "Install GitHub App" → land on GitHub install page
+  3. Navigate to /setup?installation_id=demo
+  4. Watch the repo scan happen
+  5. Paste an API key, set budget slider
+  6. Click "Activate"
+  7. Verify success screen
+  8. Go back to dashboard, check if bounties appear
+  9. Wait for a solver to submit a PR (poll dashboard)
+
+Usage:
+  export ANTHROPIC_API_KEY=sk-ant-...
+  uv run python sim/sim_joe.py --task full_flow
+  uv run python sim/sim_joe.py --task setup_only --headless
+"""
+import asyncio
+import argparse
+import logging
+import os
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [sim-joe] %(message)s")
+log = logging.getLogger("sim-joe")
+
+SITE = os.environ.get("BOUNTYNET_URL", "https://bountynet.stare.network")
+GATEWAY = os.environ.get("BOUNTYNET_GATEWAY", "https://gateway.stare.network")
+
+
+async def run_joe(headless: bool = False, task: str = "full_flow", api_key_to_paste: str = ""):
+    from browser_use import Agent
+    from browser_use.llm import ChatAnthropic
+
+    llm = ChatAnthropic(
+        model="claude-sonnet-4-20250514",
+        api_key=os.environ.get("ANTHROPIC_API_KEY", ""),
+    )
+
+    instructions = f"""You are Joe, a developer who owns repos with failing CI.
+You are testing the BountyNet staker onboarding at {SITE}.
+You have never used BountyNet before. You have no crypto knowledge.
+
+Your task: {_get_task_prompt(task, api_key_to_paste)}
+
+Important:
+- You are a staker, not a solver
+- You care about getting your CI fixed, not about earning crypto
+- Note everything you see — judges will review this
+- If something is confusing or broken, say so clearly
+- Take your time, read the page before clicking
+"""
+
+    agent = Agent(
+        task=instructions,
+        llm=llm,
+        browser_config={"headless": headless},
+        generate_gif=f"sim_joe_{task}.gif",
+    )
+
+    result = await agent.run()
+    log.info("sim-joe completed: %s", _summarize(result))
+    return result
+
+
+def _get_task_prompt(task: str, api_key: str) -> str:
+    fake_key = api_key or "sk-ant-demo-key-for-testing-1234567890"
+
+    prompts = {
+        "landing": f"""
+1. Go to {SITE}
+2. Read the hero section. What does BountyNet claim to do?
+3. Is there a clear call-to-action? What buttons do you see?
+4. Scroll down. What sections are there?
+5. Is there a bounty feed? What bounties are listed?
+6. Check the Network stats. Is the system live?
+7. Would you, as a developer, understand what this does in 10 seconds?
+8. Report: first impressions, clarity, what's missing
+""",
+        "install_flow": f"""
+1. Go to {SITE}
+2. Find and click the "Install GitHub App" button
+3. You should land on a GitHub page. What does it show?
+4. DO NOT actually install — just note what the page looks like
+5. Go back to {SITE}
+6. Report: is the install flow clear? Would a dev trust this?
+""",
+        "setup_only": f"""
+1. Go to {SITE}/setup?installation_id=demo
+2. What do you see? Is there a loading/scanning state?
+3. Wait for the scan to complete (or timeout)
+4. Are repos listed? Do they have status indicators?
+5. Find the API key input. Type this test key: {fake_key}
+6. Find the budget slider. Move it to about 200k tokens
+7. Check the cost estimate — does it update?
+8. Look for the "Activate" button. Is it enabled now?
+9. Click "Activate" and note what happens
+10. Report: setup flow completeness, UX quality, any confusion
+""",
+        "full_flow": f"""
+You are Joe. You just heard about BountyNet at a hackathon. Walk through the entire staker experience:
+
+1. Go to {SITE}
+2. Read the landing page. Understand what BountyNet does.
+3. Click "Install GitHub App" — note the GitHub page, then go back
+4. Now go to {SITE}/setup?installation_id=demo (pretend you just installed)
+5. Watch the scan results load
+6. Look at what it found — any CI failures? Any suggestions?
+7. In the API key field, type: {fake_key}
+8. Adjust the budget slider to your preference
+9. Click "Activate"
+10. On the success screen — what does it tell you?
+11. Go back to {SITE} main page
+12. Check if anything changed on the dashboard
+13. Report your full experience:
+    - Was onboarding clear?
+    - Did you understand what you were paying for?
+    - Would you trust this with your API key?
+    - What was confusing?
+    - What was impressive?
+""",
+        "check_bounties": f"""
+1. Go to {SITE}
+2. Look for any active bounties on the page
+3. Go to {GATEWAY}/bounties and check the raw API response
+4. Compare — does the website show the same bounties as the API?
+5. Click on any bounty if possible
+6. Report: bounty visibility, data accuracy, navigation
+""",
+    }
+    return prompts.get(task, prompts["full_flow"])
+
+
+def _summarize(result) -> str:
+    try:
+        results = result.all_results
+        errors = sum(1 for r in results if r.error)
+        done = any(r.is_done for r in results)
+        return f"steps={len(results)} errors={errors} done={done}"
+    except Exception:
+        return str(result)[:200]
+
+
+def main():
+    p = argparse.ArgumentParser(description="SimJoe — browser-automated staker")
+    p.add_argument("--headless", action="store_true")
+    p.add_argument("--task", default="full_flow",
+                   choices=["landing", "install_flow", "setup_only", "full_flow", "check_bounties"])
+    p.add_argument("--api-key", default="", help="Fake API key to paste in setup")
+    args = p.parse_args()
+
+    log.info("starting sim-joe task=%s headless=%s", args.task, args.headless)
+    asyncio.run(run_joe(args.headless, args.task, args.api_key))
+
+
+if __name__ == "__main__":
+    main()
