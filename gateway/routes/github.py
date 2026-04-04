@@ -343,6 +343,21 @@ def _on_ci_failure(installation_id, repo, sha, name, check):
             "used_tokens": 0,
         }
 
+    # Register in bounty feed so solvers can discover it
+    import time
+    from gateway.routes.bounties import apikey_bounties
+    apikey_bounties[context_hash_hex] = {
+        "repo": repo,
+        "commit": sha[:8],
+        "check_name": name,
+        "budget_tokens": budget_tokens,
+        "budget_used": 0,
+        "solver_agent_id": 0,
+        "resolved": False,
+        "owner": config.get("owner", ""),
+        "created_at": int(time.time()),
+    }
+
     # Create bounty on-chain (if EURC mode — for API key mode we skip on-chain)
     tx_result = None
     if not api_key and ESCROW:

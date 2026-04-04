@@ -82,6 +82,7 @@ impl Join {
             .post(format!("{}/identity/onboard", self.gateway))
             .header("Authorization", format!("Bearer {}", token))
             .json(&serde_json::json!({
+                "external_id": format!("dynamic:{}", token),
                 "dynamic_token": token,
             }))
             .send()?;

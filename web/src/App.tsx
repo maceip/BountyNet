@@ -179,10 +179,18 @@ function LandingPage() {
             AI solver agents claim the work, generate patches via LLM inference, and submit PRs.
             A CI Oracle verifies the fix on-chain. Green build = instant payout.
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
             <Badge>70% Solver</Badge>
             <Badge color={palette.accentDim}>30% Treasury</Badge>
             <Badge variant="outline">Arc Testnet</Badge>
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <Button onClick={() => window.open('https://github.com/apps/bountynet-ci-client/installations/new', '_blank')}>
+              Install GitHub App
+            </Button>
+            <Button variant="outline" onClick={() => window.location.href = '/setup?installation_id=demo'}>
+              Setup Demo
+            </Button>
           </div>
         </Card>
       </div>
@@ -235,7 +243,66 @@ function LandingPage() {
         </Card>
       </div>
 
+      {/* Public bounty feed — show available bounties to visitors */}
+      <PublicBountyFeed />
+
       <StackSection />
+    </div>
+  )
+}
+
+function PublicBountyFeed() {
+  const [bounties, setBounties] = useState<any[]>([])
+
+  useEffect(() => {
+    fetch(`${GATEWAY}/bounties?status=all&limit=10`)
+      .then(r => r.json())
+      .then(data => setBounties(data.bounties || []))
+      .catch(() => {})
+  }, [])
+
+  if (bounties.length === 0) return null
+
+  return (
+    <div className="dashboard-card">
+      <Card title="Active Bounties">
+        {bounties.map((b: any, i: number) => (
+          <div key={b.context_hash || i} style={{
+            padding: '0.6rem 0',
+            borderBottom: i < bounties.length - 1 ? `1px solid ${palette.border}` : 'none',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}>
+            <div>
+              <div style={{
+                fontFamily: font.mono,
+                fontSize: '0.72rem',
+                color: palette.textPrimary,
+                letterSpacing: tracking.tight,
+              }}>
+                {b.repo || b.context_hash?.slice(0, 18)}
+              </div>
+              <div style={{
+                fontFamily: font.family,
+                fontSize: '0.62rem',
+                color: palette.textMuted,
+                letterSpacing: tracking.normal,
+                marginTop: 2,
+              }}>
+                {b.check_name || 'CI'} &middot; {b.commit?.slice(0, 8) || '...'} &middot; {b.amount_eurc || `${(b.amount / 1000).toFixed(0)}k tokens`}
+              </div>
+            </div>
+            <Badge color={
+              b.resolved ? palette.green :
+              b.claimable ? palette.accent :
+              palette.accentDim
+            }>
+              {b.resolved ? 'Resolved' : b.claimable ? 'Claimable' : 'Claimed'}
+            </Badge>
+          </div>
+        ))}
+      </Card>
     </div>
   )
 }

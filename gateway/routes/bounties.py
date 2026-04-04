@@ -13,6 +13,10 @@ from gateway.chain import w3, ESCROW, get_bounty, sig, send_tx
 
 bounties_bp = Blueprint("bounties", __name__)
 
+# In-memory bounty store for API-key-mode bounties (not on-chain)
+# context_hash_hex → { repo, commit, check_name, budget_tokens, budget_used, claimable, solver_agent_id, created_at }
+apikey_bounties: dict = {}
+
 
 def bounty_feed_snapshot() -> dict:
     """
@@ -45,6 +49,24 @@ def bounty_feed_snapshot() -> dict:
                     **bounty,
                     "amount_eurc": f"{bounty['amount'] / 1e6:.2f}",
                     "claimable": bounty["solver_agent_id"] == 0,
+                })
+
+        # Merge in API-key-mode bounties (not on-chain)
+        for ctx_hex, ab in apikey_bounties.items():
+            if not ab.get("resolved"):
+                bounties.append({
+                    "context_hash": ctx_hex,
+                    "creator": ab.get("owner", ""),
+                    "amount": ab.get("budget_tokens", 0),
+                    "amount_eurc": f"{ab.get('budget_tokens', 0) / 1000:.1f}k tokens",
+                    "repo": ab.get("repo", ""),
+                    "check_name": ab.get("check_name", ""),
+                    "commit": ab.get("commit", ""),
+                    "solver_agent_id": ab.get("solver_agent_id", 0),
+                    "claimable": ab.get("solver_agent_id", 0) == 0,
+                    "resolved": False,
+                    "cancelled": False,
+                    "budget_mode": "api_key",
                 })
 
         return {"bounties": bounties, "count": len(bounties)}
@@ -112,6 +134,20 @@ def create_bounty():
             "used_tokens": 0,
         }
 
+        # Store in bounty feed so solvers can see it
+        import time
+        apikey_bounties[context_hash_hex] = {
+            "repo": repo,
+            "commit": commit[:8],
+            "check_name": check_name,
+            "budget_tokens": budget_tokens,
+            "budget_used": 0,
+            "solver_agent_id": 0,
+            "resolved": False,
+            "owner": body.get("owner", ""),
+            "created_at": int(time.time()),
+        }
+
         return jsonify({
             "context_hash": context_hash_hex,
             "status": "created",
@@ -163,12 +199,39 @@ def claim_bounty(context_hash: str):
     if not agent_id:
         return jsonify({"error": "agent_id required"}), 400
 
+    # Check API-key-mode bounties first
+    ab = apikey_bounties.get(context_hash)
+    if ab:
+        if ab.get("solver_agent_id", 0) != 0:
+            return jsonify({"error": "already claimed"}), 409
+        if ab.get("resolved"):
+            return jsonify({"error": "bounty is closed"}), 410
+
+        ab["solver_agent_id"] = int(agent_id)
+        bnet_token = f"bnet_{agent_id}:{context_hash}"
+
+        from gateway.routes.inference import credits
+        budget = ab.get("budget_tokens", 100_000)
+        credit_amount = int(budget * 0.7)
+        credits[int(agent_id)] = credits.get(int(agent_id), {"total": 0, "used": 0})
+        credits[int(agent_id)]["total"] += credit_amount
+
+        return jsonify({
+            "status": "claimed",
+            "context_hash": context_hash,
+            "agent_id": agent_id,
+            "bnet_token": bnet_token,
+            "inference_endpoint": "https://gateway.stare.network/v1/messages",
+            "budget_remaining": budget,
+            "budget_mode": "api_key",
+        })
+
+    # On-chain EURC bounty
     if not ESCROW:
-        return jsonify({"error": "escrow not configured"}), 500
+        return jsonify({"error": "bounty not found"}), 404
 
     ctx = bytes.fromhex(context_hash[2:] if context_hash.startswith("0x") else context_hash)
 
-    # Verify bounty exists and is claimable
     bounty = get_bounty(ctx)
     if not bounty:
         return jsonify({"error": "bounty not found"}), 404
@@ -177,7 +240,6 @@ def claim_bounty(context_hash: str):
     if bounty["resolved"] or bounty["cancelled"]:
         return jsonify({"error": "bounty is closed"}), 410
 
-    # Submit claim_intent on-chain
     data = "0x" + (
         sig("claim_intent(bytes32,uint256)")
         + encode(["bytes32", "uint256"], [ctx, int(agent_id)])
@@ -188,10 +250,8 @@ def claim_bounty(context_hash: str):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-    # Generate bnet_token for inference auth
     bnet_token = f"bnet_{agent_id}:{context_hash}"
 
-    # Allocate solver credits (70% of bounty)
     from gateway.routes.inference import credits
     credit_amount = int(bounty["amount"] * 0.7)
     credits[int(agent_id)] = credits.get(int(agent_id), {"total": 0, "used": 0})
@@ -204,5 +264,6 @@ def claim_bounty(context_hash: str):
         "bnet_token": bnet_token,
         "inference_endpoint": "https://gateway.stare.network/v1/messages",
         "budget_remaining": bounty["amount"],
+        "budget_mode": "eurc",
         **result,
     })
