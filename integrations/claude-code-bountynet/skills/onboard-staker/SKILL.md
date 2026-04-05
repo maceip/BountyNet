@@ -35,6 +35,8 @@ Get the developer from zero → **joined agent** → **inference/credits visible
 
 4. Ask them to **restart Claude Code** (or `/reload-plugins`) if the status line did not appear — `statusLine` is merged into `~/.claude/settings.json`.
 
+If **another plugin** already owns `statusLine.command`, only one can win unless they **chain**: re-run `bountynet-setup` and answer **Y** when asked to chain so both lines run (`upstream` is saved in `~/.bountynet/statusline-chain.json` and combined with ` | `).
+
 ## Mock / offline demo
 
 - Export `BOUNTYNET_STATUSLINE_MOCK=1` before launching Claude Code to drive **fake** credit bumps in the status line (no gateway calls).

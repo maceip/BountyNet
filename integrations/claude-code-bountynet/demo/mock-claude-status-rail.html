@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BountyNet — Claude Code screen mock (status rail)</title>
+  <style>
+    :root {
+      --bg: #141824;
+      --panel: #1a1f2e;
+      --line: #2a3145;
+      --text: #e4e6eb;
+      --muted: #8b90a1;
+      --dim: #6d7285;
+      --pink: #ff5fd7;
+      --flash: #f5e942;
+      --green: #5cdb8c;
+      --user: #9ad0ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .shell {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      max-width: 900px;
+      margin: 0 auto;
+      border-left: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    .greeting {
+      padding: 16px 18px 10px;
+      color: var(--text);
+    }
+
+    .greeting::before {
+      content: "• ";
+      color: var(--muted);
+    }
+
+    .input-frame {
+      margin: 0 12px;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      padding: 8px 10px;
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      color: var(--muted);
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    .input-frame .prompt {
+      color: var(--muted);
+      margin-right: 8px;
+      user-select: none;
+    }
+
+    .input-frame .caret {
+      width: 8px;
+      height: 18px;
+      background: #fff;
+      margin-right: 6px;
+      animation: blink 1.1s step-end infinite;
+    }
+
+    @keyframes blink {
+      50% {
+        opacity: 0.35;
+      }
+    }
+
+    .transcript-wrap {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      mask-image: linear-gradient(to bottom, transparent 0%, #000 4%, #000 96%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 4%, #000 96%, transparent 100%);
+    }
+
+    .transcript {
+      flex: 0 0 auto;
+      width: 100%;
+      padding: 8px 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .row {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--muted);
+      font-size: 11px;
+      opacity: 0.92;
+    }
+
+    .row.assistant {
+      color: var(--text);
+    }
+
+    .row.user {
+      color: var(--user);
+    }
+
+    .row.tool {
+      color: var(--dim);
+    }
+
+    .row time-tag {
+      color: var(--dim);
+      margin-right: 6px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* “Can’t read it” — high throughput + slight smear */
+    .transcript.fast-blur .row {
+      text-shadow: 0 0 1px rgba(228, 230, 235, 0.35);
+      letter-spacing: -0.02em;
+    }
+
+    .meta-bar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-top: 1px solid var(--line);
+      font-size: 12px;
+      background: #12151f;
+      min-height: 36px;
+    }
+
+    .sim-clock {
+      color: var(--dim);
+      font-size: 11px;
+      min-width: 190px;
+    }
+
+    .status-rail {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .rail-model {
+      color: var(--dim);
+    }
+
+    .rail-bounty {
+      color: var(--pink);
+      font-weight: 600;
+    }
+
+    .rail-cr {
+      color: var(--muted);
+    }
+
+    .rail-flash {
+      color: var(--flash);
+      font-weight: 700;
+      opacity: 0;
+      transition: opacity 0.12s ease-out;
+    }
+
+    .rail-flash.on {
+      opacity: 1;
+    }
+
+    .progress-side {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+    }
+
+    .bar {
+      width: 110px;
+      height: 7px;
+      border-radius: 4px;
+      background: #2a3145;
+      overflow: hidden;
+    }
+
+    .bar > i {
+      display: block;
+      height: 100%;
+      width: 34%;
+      background: repeating-linear-gradient(
+        90deg,
+        var(--green) 0,
+        var(--green) 3px,
+        #2e8f55 3px,
+        #2e8f55 6px
+      );
+      animation: bar-drift 2.8s linear infinite;
+    }
+
+    @keyframes bar-drift {
+      from {
+        transform: translateX(-20%);
+      }
+      to {
+        transform: translateX(10%);
+      }
+    }
+
+    .pct {
+      color: var(--green);
+      font-variant-numeric: tabular-nums;
+      min-width: 3ch;
+    }
+
+    .hud {
+      position: fixed;
+      top: 10px;
+      right: 12px;
+      font-size: 10px;
+      color: var(--dim);
+      opacity: 0.85;
+      pointer-events: none;
+      text-align: right;
+      line-height: 1.3;
+    }
+  </style>
+</head>
+<body>
+  <div class="hud">
+    BountyNet b-roll mock · transcript unreadably fast<br />
+    Space = pause · R = reset timeline
+  </div>
+  <div class="shell">
+    <div class="greeting">Hey! What can I help you with?</div>
+
+    <div class="input-frame">
+      <span class="prompt">&gt;</span>
+      <span class="caret" aria-hidden="true"></span>
+      <span style="color: var(--dim)">…</span>
+    </div>
+
+    <div class="transcript-wrap">
+      <div id="transcript" class="transcript fast-blur" aria-hidden="true"></div>
+    </div>
+
+    <div class="meta-bar">
+      <div id="simClock" class="sim-clock">sim · —</div>
+      <div class="status-rail">
+        <span id="railModel" class="rail-model">[Opus 4.6 (1M context)]</span>
+        <span id="railBounty" class="rail-bounty">bounty[mock]</span>
+        <span class="rail-cr">cr <span id="railCredits">91,000</span></span>
+        <span id="railFlash" class="rail-flash"></span>
+      </div>
+      <div class="progress-side">
+        <span class="bar"><i></i></span>
+        <span id="pct" class="pct">2%</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const CONFIG = {
+        /** Wall-clock seconds for the whole “two weeks” story */
+        timelineSeconds: 55,
+        /** Simulated calendar span (ms) */
+        simSpanMs: 14 * 24 * 60 * 60 * 1000,
+        /** Lines appended per frame (tune for GPU) */
+        linesPerFrame: 3,
+        /** Fake agent id shown in pink */
+        agentId: "482910",
+        /** Starting remaining credits (integer) */
+        startCredits: 88250,
+      };
+
+      const transcript = document.getElementById("transcript");
+      const simClock = document.getElementById("simClock");
+      const railBounty = document.getElementById("railBounty");
+      const railCredits = document.getElementById("railCredits");
+      const railFlash = document.getElementById("railFlash");
+      const pctEl = document.getElementById("pct");
+
+      const startReal = performance.now();
+      let paused = false;
+      let pauseOffset = 0;
+      let pauseStart = 0;
+
+      const verbs = [
+        "Read",
+        "Edited",
+        "Glob",
+        "Grep",
+        "Running",
+        "Applied patch",
+        "Lint",
+        "Test",
+        "cargo test",
+        "bounty bounties watch tick",
+        "GET /credits/",
+        "Spawned subprocess",
+        "Thinking",
+      ];
+      const paths = [
+        "be/src/main.rs",
+        "gateway/routes/inference.py",
+        "integrations/claude-code-bountynet/lib/statusline.mjs",
+        "web/src/App.tsx",
+        "Cargo.toml",
+        ".claude/settings.json",
+        "JungleGymImmersive.kt",
+        "KeyboardExtensionLedge.kt",
+      ];
+      const assistantBits = [
+        "I’ll wire the status rail to match the ANSI layout.",
+        "Mocking two weeks of scroll in ~1 minute for b-roll.",
+        "Flash +Δ when gateway total bumps — same as statusline.mjs.",
+        "We can ship this HTML as a single-file demo under demo/.",
+      ];
+
+      function fmtCredits(n) {
+        return n.toLocaleString("en-US");
+      }
+
+      function simDate(msSinceStart) {
+        const d = new Date(Date.UTC(2026, 2, 22, 9, 0, 0) + msSinceStart);
+        return d.toLocaleString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+      }
+
+      function randomLine(simMs) {
+        const t = simDate(simMs % CONFIG.simSpanMs);
+        const r = Math.random();
+        if (r < 0.55) {
+          const v = verbs[(Math.random() * verbs.length) | 0];
+          const p = paths[(Math.random() * paths.length) | 0];
+          return { cls: "tool", text: `${v}: ${p}` };
+        }
+        if (r < 0.82)
+          return {
+            cls: "assistant",
+            text: assistantBits[(Math.random() * assistantBits.length) | 0],
+          };
+        return {
+          cls: "user",
+          text: "keep going / ship the rail / tighten the mock",
+        };
+      }
+
+      function wallElapsed() {
+        if (paused) return pauseStart - startReal - pauseOffset;
+        return performance.now() - startReal - pauseOffset;
+      }
+
+      function clamp01(x) {
+        return x < 0 ? 0 : x > 1 ? 1 : x;
+      }
+
+      let rowCount = 0;
+      const maxRows = 420;
+
+      function trimRows() {
+        while (transcript.childElementCount > maxRows) {
+          transcript.removeChild(transcript.firstChild);
+        }
+      }
+
+      let lastFlashEnd = 0;
+      let pendingDelta = 0;
+
+      function triggerFlash(delta) {
+        pendingDelta = delta;
+        lastFlashEnd = performance.now() + 2800;
+        railFlash.textContent = "+" + delta;
+        railFlash.classList.add("on");
+      }
+
+      function tickFlash(now) {
+        if (now > lastFlashEnd) railFlash.classList.remove("on");
+      }
+
+      railBounty.textContent = "bounty[" + CONFIG.agentId + "]";
+
+      let lastCreditInt = Math.round(CONFIG.startCredits);
+
+      function tickCredits(simMs, tNorm) {
+        const drift = tNorm * 3800;
+        const wave = Math.sin(simMs / 1.2e8) * 400;
+        let target = Math.round(CONFIG.startCredits + drift + wave);
+        if (Math.random() < 0.0022) target += 200 + ((Math.random() * 600) | 0);
+        if (target > lastCreditInt + 1 && Math.random() < 0.45) {
+          triggerFlash(target - lastCreditInt);
+        }
+        lastCreditInt = target;
+        railCredits.textContent = fmtCredits(target);
+      }
+
+      function onFrame(now) {
+        const w = wallElapsed();
+        const tNorm = clamp01(w / (CONFIG.timelineSeconds * 1000));
+        const simMs = tNorm * CONFIG.simSpanMs;
+        simClock.textContent =
+          "sim · " + simDate(simMs) + " · " + Math.round(tNorm * 100) + "% of 14d";
+
+        pctEl.textContent = String(2 + Math.round(tNorm * 78)) + "%";
+
+        if (!paused) {
+          for (let i = 0; i < CONFIG.linesPerFrame; i++) {
+            const row = randomLine(simMs);
+            const el = document.createElement("div");
+            el.className = "row " + row.cls;
+            const ts = document.createElement("time-tag");
+            ts.textContent = simDate(simMs + i * 4e6);
+            el.appendChild(ts);
+            el.appendChild(document.createTextNode(row.text));
+            transcript.appendChild(el);
+            rowCount++;
+          }
+          trimRows();
+          tickCredits(simMs, tNorm);
+        }
+
+        tickFlash(performance.now());
+
+        if (tNorm >= 1) {
+          paused = true;
+        }
+
+        requestAnimationFrame(onFrame);
+      }
+
+      document.addEventListener("keydown", (e) => {
+        if (e.code === "Space") {
+          e.preventDefault();
+          if (!paused) {
+            pauseStart = performance.now();
+            paused = true;
+          } else {
+            pauseOffset += performance.now() - pauseStart;
+            paused = false;
+          }
+        }
+        if (e.key === "r" || e.key === "R") {
+          location.reload();
+        }
+      });
+
+      requestAnimationFrame(onFrame);
+    })();
+  </script>
+</body>
+</html>

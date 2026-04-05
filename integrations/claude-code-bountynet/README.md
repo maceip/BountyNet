@@ -48,6 +48,12 @@ bountynet-setup
 
 **`statusLine.command`** in `~/.claude/settings.json` points at your local **`node`** plus **`lib/statusline.mjs`** inside the installed package, so moving or deleting the install breaks the line until you run **`bountynet-setup`** again.
 
+## Status line + another plugin
+
+Claude Code only supports **one** `statusLine.command` in `~/.claude/settings.json`, so a second skill that edits the same field can hide BountyNet (or the other way around).
+
+Running **`bountynet-setup`** when something else is already configured prompts: **chain** (run the old command first, then BountyNet — combined with ` | `) or **replace** (BountyNet only). The upstream command is stored in `~/.bountynet/statusline-chain.json`. The entry script is `lib/statusline-chain.mjs`.
+
 ## Mock status line (no gateway)
 
 ```bash
