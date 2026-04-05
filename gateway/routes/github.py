@@ -518,6 +518,80 @@ def setup():
     })
 
 
+@github_bp.route("/github/test-key", methods=["POST"])
+def test_key():
+    """
+    Quick provider sanity check for setup flow.
+    Body: { "api_key": "sk-ant-..." }
+    """
+    body = request.json or {}
+    api_key = (body.get("api_key") or "").strip()
+    if not api_key:
+        return jsonify({"error": "api_key required"}), 400
+
+    try:
+        if api_key.startswith("sk-ant-"):
+            resp = requests.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-3-5-haiku-latest",
+                    "max_tokens": 32,
+                    "messages": [{"role": "user", "content": "Reply with exactly: BountyNet key works."}],
+                },
+                timeout=15,
+            )
+            data = resp.json()
+            if resp.ok:
+                text = ""
+                for item in data.get("content", []):
+                    if item.get("type") == "text":
+                        text += item.get("text", "")
+                return jsonify({
+                    "ok": True,
+                    "provider": "anthropic",
+                    "text": text.strip() or "BountyNet key works.",
+                })
+            return jsonify({
+                "ok": False,
+                "provider": "anthropic",
+                "error": data.get("error", {}).get("message", "Anthropic key test failed"),
+            }), 400
+
+        resp = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "content-type": "application/json",
+            },
+            json={
+                "model": "gpt-4o-mini",
+                "messages": [{"role": "user", "content": "Reply with exactly: BountyNet key works."}],
+                "max_tokens": 24,
+            },
+            timeout=15,
+        )
+        data = resp.json()
+        if resp.ok:
+            text = (((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
+            return jsonify({
+                "ok": True,
+                "provider": "openai",
+                "text": text or "BountyNet key works.",
+            })
+        return jsonify({
+            "ok": False,
+            "provider": "openai",
+            "error": data.get("error", {}).get("message", "OpenAI key test failed"),
+        }), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 502
+
+
 @github_bp.route("/github/repos/<int:installation_id>")
 def list_installation_repos(installation_id):
     """List repos for an installation (called by setup page)."""

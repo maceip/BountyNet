@@ -1,6 +1,5 @@
 """Shared Web3 connection + contract helpers for all routes."""
 import os
-import json
 from web3 import Web3
 from eth_account import Account
 from eth_utils import keccak
@@ -8,7 +7,9 @@ from eth_abi import encode
 from flask import jsonify
 
 ARC_RPC = os.environ.get("QUICKNODE_ARC_HTTP", "https://rpc.testnet.arc.network")
+ARC_RPC_FALLBACK = os.environ.get("ARC_RPC_FALLBACK", "https://rpc.testnet.arc.network")
 w3 = Web3(Web3.HTTPProvider(ARC_RPC))
+w3_fallback = Web3(Web3.HTTPProvider(ARC_RPC_FALLBACK))
 
 ESCROW = os.environ.get("BOUNTY_ESCROW", "")
 IDENTITY = os.environ.get("IDENTITY_REGISTRY", "")
@@ -22,7 +23,35 @@ def sig(s: str) -> bytes:
 
 
 def call(to: str, data: str):
-    return w3.eth.call({"to": w3.to_checksum_address(to), "data": data})
+    checksum = w3.to_checksum_address(to)
+    errors: list[str] = []
+    for client in (w3, w3_fallback):
+        try:
+            return client.eth.call({"to": checksum, "data": data})
+        except Exception as e:
+            errors.append(str(e))
+    raise RuntimeError(" | ".join(errors))
+
+
+def current_block() -> tuple[int, str]:
+    errors: list[str] = []
+    for label, client in (("primary", w3), ("fallback", w3_fallback)):
+        try:
+            return client.eth.block_number, label
+        except Exception as e:
+            errors.append(str(e))
+    raise RuntimeError(" | ".join(errors))
+
+
+def native_balance(addr: str) -> float:
+    checksum = w3.to_checksum_address(addr)
+    errors: list[str] = []
+    for client in (w3, w3_fallback):
+        try:
+            return client.eth.get_balance(checksum) / 1e18
+        except Exception as e:
+            errors.append(str(e))
+    raise RuntimeError(" | ".join(errors))
 
 
 def send_tx(to: str, data: str, key: str = ORACLE_KEY) -> dict:
@@ -78,11 +107,12 @@ def eurc_balance(addr: str) -> float:
 
 def get_health():
     try:
-        block = w3.eth.block_number
+        block, source = current_block()
         agents = get_next_agent_id() - 1
         return jsonify({
             "status": "ok",
             "arc_block": block,
+            "arc_rpc_source": source,
             "registered_agents": agents,
             "escrow": ESCROW,
             "identity": IDENTITY,

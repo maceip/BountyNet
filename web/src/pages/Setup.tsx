@@ -45,7 +45,7 @@ interface ScanResult {
   results: RepoScan[]
 }
 
-type Phase = 'loading' | 'scanning' | 'configure' | 'activating' | 'done'
+type Phase = 'loading' | 'configure' | 'testing' | 'activating' | 'done'
 
 // ── GitHub-like style primitives ──────────────────────────────
 
@@ -118,6 +118,8 @@ export function Setup() {
   const [selectedRepos, setSelectedRepos] = useState<Set<string>>(new Set())
   const [error, setError] = useState('')
   const [setupResult, setSetupResult] = useState<any>(null)
+  const [testState, setTestState] = useState<'idle' | 'ok' | 'error'>('idle')
+  const [testMessage, setTestMessage] = useState('')
 
   // 1. Fetch repos
   useEffect(() => {
@@ -128,42 +130,18 @@ export function Setup() {
         const r = data.repos || []
         setRepos(r)
         setSelectedRepos(new Set(r))
-        setPhase('scanning')
+        setPhase('configure')
       })
       .catch(() => {
         setRepos([])
-        setPhase('scanning')
+        setPhase('configure')
       })
   }, [installationId])
-
-  // 2. Auto-scan
-  useEffect(() => {
-    if (phase !== 'scanning' || !installationId) return
-    fetch(`${GATEWAY}/github/scan/${installationId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ repos: [...selectedRepos] }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) {
-          setError(data.error)
-          setScan({ repos_scanned: 0, total_failures: 0, total_bounties_created: 0, total_insights: 0, results: [] })
-        } else {
-          setScan(data)
-        }
-        setPhase('configure')
-      })
-      .catch(e => {
-        setError(e.message || 'Scan failed')
-        setScan({ repos_scanned: 0, total_failures: 0, total_bounties_created: 0, total_insights: 0, results: [] })
-        setPhase('configure')
-      })
-  }, [phase, installationId])
 
   // 3. Activate
   const activate = useCallback(() => {
     if (!installationId) return
+    setError('')
     setPhase('activating')
     fetch(`${GATEWAY}/github/setup`, {
       method: 'POST',
@@ -176,9 +154,53 @@ export function Setup() {
       }),
     })
       .then(r => r.json())
-      .then(data => { setSetupResult(data); setPhase('done') })
-      .catch(e => { setError(e.message); setPhase('configure') })
+      .then(data => {
+        if (data.error) throw new Error(data.error)
+        setSetupResult(data)
+        return fetch(`${GATEWAY}/github/scan/${installationId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repos: [...selectedRepos] }),
+        })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) throw new Error(data.error)
+        setScan(data)
+        setPhase('done')
+      })
+      .catch(e => {
+        setError(e.message)
+        setPhase('configure')
+      })
   }, [installationId, selectedRepos, apiKey, budgetTokens])
+
+  const testApiKey = useCallback(() => {
+    if (!apiKey) return
+    setError('')
+    setTestState('idle')
+    setTestMessage('')
+    setPhase('testing')
+    fetch(`${GATEWAY}/github/test-key`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: apiKey }),
+    })
+      .then(r => r.json().then(data => ({ ok: r.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok || data.error) {
+          throw new Error(data.error || 'Key test failed')
+        }
+        setTestState('ok')
+        setTestMessage(`${data.provider}: ${data.text}`)
+        setPhase('configure')
+      })
+      .catch(e => {
+        setTestState('error')
+        setTestMessage(e.message || 'Key test failed')
+        setPhase('configure')
+      })
+  }, [apiKey])
 
   const toggleRepo = (repo: string) => {
     setSelectedRepos(prev => {
@@ -205,6 +227,21 @@ export function Setup() {
   if (phase === 'done' && setupResult) {
     return (
       <div>
+        <div style={{
+          ...panel(),
+          borderRadius: 6,
+          padding: '0.7rem 1rem',
+          marginBottom: '1rem',
+          display: 'flex',
+          gap: '0.5rem',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}>
+          <Badge color={palette.accent}>ENS agent identities</Badge>
+          <Badge color={palette.accentDim}>Arc escrow settlement</Badge>
+          <Badge variant="outline">GitHub install → fund → bounty</Badge>
+        </div>
+
         {/* Success banner */}
         <div style={{
           ...panel(true),
@@ -218,7 +255,7 @@ export function Setup() {
           </div>
           <div style={helpText}>
             Monitoring {setupResult.repos?.length || 0} repo{(setupResult.repos?.length || 0) !== 1 ? 's' : ''}.
-            When CI fails, solver agents will claim the bounty and submit a fix.
+            When CI fails, ENS-named solver agents will claim the bounty and Arc escrow will settle the result.
           </div>
         </div>
 
@@ -251,11 +288,15 @@ export function Setup() {
           </div>
           <div style={rowStyle}>
             <span style={{ color: palette.textMuted, width: 120 }}>Budget</span>
-            <span>{(setupResult.budget_tokens / 1000).toFixed(0)}k tokens per bounty</span>
+            <span>{(setupResult.budget_tokens / 1000).toFixed(0)}k tokens per Arc-settled bounty</span>
           </div>
           <div style={rowStyle}>
             <span style={{ color: palette.textMuted, width: 120 }}>API Key</span>
             <span>{setupResult.has_api_key ? 'Deposited' : 'None'}</span>
+          </div>
+          <div style={rowStyle}>
+            <span style={{ color: palette.textMuted, width: 120 }}>Identity</span>
+            <span>Solver agents resolve as ENS names like <code style={{ fontFamily: font.mono, fontSize: '0.7rem', background: palette.fill, padding: '0.1rem 0.3rem', borderRadius: 3, color: palette.textOnFill }}>agent-1.maceip.eth</code></span>
           </div>
           <div style={{ ...rowStyle, borderBottom: 'none' }}>
             <span style={{ color: palette.textMuted, width: 120 }}>CLI</span>
@@ -276,6 +317,21 @@ export function Setup() {
 
   return (
     <div>
+      <div style={{
+        ...panel(),
+        borderRadius: 6,
+        padding: '0.7rem 1rem',
+        marginBottom: '1rem',
+        display: 'flex',
+        gap: '0.5rem',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+      }}>
+        <Badge color={palette.accent}>ENS agent identities</Badge>
+        <Badge color={palette.accentDim}>Arc escrow settlement</Badge>
+        <Badge variant="outline">Repo install → fund → bounty</Badge>
+      </div>
+
       {/* Progress banner */}
       <div style={{
         ...panel(),
@@ -290,7 +346,7 @@ export function Setup() {
         <div>
           <div style={{ fontFamily: font.family, fontSize: '0.78rem', fontWeight: 600, color: palette.textPrimary }}>
             {phase === 'loading' ? 'Loading repositories...' :
-             phase === 'scanning' ? 'Scanning your CI...' :
+             phase === 'testing' ? 'Testing API key...' :
              phase === 'activating' ? 'Activating...' :
              'Configure BountyNet'}
           </div>
@@ -324,26 +380,32 @@ export function Setup() {
         </div>
       )}
 
-      {/* Scanning animation */}
-      {phase === 'scanning' && (
-        <div style={{
-          ...sectionStyle,
-          padding: '2rem',
-          textAlign: 'center',
-        }}>
-          <div style={{ color: palette.accent, fontSize: '0.9rem', marginBottom: '0.5rem', letterSpacing: '0.3em' }}>
-            &#x2B22; &#x2B22; &#x2B22;
-          </div>
-          <div style={helpText}>Fetching CI runs and analyzing workflows...</div>
-        </div>
-      )}
-
       {/* Repo selection */}
       {phase === 'configure' && repos.length > 0 && (
         <div style={sectionStyle}>
           <div style={sectionHeader()}>
             <span>Repository access</span>
-            <span style={{ ...helpText, fontSize: '0.62rem' }}>{selectedRepos.size} of {repos.length} selected</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setSelectedRepos(new Set())}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  padding: 0,
+                  fontFamily: font.family,
+                  fontSize: '0.62rem',
+                  fontWeight: 700,
+                  color: palette.textSecondary,
+                  letterSpacing: tracking.wide,
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                }}
+              >
+                Deselect all
+              </button>
+              <span style={{ ...helpText, fontSize: '0.62rem' }}>{selectedRepos.size} of {repos.length} selected</span>
+            </div>
           </div>
           {repos.map((repo, i) => {
             const repoScan = scan?.results.find(r => r.repo === repo)
@@ -421,6 +483,27 @@ export function Setup() {
               </div>
             </div>
 
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
+              <Button
+                onClick={testApiKey}
+                disabled={!apiKey || phase === 'testing' || phase === 'activating'}
+                variant="outline"
+              >
+                {phase === 'testing' ? 'Testing key...' : 'Test key with prompt'}
+              </Button>
+              {testState === 'ok' && (
+                <Badge color={palette.green}>Key verified</Badge>
+              )}
+              {testState === 'error' && (
+                <Badge color={palette.red}>Key failed</Badge>
+              )}
+            </div>
+            {testMessage && (
+              <div style={{ ...helpText, marginBottom: '1rem', color: testState === 'error' ? palette.red : palette.green }}>
+                {testMessage}
+              </div>
+            )}
+
             {/* Budget slider */}
             <div style={{ marginBottom: '1.25rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -453,7 +536,7 @@ export function Setup() {
               size="lg"
             >
               {selectedRepos.size > 0
-                ? `Activate ${selectedRepos.size} repo${selectedRepos.size !== 1 ? 's' : ''}`
+                ? `Activate ${selectedRepos.size} repo${selectedRepos.size !== 1 ? 's' : ''} and scan`
                 : 'Select repos to activate'}
             </Button>
           </div>

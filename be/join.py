@@ -60,7 +60,6 @@ def onboard_via_gateway(dynamic_token: str) -> dict:
     """Call gateway to register agent on-chain."""
     import requests
     resp = requests.post(f"{GATEWAY}/identity/onboard", json={
-        "dynamic_token": dynamic_token,
     }, headers={
         "Authorization": f"Bearer {dynamic_token}",
     }, timeout=30)

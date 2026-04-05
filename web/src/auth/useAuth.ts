@@ -1,15 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
 const GATEWAY = import.meta.env.VITE_GATEWAY_URL || 'https://gateway.stare.network'
-const STORAGE_KEY = 'bountynet-demo-auth'
-
-type StoredAuth = {
-  loggedIn: boolean
-  userId: string
-}
-
-let authState: StoredAuth = { loggedIn: false, userId: 'demo-staker' }
-const listeners = new Set<(state: StoredAuth) => void>()
 
 interface AuthState {
   isLoggedIn: boolean
@@ -21,28 +12,20 @@ interface AuthState {
   loading: boolean
 }
 
-function loadStoredAuth(): StoredAuth {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw) as StoredAuth
-  } catch {
-    /* ignore */
-  }
-  return { loggedIn: false, userId: 'demo-staker' }
+function readAgentIdFromUrl(): number | null {
+  const params = new URLSearchParams(window.location.search)
+  const raw = params.get('agent_id')
+  if (!raw) return null
+  const parsed = Number(raw)
+  if (!Number.isInteger(parsed) || parsed <= 0) return null
+  return parsed
 }
 
-function saveStoredAuth(state: StoredAuth) {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-  } catch {
-    /* ignore */
-  }
-}
-
-function setAuthState(next: StoredAuth) {
-  authState = next
-  saveStoredAuth(next)
-  for (const listener of listeners) listener(next)
+function setAgentIdInUrl(agentId: number | null) {
+  const url = new URL(window.location.href)
+  if (agentId && agentId > 0) url.searchParams.set('agent_id', String(agentId))
+  else url.searchParams.delete('agent_id')
+  window.location.href = url.pathname + url.search + url.hash
 }
 
 export function useAuth(): AuthState & {
@@ -50,48 +33,53 @@ export function useAuth(): AuthState & {
   logout: () => void
   login: () => void
 } {
-  const [session, setSession] = useState<StoredAuth>(() => {
-    authState = loadStoredAuth()
-    return authState
-  })
+  const [requestedAgentId, setRequestedAgentId] = useState<number | null>(() => readAgentIdFromUrl())
   const [agentId, setAgentId] = useState<number | null>(null)
   const [wallet, setWallet] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    listeners.add(setSession)
-    return () => {
-      listeners.delete(setSession)
+    const sync = () => {
+      setRequestedAgentId(readAgentIdFromUrl())
     }
+    window.addEventListener('popstate', sync)
+    return () => window.removeEventListener('popstate', sync)
   }, [])
 
   useEffect(() => {
-    if (!session.loggedIn) {
+    if (!requestedAgentId) {
       setAgentId(null)
       setWallet(null)
+      setLoading(false)
       return
     }
 
     setLoading(true)
-    // Demo mode binds directly to the seeded production agent so the
-    // dashboard shows a real logged-in state instead of hanging in onboarding.
-    fetch(`${GATEWAY}/identity/1`)
-      .then(r => r.json())
+    fetch(`${GATEWAY}/identity/${requestedAgentId}`)
+      .then(r => {
+        if (!r.ok) throw new Error('agent not found')
+        return r.json()
+      })
       .then(data => {
         if (typeof data.agent_id === 'number') setAgentId(data.agent_id)
+        else setAgentId(null)
         if (typeof data.wallet === 'string') setWallet(data.wallet)
+        else setWallet(null)
       })
-      .catch(() => {})
+      .catch(() => {
+        setAgentId(null)
+        setWallet(null)
+      })
       .finally(() => setLoading(false))
-  }, [session])
+  }, [requestedAgentId])
 
   const user = useMemo(
-    () => (session.loggedIn ? { userId: session.userId, alias: 'Demo Login' } : null),
-    [session],
+    () => (agentId ? { userId: `agent:${agentId}`, alias: `Viewing agent #${agentId}` } : null),
+    [agentId],
   )
 
   return {
-    isLoggedIn: session.loggedIn,
+    isLoggedIn: agentId !== null,
     user,
     wallet,
     jwt: null,
@@ -105,7 +93,11 @@ export function useAuth(): AuthState & {
       }
       return fetch(`${GATEWAY}${path}`, { ...init, headers })
     },
-    login: () => setAuthState({ loggedIn: true, userId: session.userId || 'demo-staker' }),
-    logout: () => setAuthState({ loggedIn: false, userId: session.userId || 'demo-staker' }),
+    login: () => {
+      window.location.href = '/setup?installation_id=121423466'
+    },
+    logout: () => {
+      setAgentIdInUrl(null)
+    },
   }
 }

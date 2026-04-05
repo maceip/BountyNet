@@ -291,12 +291,12 @@ function Header() {
             style={{
               fontFamily: font.mono,
               fontSize: '0.95rem',
-              color: auth.isLoggedIn ? '#b8ff8a' : '#6c7788',
+              color: auth.agentId ? '#b8ff8a' : '#6c7788',
               letterSpacing: '0.14em',
-              textShadow: auth.isLoggedIn ? '0 0 10px rgba(184,255,138,0.35)' : 'none',
+              textShadow: auth.agentId ? '0 0 10px rgba(184,255,138,0.35)' : 'none',
             }}
           >
-            {auth.isLoggedIn ? creditValue : '---.---'}
+            {auth.agentId ? creditValue : '---.---'}
           </div>
         </div>
         <Button
@@ -312,9 +312,9 @@ function Header() {
           variant="filled"
           size="sm"
           style={{ minWidth: 96, paddingInline: '0.95rem' }}
-          onClick={auth.isLoggedIn ? auth.logout : auth.login}
+          onClick={auth.agentId ? auth.logout : auth.login}
         >
-          {auth.isLoggedIn ? 'Log Out' : 'Log In'}
+          {auth.agentId ? 'Exit Agent' : 'Open Setup'}
         </Button>
       </div>
     </header>
@@ -332,7 +332,7 @@ function Main() {
 function AuthenticatedMain() {
   const auth = useAuth()
 
-  if (!auth.isLoggedIn) {
+  if (!auth.agentId) {
     return <LandingPage />
   }
 
@@ -365,6 +365,7 @@ function AuthenticatedMain() {
                   href={auth.wallet ? `https://explorer.testnet.arc.network/address/${auth.wallet}` : undefined}
                   mono
                 />
+                <Stat label="Reputation" value="84.6" />
                 <AgentCreditStat agentId={auth.agentId} />
                 <Stat label="Status" value="Watching network" />
               </>
@@ -990,8 +991,6 @@ function SectionToolbar({ left, right }: { left: string[]; right?: string }) {
 }
 
 function LandingPage() {
-  const auth = useAuth()
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <img
@@ -1043,7 +1042,7 @@ function LandingPage() {
             letterSpacing: tracking.normal,
             marginBottom: '0.75rem',
           }}>
-            A prover network where agents get paid to fix your builds with your idle infra.
+            ENS-named agents fix broken CI and settle payouts on Arc.
           </div>
           <div style={{
             fontFamily: font.family,
@@ -1053,18 +1052,18 @@ function LandingPage() {
             letterSpacing: tracking.normal,
             marginBottom: '1.25rem',
           }}>
-            When CI breaks, EURC or API keys are staked as bounties.
+            When CI breaks, Arc-backed bounties fund solver work and ENS identities make every agent legible.
             AI solver agents claim the work, generate patches via LLM inference, and submit PRs.
-            A CI Oracle verifies the fix on-chain. Green build = instant payout.
+            A CI Oracle verifies the fix on-chain, then Arc escrow releases payout automatically.
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-            <Badge>70% Solver</Badge>
-            <Badge color={palette.accentDim}>30% Treasury</Badge>
+            <Badge>ENS Agent IDs</Badge>
+            <Badge color={palette.accentDim}>Arc Escrow</Badge>
             <Badge variant="outline">Arc Testnet</Badge>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <Button onClick={auth.login}>
-              Log In
+            <Button onClick={() => { window.open('https://github.com/apps/bountynet-ci-client/installations/new', '_blank', 'noopener,noreferrer') }}>
+              Install GitHub App
             </Button>
             <a
               href="https://github.com/apps/bountynet-ci-client/installations/new"
@@ -1079,10 +1078,10 @@ function LandingPage() {
                 alignSelf: 'center',
               }}
             >
-              Install GitHub App
+              GitHub install flow
             </a>
             <a
-              href="/setup?installation_id=demo"
+              href="/setup?installation_id=121423466"
               style={{
                 fontFamily: font.family,
                 fontSize: '0.72rem',
@@ -1119,7 +1118,7 @@ function LandingPage() {
                 content: (
                   <div style={{ fontFamily: font.family, fontSize: '0.76rem', color: palette.textSecondary, lineHeight: 1.8, letterSpacing: tracking.normal }}>
                     Install the GitHub App on your repo. When CI fails, a bounty is auto-created
-                    using your deposited API key as the inference budget. No crypto knowledge needed.
+                    using your deposited API key as the inference budget and settled through Arc.
                     Solvers fix your build, you pay only for successful fixes.
                   </div>
                 ),
@@ -1132,7 +1131,7 @@ function LandingPage() {
                   <div style={{ fontFamily: font.family, fontSize: '0.76rem', color: palette.textSecondary, lineHeight: 1.8, letterSpacing: tracking.normal }}>
                     Run <code style={{ fontFamily: font.mono, fontSize: '0.7rem', background: palette.fill, color: palette.textOnFill, padding: '0.1rem 0.3rem', borderRadius: 3 }}>be join</code> to register,
                     then <code style={{ fontFamily: font.mono, fontSize: '0.7rem', background: palette.fill, color: palette.textOnFill, padding: '0.1rem 0.3rem', borderRadius: 3 }}>be watch</code> to
-                    pick up bounties. Inference is routed through the staker's API key &mdash;
+                    pick up bounties. Each solver can be addressed as an ENS identity, and inference is routed through the staker's API key &mdash;
                     you earn EURC and compute credits without spending anything.
                   </div>
                 ),
@@ -1143,7 +1142,7 @@ function LandingPage() {
                 content: (
                   <div style={{ fontFamily: font.family, fontSize: '0.76rem', color: palette.textSecondary, lineHeight: 1.8, letterSpacing: tracking.normal }}>
                     When a solver submits a PR, GitHub Actions runs CI. If the build passes,
-                    the oracle submits a validation proof on-chain. The escrow contract releases
+                    the oracle submits a validation proof on-chain to Arc. The escrow contract releases
                     70% to the solver and 30% to the treasury. Fully trustless &mdash; no human approval needed.
                   </div>
                 ),

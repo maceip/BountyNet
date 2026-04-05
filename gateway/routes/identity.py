@@ -8,12 +8,16 @@ import os
 import json
 import subprocess
 from flask import Blueprint, request, jsonify, redirect
-from gateway.chain import get_agent_wallet, eurc_balance, get_next_agent_id, w3, ESCROW, send_tx, sig, IDENTITY
+from eth_abi import encode as abi_encode
+from eth_account import Account
+from gateway.chain import get_agent_wallet, eurc_balance, get_next_agent_id, native_balance, ESCROW, send_tx, sig, IDENTITY
 from gateway.events import emit
+from gateway.auth import require_auth
 
 DYNAMIC_ENV_ID = os.environ.get("DYNAMIC_ENV_ID", "")
 
 identity_bp = Blueprint("identity", __name__)
+RELAYER_ADDRESS = Account.from_key(os.environ.get("DEPLOYER_PRIVATE_KEY", "")).address if os.environ.get("DEPLOYER_PRIVATE_KEY") else None
 
 
 def call_dynamic(cmd: str, arg: str) -> dict:
@@ -25,6 +29,73 @@ def call_dynamic(cmd: str, arg: str) -> dict:
     if result.returncode != 0:
         return {"error": result.stderr.strip()}
     return json.loads(result.stdout)
+
+
+def derive_external_id(claims: dict, body: dict) -> str | None:
+    """
+    Derive a stable Dynamic anchor from verified claims.
+    We only fall back to caller-provided external_id in local/dev mode.
+    """
+    sub = claims.get("sub")
+    email = claims.get("email")
+
+    if sub and sub != "dev":
+        return f"dynamic:{sub}"
+    if email:
+        return f"email:{str(email).strip().lower()}"
+
+    # Dev/test fallback only.
+    external_id = body.get("external_id")
+    if external_id:
+        return str(external_id)
+    return None
+
+
+def find_agent_id_by_wallet(address: str) -> int | None:
+    next_id = get_next_agent_id()
+    for i in range(1, min(next_id, 500)):
+        try:
+            w = get_agent_wallet(i)
+        except Exception:
+            continue
+        if w and w.lower() == address.lower():
+            return i
+    return None
+
+
+def register_agent_for_wallet(wallet: str, agent_uri: str) -> tuple[int | None, list[dict]]:
+    """
+    Mint a new EIP-8004 agent from the relayer and transfer it to the user wallet.
+    Because get_agent_wallet() defaults to ownerOf(agent_id), the transferred NFT
+    immediately resolves to the user's wallet without an extra set_agent_wallet call.
+    """
+    if not IDENTITY:
+        raise RuntimeError("identity registry not configured")
+    if not RELAYER_ADDRESS:
+        raise RuntimeError("relayer key not configured")
+
+    txs: list[dict] = []
+    start_id = get_next_agent_id()
+
+    register_data = "0x" + (
+        sig("register(string)")
+        + abi_encode(["string"], [agent_uri])
+    ).hex()
+    txs.append(send_tx(IDENTITY, register_data))
+
+    agent_id = start_id
+
+    transfer_data = "0x" + (
+        sig("transferFrom(address,address,uint256)")
+        + abi_encode(["address", "address", "uint256"], [RELAYER_ADDRESS, wallet, agent_id])
+    ).hex()
+    txs.append(send_tx(IDENTITY, transfer_data))
+
+    resolved_wallet = get_agent_wallet(agent_id)
+    if resolved_wallet.lower() != wallet.lower():
+        raise RuntimeError(f"agent transfer verification failed: expected {wallet}, got {resolved_wallet}")
+
+    return agent_id, txs
 
 
 @identity_bp.route("/identity/login")
@@ -40,15 +111,18 @@ def login():
 
 
 @identity_bp.route("/identity/onboard", methods=["POST"])
+@require_auth
 def onboard():
     """
-    Create or retrieve identity.
-    Body: { "external_id": "github:12345" } or { "external_id": "machine:abc" }
+    Create or retrieve identity from a verified Dynamic JWT.
+    The gateway derives the stable external_id from claims instead of trusting
+    a caller-provided identifier.
     """
     body = request.json or {}
-    external_id = body.get("external_id")
+    claims = getattr(request, "auth_claims", {}) or {}
+    external_id = derive_external_id(claims, body)
     if not external_id:
-        return jsonify({"error": "external_id required"}), 400
+        return jsonify({"error": "could not derive external identity"}), 400
 
     # Get/create Dynamic identity
     user = call_dynamic("get-user", external_id)
@@ -72,28 +146,32 @@ def onboard():
     # Look up on-chain agent ID for this wallet
     agent_id = None
     ens_name = None
+    txs: list[dict] = []
     if address:
         try:
-            from eth_abi import encode as abi_encode
-            next_id = get_next_agent_id()
-            for i in range(1, min(next_id, 200)):
-                w = get_agent_wallet(i)
-                if w and w.lower() == address.lower():
-                    agent_id = i
-                    ens_name = f"agent-{i}.maceip.eth"
-                    break
-        except Exception:
-            pass
+            agent_id = find_agent_id_by_wallet(address)
+            if agent_id is None:
+                agent_uri = str(body.get("agent_uri") or "ipfs://bountynet-agent.json")
+                agent_id, txs = register_agent_for_wallet(address, agent_uri)
+            if agent_id is not None:
+                ens_name = f"agent-{agent_id}.maceip.eth"
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
     emit("agent", f"Agent onboarded: {external_id} → {address[:10]}... (agent #{agent_id})" if address else f"Agent onboarded: {external_id}",
          agent_id=agent_id, data={"external_id": external_id, "wallet": address})
 
     return jsonify({
         "external_id": external_id,
+        "identity_anchor": external_id,
+        "claims_sub": claims.get("sub"),
         "dynamic_user_id": user.get("userId"),
         "agent_id": agent_id,
         "wallet": address,
         "ens": ens_name,
+        "registered_on_chain": agent_id is not None,
+        "identity_registry": IDENTITY,
+        "txs": txs,
         "roles": ["staker", "solver"],
     })
 
@@ -150,7 +228,7 @@ def agent_status(agent_id: int):
         return jsonify({"error": "agent not found"}), 404
 
     bal = eurc_balance(wallet)
-    native = w3.eth.get_balance(w3.to_checksum_address(wallet)) / 1e18
+    native = native_balance(wallet)
 
     return jsonify({
         "agent_id": agent_id,
