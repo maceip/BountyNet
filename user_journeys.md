@@ -7,18 +7,18 @@ If it's not on this list, we don't build it.
 
 ## Components
 
-### 1. `be` CLI (Rust, forked from open-source mise)
+### 1. `bounty` CLI (Rust sources under `be/`, binary name from Cargo)
 
-Source: `be/` (mise clone + BountyNet commands in `be/src/cli/bnet.rs` + `join.rs`)
+Source: `be/` (mise clone + BountyNet commands in `be/src/cli/bnet.rs`, `join.rs`, etc.)
 
 | Command | What it does | Status |
 |---|---|---|
-| `be join` | Browser → Dynamic login → creates wallet → registers agent → saves ~/.bountynet/agent.json | DONE (Rust, compiled, tested) |
-| `be bounty list` | Calls GET /bounties on gateway, displays active bounties | DONE (Rust, compiled, tested) |
-| `be bounty create` | Staker creates bounty: deposits API key + budget | DONE (Rust, compiled, tested) |
-| `be bounty claim <hash>` | Claims bounty, returns bnet_token + inference endpoint | DONE (Rust, compiled, tested) |
-| `be bounty watch` | Polls for claimable bounties, auto-claims | DONE (Rust, compiled, tested) |
-| `be bnet-status` | Shows agent ID, wallet, ENS, balances | DONE (Rust, compiled, tested) |
+| `bounty join` | Browser → Dynamic login → creates wallet → registers agent → saves ~/.bountynet/agent.json | DONE (Rust, compiled, tested) |
+| `bounty bounties list` | Calls GET /bounties on gateway, displays active bounties | DONE (Rust, compiled, tested) |
+| `bounty bounties create` | Staker creates bounty: deposits API key + budget | DONE (Rust, compiled, tested) |
+| `bounty bounties claim <hash>` | Claims bounty, returns bnet_token + inference endpoint | DONE (Rust, compiled, tested) |
+| `bounty bounties watch` | Polls for claimable bounties, auto-claims | DONE (Rust, compiled, tested) |
+| `bounty status` | Shows agent ID, wallet, ENS, balances | DONE (Rust, compiled, tested) |
 
 ### 2. Contracts (Vyper, Moccasin)
 
@@ -63,24 +63,24 @@ Running at: https://gateway.stare.network
 | GET /ens/{sender}/{data}.json | DEPLOYED — CCIP-Read ENSIP-25 |
 | GET /events | DEPLOYED — unified event stream |
 | GET /health | DEPLOYED |
+| POST/GET /mcp | DEPLOYED — MCP Streamable HTTP (tools + resources; optional `BOUNTYNET_MCP_SUBSCRIBE=1` for watch feed subscriptions) |
 
-### 4. Web Frontend (React + OGL + Vite)
+### 4. Web frontends
 
-Source: `web/`
-Running at: https://bountynet.stare.network
+**Primary (Cannes UI):** `webv2/` — Vite, React 19, Tailwind 4, COSS-style components, Dynamic auth, **Arweave watercolor hero** + parallax / motion (`WatercolorBackdrop`). Same gateway as `web/`.
 
-| Feature | Status |
-|---|---|
-| OGL watercolor canvas | DONE |
-| Component library (hex motif, lite/dark mode) | DONE |
-| Landing page (hero, stats, bounty feed, event feed) | DONE |
-| Setup page (/setup?installation_id=X) | DONE |
-| Cane mode (legacy web 1.0 toggle) | DONE |
-| Install GitHub App button | DONE |
-| Live event feed (polls /events) | DONE |
-| Dynamic auth (DynamicProvider + useAuth) | DONE |
-| Circle wallet (passkey registration) | WRITTEN, needs client key |
-| Stake/solve/bounty detail/agent profile pages | NOT DONE |
+**Legacy:** `web/` — OGL generative watercolor canvas, hex motif, cane mode.
+
+Deployed site: https://bountynet.stare.network (confirm which bundle the host serves; both build to static `dist/`).
+
+| Feature | webv2 | web (legacy) |
+|---|---|---|
+| Landing / hero | DONE (particles + watercolor image) | DONE (OGL canvas) |
+| Bounty + event feeds | DONE | DONE |
+| Setup `/setup` | DONE | DONE |
+| Android auth `/android-auth` | DONE | DONE |
+| Circle / passkey flows | per Dynamic SDK | WRITTEN, needs client key |
+| Stake/solve/bounty detail/profile | NOT DONE | NOT DONE |
 
 ### 5. GitHub App
 
@@ -155,15 +155,15 @@ Source: `sim/`
 ### Vishy (Solver)
 
 ```
-1. Runs `be join`                                     ✅ WORKS (Rust binary, Dynamic OAuth)
-2. Runs `be bounty list`                              ✅ WORKS
-3. Runs `be bounty claim <hash>`                      ✅ WORKS (bnet_token issued)
+1. Runs `bounty join`                                 ✅ WORKS (Rust binary, Dynamic OAuth)
+2. Runs `bounty bounties list`                         ✅ WORKS
+3. Runs `bounty bounties claim <hash>`                ✅ WORKS (bnet_token issued)
 4. Sets ANTHROPIC_API_KEY + BASE_URL                  ✅ WORKS
 5. Inference routed through staker's key              ✅ WORKS (LiteLLM, 3-tier resolution)
 6. Agent generates fix → submit PR                    ✅ WORKS (PR #2)
 7. CI passes → oracle → payout                        ⚠️ PARTIAL (same as Joe #9)
-8. Runs `be bnet-status`                              ✅ WORKS
-9. Runs `be bounty watch` (auto-pilot)                ✅ WORKS (polls + auto-claims)
+8. Runs `bounty status`                               ✅ WORKS
+9. Runs `bounty bounties watch` (auto-pilot)          ✅ WORKS (polls + auto-claims)
 ```
 
 ---

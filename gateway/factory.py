@@ -16,10 +16,13 @@ from pathlib import Path
 from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.wsgi import WSGIMiddleware
+from starlette.responses import Response
 from starlette.routing import Mount, Route
 
+import asyncio
+
 from gateway.app import app as flask_app
-from gateway.mcp_server import bountynet_mcp, create_mcp_http_stack
+from gateway.mcp_server import MCP_SUBSCRIBE_ENABLED, bountynet_mcp, create_mcp_http_stack
 
 
 def _require(condition: bool, msg: str) -> None:
@@ -51,17 +54,42 @@ def create_asgi_app():
 
     mcp_http_asgi, session_manager = create_mcp_http_stack()
 
+    class _McpAsgi:
+        """Starlette ``Route`` treats bare functions as ``Request`` handlers; MCP needs raw ASGI."""
+
+        __slots__ = ("_app",)
+
+        def __init__(self, app):
+            self._app = app
+
+        async def __call__(self, scope, receive, send):
+            if scope["type"] == "http" and scope.get("method") == "OPTIONS":
+                await Response(status_code=204)(scope, receive, send)
+                return
+            await self._app(scope, receive, send)
+
     @asynccontextmanager
     async def lifespan(_starlette_app: Starlette):
-        async with session_manager.run():
-            yield
+        if MCP_SUBSCRIBE_ENABLED:
+            from gateway import mcp_watch
 
-    async def mcp_dispatch(scope, receive, send):
-        await mcp_http_asgi(scope, receive, send)
+            mcp_watch.start(asyncio.get_running_loop())
+        async with session_manager.run():
+            try:
+                yield
+            finally:
+                if MCP_SUBSCRIBE_ENABLED:
+                    from gateway import mcp_watch
+
+                    mcp_watch.stop()
 
     starlette_app = Starlette(
         routes=[
-            Route("/mcp", endpoint=mcp_dispatch, methods=["GET", "POST", "DELETE", "OPTIONS"]),
+            Route(
+                "/mcp",
+                endpoint=_McpAsgi(mcp_http_asgi),
+                methods=["GET", "POST", "DELETE", "OPTIONS"],
+            ),
             Mount("/", WSGIMiddleware(flask_app)),
         ],
         lifespan=lifespan,

@@ -9,7 +9,7 @@ When your CI breaks, stake EURC or idle cloud resources as a bounty. Autonomous 
 ```
 Staker (CI breaks)          Solver (AI agent)
   │                            │
-  ├─ be bounty create          ├─ be watch (Silverback)
+  ├─ bounty bounties create    ├─ Silverback / bounty bounties watch
   │  stakes EURC               │  sees BountyCreated event
   │                            │  claims, calls LLM, submits PR
   │                            │
@@ -27,11 +27,15 @@ Staker (CI breaks)          Solver (AI agent)
 | Contracts | Vyper · Moccasin · Titanoboa |
 | Standards | EIP-8004 (Trustless Agents) |
 | Settlement | Circle EURC on Arc Testnet |
-| Identity | Dynamic Node SDK |
+| Identity | Dynamic (JS SDK + gateway bridge) |
 | Solver | Silverback (ApeWorX) |
 | ENS | CCIP-Read wildcard (*.maceip.eth) |
-| Frontend | OGL WebGL · React · Vite |
-| CLI | `be` |
+| Web (Cannes) | **webv2/** — Vite, React 19, Tailwind 4, COSS-style UI, watercolor hero |
+| Web (legacy) | **web/** — OGL watercolor canvas, same gateway |
+| Android | **android/** — Compose, minSdk 30, foldable-friendly nav |
+| Gateway | Flask + **MCP** Streamable HTTP (`/mcp`), LiteLLM inference |
+| CLI | Rust **`bounty`** (package `be/` in repo) — `bounty join`, `bounty bounties`, etc. |
+| Claude/Cursor | **integrations/claude-code-bountynet/** — plugin + status line + optional npm package |
 
 ## Sponsors
 

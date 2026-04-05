@@ -16,9 +16,9 @@ Tracked list. Everything here gets built or explicitly cut before submission.
 - [x] E2E test: register → bounty → claim → validate → payout
 - [x] Proxy: API key budget mode (Joe deposits key + token budget)
 - [x] GitHub App: webhook handler + scan-on-install + solver PR submission
-- [x] `be join` — Rust OAuth login + agent registration (compiled, tested)
-- [x] `be bounty list/create/claim/watch` — all 4 subcommands (compiled, tested)
-- [x] `be bnet-status` — agent status display (compiled, tested)
+- [x] `bounty join` — Rust OAuth login + agent registration (compiled, tested)
+- [x] `bounty bounties list/create/claim/watch` — bounty subcommands (compiled, tested)
+- [x] `bounty status` — agent status display (compiled, tested)
 - [x] Flare TEE oracle — Docker deployed on EC2, signing proofs
 - [x] OracleProofStore on Coston2 — deployed, ecrecover verified
 - [x] Oracle source hash + image digest in every proof
@@ -37,6 +37,10 @@ Tracked list. Everything here gets built or explicitly cut before submission.
 - [x] Bounty feed on landing page (public, unauthenticated)
 - [x] Gasless claims via backend relayer (Oracle key sponsors gas)
 - [x] PR submission E2E verified — solver creates branch, commits, opens PR
+- [x] **webv2** Cannes landing + dashboard shell (COSS-style components, Dynamic auth)
+- [x] Watercolor hero on webv2 (Arweave still + fixed/parallax backdrop, terminal flourishes on illustration)
+- [x] Gateway MCP `/mcp` + optional **BOUNTYNET_MCP_SUBSCRIBE** watch resource (`bountynet://watch/feed`)
+- [x] Claude Code plugin (`integrations/claude-code-bountynet/`) — status line + npm-friendly `bin/`
 
 ## Open
 - [ ] Default bounty pricing (progressive escalation, no config from Joe)

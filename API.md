@@ -3,7 +3,7 @@
 Base URL: `https://gateway.stare.network`
 
 Auth patterns:
-- **Dynamic JWT**: `Authorization: Bearer dyn_...` (web frontend, `be join`)
+- **Dynamic JWT**: `Authorization: Bearer dyn_...` (web frontend, `bounty join`)
 - **BountyNet token**: `Authorization: Bearer bnet_<agent_id>:<context_hash>` (inference proxy)
 - **GitHub webhook**: `X-Hub-Signature-256: sha256=...` (GitHub App)
 - **Public**: no auth (bounty feed, health, ENS lookups)
@@ -14,7 +14,7 @@ Auth patterns:
 
 ### POST /identity/onboard
 
-Create or retrieve a BountyNet identity. Called by `be join` after Dynamic login.
+Create or retrieve a BountyNet identity. Called by `bounty join` after Dynamic login.
 
 **Auth:** Dynamic JWT
 
@@ -157,7 +157,7 @@ Single bounty detail.
 
 ### POST /bounties/create
 
-Create a bounty. Called by GitHub App webhook (auto) or `be bounty create` (manual).
+Create a bounty. Called by GitHub App webhook (auto) or `bounty bounties create` (manual).
 
 **Auth:** Dynamic JWT or GitHub webhook signature
 
@@ -206,7 +206,7 @@ Alternative for EURC mode:
 
 ### POST /bounties/{context_hash}/claim
 
-Solver claims a bounty. Called by `be watch` or solver bot.
+Solver claims a bounty. Called by `bounty bounties watch`, Silverback, or another solver bot.
 
 **Auth:** Dynamic JWT (must own the agent_id)
 

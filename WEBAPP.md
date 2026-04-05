@@ -2,9 +2,13 @@
 
 Every page, what it shows, which API endpoints it calls, and which user it serves.
 
-Base: `web/` (Vite + React + OGL)
-Auth: Dynamic React SDK (`@dynamic-labs/sdk-react-core`)
-Chain reads: via gateway API (not direct contract calls)
+**Production UI (Cannes):** `webv2/` — Vite + React + Tailwind 4 + Dynamic (`@dynamic-labs/sdk-react-core`). Watercolor hero from Arweave (`src/lib/brand.ts`), not OGL.
+
+**Legacy UI:** `web/` — Vite + React + **OGL** watercolor canvas + hex motif.
+
+Auth (both): Dynamic React SDK. Chain reads: via gateway API (not direct contract calls).
+
+> Route-level details below still describe `web/` paths; **`webv2/` mirrors the same routes** (`/`, `/setup`, `/android-auth`, `/chatgpt-setup`) with the particle-based layout. Update this doc incrementally if pages diverge.
 
 ---
 

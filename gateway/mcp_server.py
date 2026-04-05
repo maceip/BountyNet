@@ -15,13 +15,18 @@ import os
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import AnyUrl, BaseModel, Field
 
 from mcp.server.fastmcp.server import FastMCP, StreamableHTTPASGIApp
+from mcp.server.lowlevel.server import NotificationOptions, request_ctx
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp.server.transport_security import TransportSecuritySettings
 
+from gateway import mcp_watch
 from gateway.routes.bounties import bounty_feed_snapshot
+
+MCP_SUBSCRIBE_ENABLED: bool = os.environ.get("BOUNTYNET_MCP_SUBSCRIBE", "").lower() in ("1", "true", "yes")
+_STATELESS_HTTP: bool = not MCP_SUBSCRIBE_ENABLED
 
 
 def _mcp_transport_security() -> TransportSecuritySettings | None:
@@ -51,7 +56,9 @@ _WIDGET_HTML = _WIDGET_PATH.read_text(encoding="utf-8")
 _INSTRUCTIONS = (
     "BountyNet prover network for CI failures and on-chain bounties. "
     "Use bountynet_show_feed for the live dashboard widget + structured bounty list. "
-    "Use bountynet_about for a short product summary without opening the widget."
+    "Use bountynet_about for a short product summary without opening the widget. "
+    "Resource bountynet://watch/feed is JSON (events + bounty digest); with BOUNTYNET_MCP_SUBSCRIBE=1 "
+    "on the server, clients may subscribe for update notifications when new gateway events arrive."
 )
 
 # Tool _meta: MCP Apps standard + ChatGPT compatibility alias
@@ -74,7 +81,7 @@ bountynet_mcp = FastMCP(
     instructions=_INSTRUCTIONS,
     website_url=os.environ.get("BOUNTYNET_WEBSITE_URL", "https://bountynet.stare.network"),
     json_response=True,
-    stateless_http=True,
+    stateless_http=_STATELESS_HTTP,
     streamable_http_path="/mcp",
     host="0.0.0.0",
     transport_security=_mcp_transport_security(),
@@ -84,6 +91,20 @@ bountynet_mcp = FastMCP(
 @bountynet_mcp.resource(_WIDGET_URI, mime_type="text/html; charset=utf-8")
 def bountynet_widget_html() -> str:
     return _WIDGET_HTML
+
+
+@bountynet_mcp.resource(
+    mcp_watch.WATCH_FEED_URI,
+    mime_type="application/json",
+    name="bountynet_watch_feed",
+    title="BountyNet watch feed",
+    description=(
+        "Gateway event log (same data family as GET /events) plus a bounty list snapshot. "
+        "Enable gateway env BOUNTYNET_MCP_SUBSCRIBE=1 for resources/subscribe + push notifications."
+    ),
+)
+def bountynet_watch_feed_resource() -> str:
+    return mcp_watch.watch_snapshot_json()
 
 
 @bountynet_mcp.tool(
@@ -117,6 +138,47 @@ def bountynet_about() -> str:
         "run inference through the gateway, and submit fixes. Payouts and validation tie to on-chain "
         "state when EURC escrow is configured."
     )
+
+
+def _wire_mcp_subscriptions() -> None:
+    """Register resources/subscribe handlers and advertise subscribe capability."""
+    if not MCP_SUBSCRIBE_ENABLED:
+        return
+
+    srv = bountynet_mcp._mcp_server
+
+    @srv.subscribe_resource()
+    async def _mcp_subscribe(uri: AnyUrl) -> None:
+        u = str(uri)
+        if u != mcp_watch.WATCH_FEED_URI:
+            return
+        ctx = request_ctx.get()
+        mcp_watch.register(ctx.session, u)
+
+    @srv.unsubscribe_resource()
+    async def _mcp_unsubscribe(uri: AnyUrl) -> None:
+        u = str(uri)
+        ctx = request_ctx.get()
+        mcp_watch.unregister(ctx.session, u)
+
+    _orig_gc = srv.get_capabilities
+
+    def _gc(
+        notification_options: NotificationOptions | None = None,
+        experimental_capabilities: dict[str, Any] | None = None,
+    ):
+        cap = _orig_gc(
+            notification_options or NotificationOptions(),
+            experimental_capabilities or {},
+        )
+        if cap.resources is not None:
+            cap.resources.subscribe = True
+        return cap
+
+    srv.get_capabilities = _gc  # type: ignore[method-assign]
+
+
+_wire_mcp_subscriptions()
 
 
 def create_mcp_http_stack() -> tuple[StreamableHTTPASGIApp, StreamableHTTPSessionManager]:

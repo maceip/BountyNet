@@ -7,19 +7,20 @@
 A prover network where agents get paid to fix your builds with your idle infra: stake EURC when CI breaks, solvers claim with LLM patches, a CI oracle verifies on-chain, green build triggers payout.
 
 ## Description
-BountyNet turns broken CI into **bounties** settled on **Arc** with **EURC**. Stakers attach failures from GitHub (or stake API credits); **solver agents** watch events, generate patches, and open PRs. A **Flare TEE–backed CI oracle** attests whether the build went green, then **on-chain escrow** pays out (README documents a **70% solver / 30% treasury** split). Identity ties together **Dynamic** auth, **EIP‑8004** agent registration, **ENS** **CCIP‑Read** names (`agent-N.maceip.eth`), and optional **Circle Modular Wallets** for smart-account / passkey flows on **Arc Testnet**. The repo includes a **Vite + React** dashboard (**live:** https://bountynet.stare.network), a **Flask** gateway with GitHub App flows, **Vyper** contracts tested with **Moccasin**, simulation agents, and a **Jetpack Compose** Android app for foldable-friendly navigation and in-app auth.
+BountyNet turns broken CI into **bounties** settled on **Arc** with **EURC**. Stakers attach failures from GitHub (or stake API credits); **solver agents** watch events, generate patches, and open PRs. A **Flare TEE–backed CI oracle** attests whether the build went green, then **on-chain escrow** pays out (README documents a **70% solver / 30% treasury** split). Identity ties together **Dynamic** auth, **EIP‑8004** agent registration, **ENS** **CCIP‑Read** names (`agent-N.maceip.eth`), and optional **Circle Modular Wallets** for smart-account / passkey flows on **Arc Testnet**. The repo includes **webv2/** (Cannes **Vite + React** UI + Arweave watercolor) and **web/** (legacy **OGL** canvas), **live:** https://bountynet.stare.network; a **Flask** gateway with GitHub App flows and **MCP**; **Vyper** contracts with **Moccasin**; simulation agents; **Jetpack Compose** Android (**minSdk 30**) for foldable-friendly navigation and in-app auth.
 
 ## How It's Made
 
 ### Tech Stack (as in this repo)
 - **Smart contracts:** **Vyper** (`contracts/src/*.vy`) · **Moccasin** (`contracts/moccasin.toml`, `mox test` in CI) · **Solidity** ENS resolver (`contracts/src/ens/BountyNetResolver.sol`)
 - **Chain:** **Arc Testnet** (e.g. RPC `https://rpc.testnet.arc.network` in `android/app/.../ArcClient.kt`, `web/src/wallet/circle.ts`)
-- **Frontend:** **Vite** + **React 19** + **TypeScript** · **@dynamic-labs/sdk-react-core** + **@dynamic-labs/ethereum** · **wagmi** + **viem** + **RainbowKit** · **OGL** WebGL · **@circle-fin/modular-wallets-core** (see `web/package.json`, `web/src/wallet/circle.ts`)
-- **Backend / gateway:** **Flask** blueprints (e.g. `gateway/routes/github.py`, `gateway/routes/identity.py`, `gateway/routes/ens.py`, `gateway/routes/bounties.py`) — *not* Express in this repo
+- **Frontend (Cannes):** **webv2/** — **Vite** + **React 19** + **TypeScript** + **Tailwind 4** · **@dynamic-labs/sdk-react-core** + **@dynamic-labs/ethereum** · **@circle-fin/modular-wallets-core** (wallet paths parallel **web/**)
+- **Frontend (legacy):** **web/** — same Dynamic stack · **wagmi** + **viem** + **RainbowKit** · **OGL** WebGL watercolor (`web/package.json`, `web/src/wallet/circle.ts`)
+- **Backend / gateway:** **Flask** blueprints (e.g. `gateway/routes/github.py`, `gateway/routes/identity.py`, `gateway/routes/ens.py`, `gateway/routes/bounties.py`) + **MCP** Streamable HTTP (`gateway/mcp_server.py`, `/mcp`)
 - **Oracle / TEE:** **Flare** TEE extension entry (`oracle-tee/main.py` and `oracle-tee/app/…`)
-- **Mobile (Android):** **Kotlin 2.3.0** · **Jetpack Compose** (BOM `2025.12.00` in `android/gradle/libs.versions.toml`) · **Material 3** · **Navigation 3** + two-pane adaptive UI · **web3j** · Chrome **Custom Tabs** / **Auth Tab** hints (`android/.../PartialCustomTabLogin.kt`) · **Timber** + file/optional HTTP log shipping (`android/.../logging/`)
-- **Agent / CLI:** Rust **`be`** CLI (e.g. `be/src/cli/join.rs` — Dynamic browser login flow) · Python **`sim/`** agents
-- **CI/CD:** GitHub Actions — **contracts** (`moccasin` / `mox test`), **web** build (`npm run build`); paths under `.github/workflows/`
+- **Mobile (Android):** **Kotlin 2.3.0** · **Jetpack Compose** (BOM `2025.12.00` in `android/gradle/libs.versions.toml`) · **Material 3** · **minSdk 30** · **Navigation 3** + two-pane adaptive UI · **web3j** · Chrome **Custom Tabs** / **Auth Tab** hints (`android/.../PartialCustomTabLogin.kt`) · **Timber** + file/optional HTTP log shipping (`android/.../logging/`)
+- **Agent / CLI:** Rust **`bounty`** binary from **`be/`** (e.g. `bounty join`, `bounty bounties` — see `be/src/cli/`) · Python **`sim/`** agents · **integrations/claude-code-bountynet/** (Claude Code plugin + status line)
+- **CI/CD:** GitHub Actions — **contracts** (`moccasin` / `mox test`), **web** / **webv2** builds (`npm run build`); paths under `.github/workflows/`
 
 ### Sponsor Integrations
 

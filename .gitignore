@@ -1,5 +1,6 @@
 .env
 .env.local
+gateway/.env
 __pycache__/
 *.pyc
 .venv/
