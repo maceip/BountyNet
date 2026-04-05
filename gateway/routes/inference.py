@@ -39,6 +39,9 @@ staker_budgets: dict = {}
 solver_keys: dict = {}
 # agent_id → { total, used }
 credits: dict = {}
+# Session tracking: list of inference calls grouped by context
+# Each: { agent_id, context_hash, model, tokens_in, tokens_out, key_source, timestamp, tool }
+inference_log: list = []
 
 
 # ── Key deposit ─────────────────────────────────────────────────
@@ -108,7 +111,8 @@ def detect_provider(model: str) -> str:
     return "openai"
 
 
-def meter(agent_id, ctx_hash, input_t, output_t):
+def meter(agent_id, ctx_hash, input_t, output_t, model="", key_source=""):
+    import time as _time
     from gateway.events import emit
     total = input_t + output_t
     budget = staker_budgets.get(ctx_hash)
@@ -118,6 +122,20 @@ def meter(agent_id, ctx_hash, input_t, output_t):
         credits[agent_id]["used"] += total
     if total > 0:
         remaining = budget["budget_tokens"] - budget["used_tokens"] if budget else 0
+        # Log for sessions view
+        inference_log.append({
+            "agent_id": agent_id,
+            "context_hash": ctx_hash,
+            "model": model,
+            "tokens_in": input_t,
+            "tokens_out": output_t,
+            "tokens_total": total,
+            "key_source": key_source,
+            "timestamp": _time.time(),
+        })
+        # Keep last 500
+        if len(inference_log) > 500:
+            del inference_log[:len(inference_log) - 500]
         emit("inference", f"Agent #{agent_id}: {total:,} tokens used ({remaining:,} remaining)",
              context_hash=ctx_hash, agent_id=agent_id, data={"tokens": total, "remaining": remaining})
     return total
@@ -153,7 +171,7 @@ def do_completion(messages, model, agent_id, ctx_hash):
         )
 
         usage = response.usage
-        cost = meter(agent_id, ctx_hash, usage.prompt_tokens or 0, usage.completion_tokens or 0)
+        cost = meter(agent_id, ctx_hash, usage.prompt_tokens or 0, usage.completion_tokens or 0, model=model, key_source=source)
 
         result = response.model_dump()
         result["_bountynet"] = {
@@ -230,3 +248,71 @@ def anthropic_messages():
         })
 
     return jsonify(result), status
+
+
+# ── Sessions view (Stripe-style threads) ───────────────────────
+
+@inference_bp.route("/sessions")
+def sessions():
+    """
+    Group inference calls into sessions by context_hash.
+    Each session = one bounty claim = one coding thread.
+    Stripe-style: newest first, expandable rows.
+    """
+    from gateway.routes.bounties import apikey_bounties
+    from gateway.routes.resources import tokens_to_eurc
+
+    agent_filter = request.args.get("agent_id")
+    limit = int(request.args.get("limit", 20))
+
+    # Group by context_hash
+    grouped: dict = {}
+    for call in inference_log:
+        ctx = call.get("context_hash", "none")
+        if agent_filter and str(call.get("agent_id")) != agent_filter:
+            continue
+        if ctx not in grouped:
+            grouped[ctx] = {
+                "context_hash": ctx,
+                "agent_id": call.get("agent_id"),
+                "model": call.get("model", ""),
+                "key_source": call.get("key_source", ""),
+                "calls": 0,
+                "tokens_total": 0,
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "first_call": call.get("timestamp", 0),
+                "last_call": call.get("timestamp", 0),
+                "status": "active",
+            }
+        s = grouped[ctx]
+        s["calls"] += 1
+        s["tokens_total"] += call.get("tokens_total", 0)
+        s["tokens_in"] += call.get("tokens_in", 0)
+        s["tokens_out"] += call.get("tokens_out", 0)
+        s["last_call"] = max(s["last_call"], call.get("timestamp", 0))
+        s["model"] = call.get("model", s["model"])
+        s["key_source"] = call.get("key_source", s["key_source"])
+
+    # Enrich with bounty metadata
+    for ctx, s in grouped.items():
+        bounty = apikey_bounties.get(ctx, {})
+        s["repo"] = bounty.get("repo", "")
+        s["check_name"] = bounty.get("check_name", "")
+        s["budget_tokens"] = bounty.get("budget_tokens", 0)
+        s["budget_used"] = s["tokens_total"]
+        s["budget_remaining"] = max(0, s["budget_tokens"] - s["tokens_total"])
+        if bounty.get("resolved"):
+            s["status"] = "resolved"
+        elif s["budget_remaining"] <= 0 and s["budget_tokens"] > 0:
+            s["status"] = "exhausted"
+        s["cost_eurc"] = tokens_to_eurc(s["tokens_total"], s["model"])
+        s["duration_s"] = round(s["last_call"] - s["first_call"])
+
+    sessions_list = sorted(grouped.values(), key=lambda s: s["last_call"], reverse=True)[:limit]
+
+    return jsonify({
+        "sessions": sessions_list,
+        "count": len(sessions_list),
+        "total_calls": len(inference_log),
+    })
