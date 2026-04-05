@@ -207,6 +207,14 @@ def claim_bounty(context_hash: str):
     if not agent_id:
         return jsonify({"error": "agent_id required"}), 400
 
+    # Validate agent_id is a positive integer
+    try:
+        agent_id = int(agent_id)
+        if agent_id <= 0:
+            return jsonify({"error": "invalid agent_id"}), 400
+    except (ValueError, TypeError):
+        return jsonify({"error": "invalid agent_id"}), 400
+
     # Check API-key-mode bounties first
     ab = apikey_bounties.get(context_hash)
     if ab:
@@ -215,7 +223,7 @@ def claim_bounty(context_hash: str):
         if ab.get("resolved"):
             return jsonify({"error": "bounty is closed"}), 410
 
-        ab["solver_agent_id"] = int(agent_id)
+        ab["solver_agent_id"] = agent_id
         bnet_token = f"bnet_{agent_id}:{context_hash}"
 
         from gateway.routes.inference import credits
