@@ -16,14 +16,14 @@ export function Card({ title, accent, children, collapsible, defaultOpen = true 
   return (
     <div style={{
       ...panel(true),
-      borderRadius: 8,
-      borderLeft: `3px solid ${a}`,
+      borderRadius: 12,
+      borderTop: `1px solid ${a}55`,
       overflow: 'hidden',
-      transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s',
+      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
     }}
       onMouseEnter={e => {
         e.currentTarget.style.transform = 'translateY(-2px)'
-        e.currentTarget.style.boxShadow = `0 0 24px ${palette.accentGlow}, 0 16px 48px rgba(0, 0, 0, 0.1)`
+        e.currentTarget.style.boxShadow = `0 0 20px ${palette.accentGlow}, 0 16px 40px rgba(0, 0, 0, 0.24)`
       }}
       onMouseLeave={e => {
         e.currentTarget.style.transform = ''
@@ -34,8 +34,8 @@ export function Card({ title, accent, children, collapsible, defaultOpen = true 
       <div
         onClick={collapsible ? () => setOpen(o => !o) : undefined}
         style={{
-          padding: '1.1rem 1.4rem',
-          paddingBottom: open ? '0.4rem' : '1.1rem',
+          padding: '1rem 1.15rem',
+          paddingBottom: open ? '0.35rem' : '1rem',
           cursor: collapsible ? 'pointer' : 'default',
           display: 'flex',
           justifyContent: 'space-between',
@@ -45,13 +45,13 @@ export function Card({ title, accent, children, collapsible, defaultOpen = true 
       >
         <span style={{
           fontFamily: font.family,
-          fontSize: '0.68rem',
+          fontSize: '0.62rem',
           fontWeight: 700,
           color: a,
           textTransform: 'uppercase',
-          letterSpacing: tracking.widest,
+          letterSpacing: tracking.wide,
         }}>
-          <span style={{ marginRight: '0.5rem', fontSize: '0.5rem' }}>&#x2B22;</span>
+          <span style={{ marginRight: '0.5rem', fontSize: '0.56rem' }}>&#9679;</span>
           {title}
         </span>
         {collapsible && (
@@ -68,7 +68,7 @@ export function Card({ title, accent, children, collapsible, defaultOpen = true 
 
       {/* Body */}
       <div style={{
-        padding: open ? '0 1.4rem 1.4rem' : '0 1.4rem',
+        padding: open ? '0 1.15rem 1.15rem' : '0 1.15rem',
         maxHeight: open ? 800 : 0,
         opacity: open ? 1 : 0,
         overflow: 'hidden',

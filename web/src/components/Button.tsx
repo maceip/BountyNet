@@ -12,18 +12,11 @@ interface ButtonProps {
   style?: React.CSSProperties
 }
 
-/**
- * Hexagonal-chamfered button matching the design.
- * Navy fill with orange hex endpoints in lite mode.
- */
-
 const sizes = {
   sm: { padding: '0.4rem 1.2rem', fontSize: '0.65rem', tracking: tracking.wider },
   md: { padding: '0.6rem 1.8rem', fontSize: '0.75rem', tracking: tracking.wider },
   lg: { padding: '0.8rem 2.4rem', fontSize: '0.85rem', tracking: tracking.widest },
 }
-
-const chamfer = 'polygon(12px 0%, calc(100% - 12px) 0%, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0% 50%)'
 
 export function Button({ children, onClick, color, variant = 'filled', size = 'md', disabled, fullWidth, style: extraStyle }: ButtonProps) {
   const s = sizes[size]
@@ -34,7 +27,7 @@ export function Button({ children, onClick, color, variant = 'filled', size = 'm
     fontFamily: font.family,
     fontSize: s.fontSize,
     fontWeight: 700,
-    letterSpacing: s.tracking,
+    letterSpacing: tracking.wide,
     textTransform: 'uppercase',
     padding: s.padding,
     cursor: disabled ? 'not-allowed' : 'pointer',
@@ -46,30 +39,29 @@ export function Button({ children, onClick, color, variant = 'filled', size = 'm
     justifyContent: 'center',
     gap: '0.5rem',
     position: 'relative',
+    borderRadius: 8,
     ...extraStyle,
   }
 
   const variants: Record<string, React.CSSProperties> = {
     filled: {
       ...base,
-      background: fill,
-      color: palette.textOnFill,
-      border: `2px solid ${accent}`,
-      clipPath: chamfer,
+      background: accent,
+      color: palette.textOnAccent,
+      border: `1px solid ${accent}`,
+      boxShadow: `inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 24px ${accent}22`,
     },
     ghost: {
       ...base,
-      background: `${accent}15`,
+      background: palette.panelLight,
       color: palette.textPrimary,
-      border: `1.5px solid ${accent}40`,
-      clipPath: chamfer,
+      border: `1px solid ${palette.border}`,
     },
     outline: {
       ...base,
-      background: 'transparent',
-      color: accent,
-      border: `1.5px solid ${accent}60`,
-      borderRadius: 4,
+      background: fill,
+      color: palette.textOnFill,
+      border: `1px solid ${accent}55`,
     },
   }
 

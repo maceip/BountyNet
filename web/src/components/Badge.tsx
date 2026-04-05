@@ -19,12 +19,12 @@ export function Badge({ children, color, variant = 'soft' }: BadgeProps) {
     <span style={{
       display: 'inline-flex',
       alignItems: 'center',
-      padding: '0.2rem 0.65rem',
-      borderRadius: 3,
+      padding: '0.28rem 0.7rem',
+      borderRadius: 999,
       fontFamily: font.family,
-      fontSize: '0.58rem',
+      fontSize: '0.56rem',
       fontWeight: 700,
-      letterSpacing: tracking.widest,
+      letterSpacing: tracking.wide,
       textTransform: 'uppercase',
       ...styles[variant],
     }}>

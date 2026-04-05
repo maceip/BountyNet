@@ -29,7 +29,7 @@ const KIND_COLORS: Record<string, string> = {
   agent: palette.accent,
 }
 
-export function EventFeed({ maxItems = 15 }: { maxItems?: number }) {
+export function EventFeed({ maxItems = 15, maxHeight = 300 }: { maxItems?: number; maxHeight?: number }) {
   const [events, setEvents] = useState<any[]>([])
   const sinceRef = useRef(0)
 
@@ -49,18 +49,32 @@ export function EventFeed({ maxItems = 15 }: { maxItems?: number }) {
         .catch(() => {})
     }
     poll()
-    const interval = setInterval(poll, 15000)
+    const interval = setInterval(poll, 3000)
     return () => { mounted = false; clearInterval(interval) }
   }, [maxItems])
 
-  if (events.length === 0) return null
+  if (events.length === 0) {
+    return (
+      <div style={{
+        ...panelInner(),
+        borderRadius: 6,
+        padding: '0.85rem 0.9rem',
+        fontFamily: font.family,
+        fontSize: '0.72rem',
+        color: palette.textMuted,
+        letterSpacing: tracking.normal,
+      }}>
+        Waiting for live gateway events...
+      </div>
+    )
+  }
 
   return (
     <div style={{
       ...panelInner(),
       borderRadius: 6,
       padding: '0.5rem 0.75rem',
-      maxHeight: 300,
+      maxHeight,
       overflowY: 'auto',
     }}>
       {events.map((e, i) => {

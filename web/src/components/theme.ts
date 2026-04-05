@@ -1,7 +1,6 @@
 /**
- * BountyNet design tokens — dual mode (dark + lite).
- * Hex motif geometry shared, colors swap.
- * Typography: Raleway with aggressive tracking.
+ * BountyNet design tokens.
+ * Default to the darker network-console mode for the dashboard.
  */
 
 export type Mode = 'dark' | 'lite'
@@ -53,8 +52,8 @@ const lite = {
 } as const
 
 // Active mode — switch this to toggle
-let _mode: Mode = 'lite'
-let _p = lite
+let _mode: Mode = 'dark'
+let _p = dark
 
 export function setMode(m: Mode) {
   _mode = m
