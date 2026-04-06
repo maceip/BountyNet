@@ -1,0 +1,86 @@
+# Full repo gate — every merge must keep all shipping surfaces green.
+name: CI
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gateway:
+    name: Gateway (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: pip install -r gateway/requirements.txt pytest
+      - name: Tests
+        run: pytest gateway/tests/ -q
+        env:
+          PYTHONPATH: .
+
+  be-cli:
+    name: be-cli (Rust)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: rustfmt
+        run: cargo fmt --manifest-path be-cli/Cargo.toml --all -- --check
+      - name: clippy
+        run: cargo clippy --manifest-path be-cli/Cargo.toml --all-targets -- -D warnings
+      - name: test
+        run: cargo test --manifest-path be-cli/Cargo.toml
+      - name: release build
+        run: cargo build --release --manifest-path be-cli/Cargo.toml
+
+  web:
+    name: Web (Vite build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+
+  contracts:
+    name: Contracts (moccasin)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install moccasin
+      - run: cd contracts && mox test
+
+  android:
+    name: Android (compile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: android-actions/setup-android@v3
+      - name: Compile app (runs keyattestation patch via preBuild)
+        run: chmod +x android/gradlew && cd android && ./gradlew :app:compileDebugKotlin --no-daemon --stacktrace

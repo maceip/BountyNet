@@ -150,10 +150,7 @@ impl List {
         }
 
         eprintln!("[be] {} bounties:\n", bounties.len());
-        eprintln!(
-            "  {:<18} {:<10} {:<12} {}",
-            "CONTEXT", "EURC", "STATUS", "REPO"
-        );
+        eprintln!("  {:<18} {:<10} {:<12} REPO", "CONTEXT", "EURC", "STATUS");
         eprintln!("  {}", "-".repeat(64));
 
         for b in &bounties {
@@ -217,10 +214,7 @@ impl Create {
         }
 
         eprintln!("[be] bounty created!");
-        eprintln!(
-            "[be]   context: {}",
-            data.context_hash.unwrap_or_default()
-        );
+        eprintln!("[be]   context: {}", data.context_hash.unwrap_or_default());
         eprintln!("[be]   status:  {}", data.status.unwrap_or_default());
         if let Some(budget) = data.budget_tokens {
             eprintln!("[be]   budget:  {budget} tokens");

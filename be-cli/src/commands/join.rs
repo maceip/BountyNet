@@ -8,7 +8,11 @@ use url::Url;
 #[derive(Debug, clap::Args)]
 pub struct Join {
     /// Gateway base URL
-    #[clap(long, default_value = "https://gateway.stare.network", env = "BOUNTYNET_GATEWAY")]
+    #[clap(
+        long,
+        default_value = "https://gateway.stare.network",
+        env = "BOUNTYNET_GATEWAY"
+    )]
     pub gateway: String,
 
     /// Print login URL instead of opening a browser
@@ -31,8 +35,7 @@ impl Join {
         let config_file = dir.join("agent.json");
 
         if config_file.exists() {
-            let existing: AgentConfig =
-                serde_json::from_str(&fs::read_to_string(&config_file)?)?;
+            let existing: AgentConfig = serde_json::from_str(&fs::read_to_string(&config_file)?)?;
             eprintln!("[be] already logged in as agent #{}", existing.agent_id);
             eprintln!("[be] wallet: {}", existing.wallet);
             eprintln!("[be] ens:    {}", existing.ens);
@@ -50,8 +53,7 @@ impl Join {
 
         let callback = "http://localhost:9876/callback";
         let mut auth = Url::parse(&format!("{gateway}/identity/login"))?;
-        auth.query_pairs_mut()
-            .append_pair("redirect_uri", callback);
+        auth.query_pairs_mut().append_pair("redirect_uri", callback);
         let auth_url = auth.to_string();
 
         if self.no_browser {
@@ -120,7 +122,8 @@ fn wait_for_callback(server: &tiny_http::Server) -> Result<String> {
         if let Ok(u) = Url::parse(&synthetic) {
             for (k, v) in u.query_pairs() {
                 if k == "token" || k == "jwt" {
-                    let html = "<html><body style='font-family:system-ui;text-align:center;padding:4em'>\
+                    let html =
+                        "<html><body style='font-family:system-ui;text-align:center;padding:4em'>\
                          <h1>BountyNet</h1>\
                          <p>Authenticated. You can close this tab.</p>\
                          </body></html>";
