@@ -13,7 +13,7 @@ APP_ID = os.environ.get("GITHUB_APP_ID", "")
 
 
 def _load_private_key() -> str:
-    for path in ["github_app_key.pem", "/home/hackathon/bountynet-gateway/github_app_key.pem"]:
+    for path in ["github_app_key.pem"]:
         try:
             with open(path) as f:
                 return f.read()

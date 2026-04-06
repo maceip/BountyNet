@@ -75,24 +75,6 @@ async function main() {
   const model = sess.model?.display_name ?? "?";
   const now = Date.now() / 1000;
 
-  if (process.env.BOUNTYNET_STATUSLINE_MOCK === "1") {
-    const state = loadJson(STATE_PATH);
-    const n = (Number(state.mock_invocation) || 0) + 1;
-    state.mock_invocation = n;
-    const mockRem = 9000 + (n % 5) * 100;
-    if (n % 12 === 0) {
-      state.flash_until = now + 2.8;
-      state.flash_delta = 100;
-    }
-    saveJson(STATE_PATH, state);
-    let flash = "";
-    if (now < Number(state.flash_until || 0) && state.flash_delta) {
-      flash = ` ${FLASH}+${parseInt(String(state.flash_delta), 10)}${RESET}`;
-    }
-    console.log(`${DIM}[${model}]${RESET} ${PINK}bounty[mock]${RESET} cr ${mockRem.toLocaleString("en-US")}${flash}`);
-    return;
-  }
-
   const agent = loadJson(AGENT_PATH);
   if (!agent.agent_id) {
     console.log(`${DIM}[${model}]${RESET} ${PINK}bounty[—]${RESET} run \`be join\``);

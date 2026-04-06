@@ -16,9 +16,8 @@ On-chain flow:
   4. Signed result posted back on-chain (Coston2)
   5. Gateway reads the signature, submits to Arc's ValidationRegistry
 
-Off-chain shortcut (hackathon):
-  Gateway calls POST /oracle/sign directly on this server.
-  Skips on-chain Coston2 dispatch, still uses TEE-held key.
+Direct HTTP path:
+  Gateway may POST /oracle/sign to this service (same key material as the TEE route).
 """
 from __future__ import annotations
 
@@ -89,7 +88,7 @@ def init_identity() -> None:
 
 
 def set_key_from_env(hex_key: str) -> None:
-    """Load private key directly from environment (testnet/hackathon mode)."""
+    """Load private key from environment (testnet / bring-up)."""
     global _private_key
     if hex_key:
         raw = bytes.fromhex(hex_key.removeprefix("0x"))
@@ -197,7 +196,7 @@ def handle_attest(msg: str) -> tuple[Optional[str], int, Optional[str]]:
         return None, 0, f"attest signing failed: {e}"
 
 
-# ── Direct HTTP endpoint (off-chain shortcut for hackathon) ────
+# ── Direct HTTP endpoint (gateway-local signing API) ────────────
 
 def sign_ci_proof_direct(repo: str, sha: str, check_name: str, conclusion: str) -> dict:
     """

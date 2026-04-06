@@ -48,7 +48,7 @@ import net.bountynet.app.R
 
 /**
  * Agent Junglegym: **API 30+** (see `minSdk`). Uses [JungleGymImmersiveEffect] (platform-samples style
- * transient immersive bars) for projector demos. IME motion follows system insets via Compose
+ * transient immersive bars). IME motion follows system insets via Compose
  * [androidx.compose.foundation.layout.imePadding] on the scroll content (tracks [WindowInsetsAnimation]
  * on Android 11+ when edge-to-edge is enabled in [net.bountynet.app.MainActivity]).
  */
@@ -98,7 +98,7 @@ fun JungleGymScreen(
             item {
                 Text(
                     "Train releaseable agents on CI failures that already flowed through BountyNet / the gateway. " +
-                        "Shell is a mock Linux UX; Gemma weights stay off-device until you sync.",
+                        "The terminal is a scripted preview; Gemma weights are optional on-device additions.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -112,14 +112,14 @@ fun JungleGymScreen(
                             style = MaterialTheme.typography.titleSmall,
                         )
                         Text(
-                            "Mock network control surface — hook to gateway + budgets when wired.",
+                            "Prototype credit UI — wire to live gateway budgets when available.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(Modifier.height(10.dp))
                         Image(
                             painter = painterResource(R.drawable.creditmaxer),
-                            contentDescription = "Creditmaxer interface mock",
+                            contentDescription = "Creditmaxer prototype",
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(220.dp),
@@ -275,7 +275,7 @@ fun JungleGymScreen(
             item {
                 Text("Sandbox terminal", style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "Mock commands for hackathon demos — same surface can swap to embedded Python/Node later.",
+                    "Commands are handled by the preview shell; a future build can swap in an embedded runtime.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

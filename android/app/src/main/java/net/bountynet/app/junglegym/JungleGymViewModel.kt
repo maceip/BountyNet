@@ -41,8 +41,8 @@ class JungleGymViewModel(
     }
 
     private val repo = JungleGymRepository(BuildConfig.GATEWAY_URL)
-    private val lm: LiteRtLmFacade = MockLiteRtLmFacade(application.applicationContext)
-    private val linux: JunglegymShellRuntime = MockLinuxRuntime()
+    private val lm: LiteRtLmFacade = SyntheticScenarioReplayFacade(application.applicationContext)
+    private val linux: JunglegymShellRuntime = LocalPreviewShellRuntime()
 
     private val _ui = MutableStateFlow(JungleGymUiState())
     val ui: StateFlow<JungleGymUiState> = _ui.asStateFlow()
@@ -74,7 +74,7 @@ class JungleGymViewModel(
                         loadingScenarios = false,
                     )
                 }
-                appendTerminal("[scenarios] loaded ${list.size} failure replays (network + fallback).")
+                appendTerminal("[scenarios] loaded ${list.size} failure scenarios (gateway or offline fixtures).")
             } catch (e: Exception) {
                 _ui.update { it.copy(loadingScenarios = false, loadError = e.message ?: "load failed") }
             }
@@ -101,7 +101,7 @@ class JungleGymViewModel(
 
     fun runQuick(cmd: String) = runShellCommand(cmd)
 
-    /** One inference + tool round; advances mock solve loop toward export. */
+    /** One synthetic solver step (fixture replay) toward export JSON. */
     fun runSolveStep() {
         val scenario = _ui.value.selected ?: return
         viewModelScope.launch {
@@ -111,8 +111,8 @@ class JungleGymViewModel(
                 SolveLoopPhase.IngestFailure to "Ingest CI log + lockfile context",
                 SolveLoopPhase.Plan to "Plan patch + run read-only repo slice",
                 SolveLoopPhase.ToolCall to "LiteRT-LM tool round (read_repo_slice)",
-                SolveLoopPhase.CodexExec to "Sandbox exec: cargo check (mock)",
-                SolveLoopPhase.ApplyPatch to "Draft patch + verify (mock)",
+                SolveLoopPhase.CodexExec to "Sandbox exec: cargo check (preview text)",
+                SolveLoopPhase.ApplyPatch to "Draft patch + verify (preview text)",
             )
             val phase = phases.getOrElse(idx % phases.size) { SolveLoopPhase.Done to "Loop idle" }
             val now = System.currentTimeMillis()
@@ -132,16 +132,16 @@ class JungleGymViewModel(
                 when (tc.name) {
                     "codex_exec" -> appendTerminal(
                         "[codex_exec]    Checking solver v0.1.0",
-                        "[codex_exec]    Finished `dev` profile in 12.4s (mock)",
+                        "[codex_exec]    Finished `dev` profile in 12.4s (preview)",
                     )
                     "apply_patch_draft" -> appendTerminal(
-                        "[patch] unified diff: src/lib.rs (+2 -0) (mock)",
+                        "[patch] unified diff: src/lib.rs (+2 -0) (preview)",
                     )
                 }
             }
             if (_ui.value.stepIndex >= 8) {
                 _ui.update { it.copy(loopPhase = SolveLoopPhase.Done) }
-                appendTerminal("[loop] mock verification passed — ready to export agent + tuned model.")
+                appendTerminal("[loop] synthetic loop complete — export JSON when ready (registration is via `be join` + dashboard).")
             }
         }
     }
@@ -181,7 +181,7 @@ class JungleGymViewModel(
         }
     }
 
-    /** Full JSON export for “register on BountyNet” flow (share sheet — last mile still mock). */
+    /** Share-sheet export of agent + model metadata (registration still uses gateway + CLI). */
     fun buildShareExportIntent(): Intent? {
         val s = _ui.value
         val sc = s.selected ?: return null

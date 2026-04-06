@@ -1,5 +1,6 @@
 package net.bountynet.app.junglegym
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** Default repo used by `sim/agent.py --repo` examples — same git story as the fleet sim. */
@@ -22,7 +23,7 @@ enum class SolveLoopPhase {
     ToolCall,
     CodexExec,
     ApplyPatch,
-    VerifyMock,
+    SyntheticVerify,
     Done,
     Error,
 }
@@ -49,7 +50,7 @@ data class AgentExportBundleV1(
     val baseRepo: String,
     val toolCallingEnabled: Boolean = true,
     val codexExecSandbox: Boolean = true,
-    /** Placeholder — replace with real calibration JSON from LiteRT / trainers. */
+    /** Optional LoRA / calibration payload (base64) when the training pipeline produces it. */
     val loraAdapterPlaceholderBase64: String = "",
     val registrationNotes: String =
         "Export for BountyNet registration (last mile: upload via `be join` + dashboard when wired).",
@@ -61,7 +62,7 @@ data class TunedModelExportV1(
     val baseSlug: String = GemmaModelContract.MODEL_SLUG,
     val adapterDisplayName: String,
     val litertBundlePathHint: String = GemmaModelContract.WEIGHTS_RELATIVE_PATH,
-    /** Replace with real adapter weights / tensors when training pipeline lands. */
+    /** Optional adapter weights (base64) when exported from training. */
     val adapterPlaceholderBase64: String = "",
 )
 
@@ -72,6 +73,7 @@ data class JunglegymRegistrationExportV1(
     val agent: AgentExportBundleV1,
     val tunedModel: TunedModelExportV1,
     val lastSolveLoop: List<LoopStepRecord> = emptyList(),
-    val mockRegistrationAck: String =
-        "PENDING — POST /identity/register-agent-bundle not implemented in this build.",
+    @SerialName("registration_status")
+    val registrationStatus: String =
+        "Complete registration with `be join` and the web dashboard; automated Android bundle POST is not available yet.",
 )

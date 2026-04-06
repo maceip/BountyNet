@@ -58,13 +58,6 @@ Claude Code only supports **one** `statusLine.command` in `~/.claude/settings.js
 
 Running **`bountynet-setup`** when something else is already configured prompts: **chain** (run the old command first, then BountyNet — combined with ` | `) or **replace** (BountyNet only). The upstream command is stored in `~/.bountynet/statusline-chain.json`. The entry script is `lib/statusline-chain.mjs`.
 
-## Mock status line (no gateway)
-
-```bash
-export BOUNTYNET_STATUSLINE_MOCK=1
-claude --plugin-dir ./integrations/claude-code-bountynet
-```
-
 ## CLI commands (Rust binary **`be`** from `be-cli/`)
 
 - `be join` — Dynamic / GitHub OAuth, writes `~/.bountynet/agent.json`

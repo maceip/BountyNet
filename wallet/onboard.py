@@ -88,7 +88,7 @@ def ensure_registered(wallet_address: str, agent_uri: str = "") -> int | None:
 
     if balance > 0:
         # Already registered — find their agent ID
-        # (In production, use events/subgraph. For hackathon, scan IDs.)
+        # Use events/subgraph in production; linear scan is acceptable at modest next_id.
         next_id_sig = keccak(b"next_id()")[:4]
         result = w3.eth.call({"to": registry, "data": "0x" + next_id_sig.hex()})
         next_id = int.from_bytes(result, 'big')

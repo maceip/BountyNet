@@ -2,7 +2,7 @@
 BountyNet CI Oracle — Flare TEE Extension entry point.
 
 Runs as a Flare TEE extension (receives actions from the on-chain relay)
-AND exposes a direct HTTP endpoint for the gateway to call (hackathon shortcut).
+and exposes a direct HTTP signing API for the gateway.
 
 Env:
   EXTENSION_PORT  — Flare TEE framework port (default 8080)

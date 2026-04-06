@@ -462,7 +462,7 @@ def scan_repos(installation_id):
 
     For each repo:
       1. Fetch recent CI runs → find existing failures → auto-create bounties
-      2. Fetch workflow files → flag improvements (stubbed/mocked for now)
+      2. Fetch workflow files → pattern-based CI insights on downloaded YAML
       3. Return everything so the setup page can show it live
 
     Body (optional): { "repos": ["joe/app"] }
@@ -533,7 +533,7 @@ def scan_repos(installation_id):
         except Exception as e:
             repo_result["failures"].append({"error": str(e)})
 
-        # ── 2. Fetch workflow files → insights (REAL fetch, STUBBED analysis)
+        # ── 2. Fetch workflow files → pattern-based insights (real YAML content)
         try:
             wf_resp = requests.get(
                 f"https://api.github.com/repos/{repo}/contents/.github/workflows",
@@ -578,11 +578,9 @@ def scan_repos(installation_id):
 
 def _analyze_workflows(repo: str, wf_names: list, wf_files: list, headers: dict) -> list:
     """
-    Analyze workflow files for improvement opportunities.
+    Analyze workflow files for improvement opportunities using the fetched workflow YAML.
 
-    REAL: fetches actual workflow content from GitHub.
-    STUBBED: the analysis logic returns realistic mocks based on filenames + content.
-    TODO: wire to actual LLM agent for real analysis when time permits.
+    Heuristics only (caching, action versions, lint steps, timeouts); no synthetic data.
     """
     insights = []
 

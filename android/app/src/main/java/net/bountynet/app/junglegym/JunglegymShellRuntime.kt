@@ -1,8 +1,8 @@
 package net.bountynet.app.junglegym
 
 /**
- * Backend for the Junglegym terminal. [MockLinuxRuntime] is the shipping default; a future native
- * implementation can replace it without touching [JungleGymViewModel].
+ * Backend for the Junglegym terminal. [LocalPreviewShellRuntime] is the default until a native
+ * runtime is embedded; swap implementations without changing [JungleGymViewModel].
  *
  * ## Cory-style embedding without copying the Cory app
  *
@@ -14,7 +14,7 @@ package net.bountynet.app.junglegym
  *   (per ABI) at link time, with the usual Android NDK helper libs.
  *
  * Headers alone let you **compile** JNI; you still ship the **binaries** — the win is not cloning
- * Cory’s UI/native demo, only reusing that artifact layout.
+ * a full reference app, only reusing that artifact layout.
  *
  * ## “Full bash” feel
  *

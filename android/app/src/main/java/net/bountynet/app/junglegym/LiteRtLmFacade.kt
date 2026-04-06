@@ -6,8 +6,9 @@ import kotlinx.coroutines.delay
 /**
  * Facade for **LiteRT-LM** + tool calling + Codex-style exec.
  *
- * Real integration: add Google’s LiteRT / MediaPipe GenAI dependencies and swap
- * [MockLiteRtLmFacade] for a production implementation that calls native inference.
+ * Production path: link LiteRT / MediaPipe GenAI and provide an implementation that
+ * calls on-device inference. Until then, [SyntheticScenarioReplayFacade] replays
+ * deterministic tool rounds from CI failure fixtures.
  */
 data class LmToolCall(
     val name: String,
@@ -26,9 +27,9 @@ interface LiteRtLmFacade {
 }
 
 /**
- * Deterministic offline stand-in until Gemma weights are on disk and LiteRT is linked.
+ * Deterministic replay of solver steps for a scenario — not on-device inference.
  */
-class MockLiteRtLmFacade(
+class SyntheticScenarioReplayFacade(
     private val context: Context,
 ) : LiteRtLmFacade {
     override val modelLabel: String =
@@ -64,9 +65,9 @@ class MockLiteRtLmFacade(
             append("Thought: replaying network failure for `${scenario.checkName}` on `${scenario.repo}`.\n")
             append("Error excerpt: ${scenario.errorSnippet.take(120)}…\n")
             if (weightsReady) {
-                append("Inference path: LiteRT-LM + Gemma local (weights detected).\n")
+                append("Weights found at `${GemmaModelContract.WEIGHTS_RELATIVE_PATH}` — native LiteRT stack still required to run them.\n")
             } else {
-                append("Inference path: MOCK — place weights at `${GemmaModelContract.WEIGHTS_RELATIVE_PATH}`.\n")
+                append("No weights at `${GemmaModelContract.WEIGHTS_RELATIVE_PATH}`; solve steps are fixture replay only.\n")
             }
             if (tools.isEmpty()) {
                 append("Loop: staging PR metadata for BountyNet registration export.")

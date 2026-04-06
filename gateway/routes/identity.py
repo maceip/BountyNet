@@ -43,7 +43,8 @@ def call_dynamic(cmd: str, arg: str) -> dict:
 def derive_external_id(claims: dict, body: dict) -> str | None:
     """
     Derive a stable Dynamic anchor from verified claims.
-    We only fall back to caller-provided external_id in local/dev mode.
+    Caller-supplied body.external_id is honored only when
+    BOUNTYNET_ALLOW_EXTERNAL_ID_FALLBACK is enabled (local tooling).
     """
     sub = claims.get("sub")
     email = claims.get("email")
@@ -53,10 +54,14 @@ def derive_external_id(claims: dict, body: dict) -> str | None:
     if email:
         return f"email:{str(email).strip().lower()}"
 
-    # Dev/test fallback only.
-    external_id = body.get("external_id")
-    if external_id:
-        return str(external_id)
+    if os.environ.get("BOUNTYNET_ALLOW_EXTERNAL_ID_FALLBACK", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    ):
+        external_id = body.get("external_id")
+        if external_id:
+            return str(external_id)
     return None
 
 

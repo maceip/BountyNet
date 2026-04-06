@@ -65,7 +65,11 @@ Important:
 
 
 def _get_task_prompt(task: str, api_key: str) -> str:
-    fake_key = api_key or "sk-ant-demo-key-for-testing-1234567890"
+    key = (api_key or os.environ.get("BOUNTYNET_TEST_API_KEY", "")).strip()
+    if task in ("setup_only", "full_flow") and not key:
+        raise SystemExit(
+            "sim_joe: set --api-key or BOUNTYNET_TEST_API_KEY (no built-in placeholder secrets)."
+        )
 
     prompts = {
         "landing": f"""
@@ -91,7 +95,7 @@ def _get_task_prompt(task: str, api_key: str) -> str:
 2. What do you see? Is there a loading/scanning state?
 3. Wait for the scan to complete (or timeout)
 4. Are repos listed? Do they have status indicators?
-5. Find the API key input. Type this test key: {fake_key}
+5. Find the API key input. Type this test key: {key}
 6. Find the budget slider. Move it to about 200k tokens
 7. Check the cost estimate — does it update?
 8. Look for the "Activate" button. Is it enabled now?
@@ -99,7 +103,7 @@ def _get_task_prompt(task: str, api_key: str) -> str:
 10. Report: setup flow completeness, UX quality, any confusion
 """,
         "full_flow": f"""
-You are Joe. You just heard about BountyNet at a hackathon. Walk through the entire staker experience:
+You are Joe, a developer new to BountyNet. Walk through the entire staker experience:
 
 1. Go to {SITE}
 2. Read the landing page. Understand what BountyNet does.
@@ -107,7 +111,7 @@ You are Joe. You just heard about BountyNet at a hackathon. Walk through the ent
 4. Now go to {SITE}/setup?installation_id=demo (pretend you just installed)
 5. Watch the scan results load
 6. Look at what it found — any CI failures? Any suggestions?
-7. In the API key field, type: {fake_key}
+7. In the API key field, type: {key}
 8. Adjust the budget slider to your preference
 9. Click "Activate"
 10. On the success screen — what does it tell you?
@@ -147,7 +151,7 @@ def main():
     p.add_argument("--headless", action="store_true")
     p.add_argument("--task", default="full_flow",
                    choices=["landing", "install_flow", "setup_only", "full_flow", "check_bounties"])
-    p.add_argument("--api-key", default="", help="Fake API key to paste in setup")
+    p.add_argument("--api-key", default="", help="API key text for the setup flow (or set BOUNTYNET_TEST_API_KEY)")
     args = p.parse_args()
 
     log.info("starting sim-joe task=%s headless=%s", args.task, args.headless)

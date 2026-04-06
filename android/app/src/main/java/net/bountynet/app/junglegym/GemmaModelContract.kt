@@ -7,7 +7,8 @@ import java.io.File
  * On-device target: **Gemma 4E 4B** via LiteRT-LM (offline inference).
  *
  * **Do not** download or bundle the checkpoint until you sync weights & licensing.
- * The Junglegym runs in [MockLiteRtLmFacade] mode until [expectedWeightsPresent] is true.
+ * On-device inference needs native LiteRT wiring; until then the UI uses
+ * [SyntheticScenarioReplayFacade] for deterministic fixture replay.
  */
 object GemmaModelContract {
     const val MODEL_SLUG = "gemma4e4b"

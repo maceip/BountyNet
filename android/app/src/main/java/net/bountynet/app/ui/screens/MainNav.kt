@@ -3,9 +3,7 @@ package net.bountynet.app.ui.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -29,9 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -48,14 +43,7 @@ import net.bountynet.app.ui.expressive.ExpressiveHeroSlideshow
 import net.bountynet.app.junglegym.JungleGymScreen
 import net.bountynet.app.ui.nav.TwoPaneScene
 import net.bountynet.app.ui.nav.rememberTwoPaneSceneStrategy
-import coil3.compose.AsyncImage
-import dev.chrisbanes.haze.ExperimentalHazeApi
-import dev.chrisbanes.haze.HazeInputScale
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
-import dev.chrisbanes.haze.rememberHazeState
+import net.bountynet.app.data.local.entity.CachedBountyEntity
 
 @Serializable
 sealed interface AppRoute : NavKey {
@@ -176,7 +164,7 @@ fun HomeScreen(
                     Button(onClick = onLoginWithAuthTab) { Text("SIGN IN") }
                 } else {
                     Text(
-                        "Signed in (demo session)",
+                        "Signed in",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -195,22 +183,12 @@ fun HomeScreen(
     }
 }
 
-@OptIn(
-    ExperimentalMaterial3Api::class,
-    ExperimentalFoundationApi::class,
-    ExperimentalHazeApi::class,
-    ExperimentalHazeMaterialsApi::class,
-)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BountiesScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val dao = remember(context) { (context.applicationContext as BountyNetApp).database.bountyDao() }
     val cached by dao.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
-
-    val hazeState = rememberHazeState()
-    val listState = rememberLazyListState()
-    val blurEnabled = !LocalInspectionMode.current
-    val style = HazeMaterials.regular(MaterialTheme.colorScheme.surface)
 
     Scaffold(
         topBar = {
@@ -223,7 +201,6 @@ fun BountiesScreen(onBack: () -> Unit) {
         },
     ) { contentPadding ->
         LazyColumn(
-            state = listState,
             modifier = Modifier
                 .padding(contentPadding)
                 .fillMaxSize(),
@@ -240,55 +217,29 @@ fun BountiesScreen(onBack: () -> Unit) {
                     if (cached.isEmpty()) {
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "No active bounties yet",
+                            "No cached bounties yet — sync when the gateway feed is wired into this list.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
             }
-
-            val groupSize = 6
-            repeat(5) { group ->
-                stickyHeader {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .hazeEffect(state = hazeState, style = style) {
-                                inputScale = HazeInputScale.Auto
-                                this.blurEnabled = blurEnabled
-                            },
-                    ) {
-                        Text(
-                            "Header: $group",
-                            modifier = Modifier.padding(16.dp),
-                            style = MaterialTheme.typography.titleSmall,
-                        )
-                    }
-                }
-                items(groupSize) { index ->
-                    Box(
-                        modifier = Modifier
-                            .hazeSource(state = hazeState)
-                            .fillParentMaxWidth(),
-                    ) {
-                        AsyncImage(
-                            model = bountiesSampleImageUrl((group * groupSize) + index),
-                            contentScale = ContentScale.Crop,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .height(128.dp)
-                                .fillMaxWidth(),
-                        )
+            items(cached, key = { it.id }) { row: CachedBountyEntity ->
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                ) {
+                    Text(row.title, style = MaterialTheme.typography.titleSmall)
+                    row.summary?.takeIf { it.isNotBlank() }?.let { summary ->
+                        Spacer(Modifier.height(4.dp))
+                        Text(summary, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
         }
     }
 }
-
-private fun bountiesSampleImageUrl(seed: Int): String =
-    "https://picsum.photos/seed/bountynet-$seed/800/256"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -309,7 +260,7 @@ fun WalletScreen(
                     if (sessionJwt.length <= 24) "(stored)"
                     else "${sessionJwt.take(8)}…${sessionJwt.takeLast(8)}"
                 Text(
-                    "Dynamic JWT (demo): $preview",
+                    "Dynamic JWT: $preview",
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }

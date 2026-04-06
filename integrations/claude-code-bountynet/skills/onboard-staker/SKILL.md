@@ -37,10 +37,6 @@ Get the developer from zero → **joined agent** → **inference/credits visible
 
 If **another plugin** already owns `statusLine.command`, only one can win unless they **chain**: re-run `bountynet-setup` and answer **Y** when asked to chain so both lines run (`upstream` is saved in `~/.bountynet/statusline-chain.json` and combined with ` | `).
 
-## Mock / offline demo
-
-- Export `BOUNTYNET_STATUSLINE_MOCK=1` before launching Claude Code to drive **fake** credit bumps in the status line (no gateway calls).
-
 ## CLI name
 
 The Rust binary is **`be`** (build from **`be-cli/`**: `cargo build --release` → `target/release/be`). Commands: `be join`, `be bounties watch`, `be status`, etc.

@@ -13,7 +13,7 @@ Architecture:
        ↓ paymaster: true
   Gasless bounty operations on Arc
 
-For the hackathon, two modes:
+Two common integration modes:
   1. Frontend (browser): Circle Modular Wallet + passkey
   2. Backend (headless): Direct EOA with relayer-sponsored gas
 """

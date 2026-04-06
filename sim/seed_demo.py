@@ -1,5 +1,5 @@
 """
-Seed the demo state — run this right before recording.
+Seed integration-test gateway state (bounties, claims, inference log, events).
 
 Creates a realistic-looking feed with:
   - Joe's repos with real CI failures (from webhook data)

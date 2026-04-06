@@ -8,7 +8,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
 /**
- * Sticky immersive system UI for demo / projector use on **JungleGym only** (API 30+ app min).
+ * Sticky immersive system UI on **JungleGym only** (API 30+ app min).
  * Mirrors [android/platform-samples ImmersiveMode](https://github.com/android/platform-samples/tree/main/samples/user-interface/window-insets):
  * hide [WindowInsetsCompat.Type.systemBars] with [WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE].
  *

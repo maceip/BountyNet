@@ -46,6 +46,65 @@ IDENTITY_ABI = json.loads("""[
 
 identity = w3.eth.contract(address=IDENTITY_REGISTRY, abi=IDENTITY_ABI)
 
+# ── Static ENS aliases (same keys as resolve_subdomain) ────────
+
+_STATIC_SUBDOMAIN_ADDR = {
+    "deployer": os.environ.get("DEPLOYER_ADDRESS", ""),
+    "treasury": os.environ.get("TREASURY_ADDRESS", ""),
+    "relayer": os.environ.get("RELAYER_ADDRESS", ""),
+    "bounty": os.environ.get("BOUNTY_ESCROW", ""),
+    "escrow": os.environ.get("BOUNTY_ESCROW", ""),
+    "identity": os.environ.get("IDENTITY_REGISTRY", ""),
+    "validation": os.environ.get("VALIDATION_REGISTRY", ""),
+}
+
+
+def namehash(name: str) -> bytes:
+    """EIP-137 DNS namehash for a dot-separated DNS name."""
+    node = b"\x00" * 32
+    if not name:
+        return node
+    for label in reversed(name.split(".")):
+        node = keccak(node + keccak(text=label))
+    return node
+
+
+def address_for_namehash(node: bytes) -> str | None:
+    """Resolve addr(node) using the same rules as /lookup (no wildcard deployer fallback)."""
+    for sub, addr in _STATIC_SUBDOMAIN_ADDR.items():
+        if addr and namehash(f"{sub}.{PARENT_NAME}") == node:
+            return addr
+
+    try:
+        next_id = int(identity.functions.next_id().call())
+    except Exception:
+        return None
+
+    cap = min(next_id, 5000)
+    for i in range(1, cap):
+        for prefix in ("agent", "solver"):
+            full = f"{prefix}-{i}.{PARENT_NAME}"
+            if namehash(full) == node:
+                try:
+                    wallet = identity.functions.get_agent_wallet(i).call()
+                    w = str(wallet)
+                    if w and w.lower() != "0x0000000000000000000000000000000000000000":
+                        return w
+                except Exception:
+                    pass
+        full = f"{i}.{PARENT_NAME}"
+        if namehash(full) == node:
+            try:
+                wallet = identity.functions.get_agent_wallet(i).call()
+                w = str(wallet)
+                if w and w.lower() != "0x0000000000000000000000000000000000000000":
+                    return w
+            except Exception:
+                pass
+
+    return None
+
+
 # ── ENS name parsing ───────────────────────────────────────────
 
 def decode_dns_name(data: bytes) -> str:
@@ -79,19 +138,8 @@ def resolve_subdomain(subdomain: str) -> str | None:
       treasury.maceip.eth    → treasury address
       bounty.maceip.eth      → escrow contract address
     """
-    # Static mappings
-    STATIC = {
-        "deployer": os.environ.get("DEPLOYER_ADDRESS", ""),
-        "treasury": os.environ.get("TREASURY_ADDRESS", ""),
-        "relayer": os.environ.get("RELAYER_ADDRESS", ""),
-        "bounty": os.environ.get("BOUNTY_ESCROW", ""),
-        "escrow": os.environ.get("BOUNTY_ESCROW", ""),
-        "identity": os.environ.get("IDENTITY_REGISTRY", ""),
-        "validation": os.environ.get("VALIDATION_REGISTRY", ""),
-    }
-
-    if subdomain in STATIC and STATIC[subdomain]:
-        return STATIC[subdomain]
+    if subdomain in _STATIC_SUBDOMAIN_ADDR and _STATIC_SUBDOMAIN_ADDR[subdomain]:
+        return _STATIC_SUBDOMAIN_ADDR[subdomain]
 
     # Agent pattern: agent-{id} or solver-{id} or just a number
     agent_id = None
@@ -153,16 +201,11 @@ def handle_ccip_read(sender: str, data: str):
 
     # Try to decode as addr(bytes32 node)
     if selector == "3b3b57de" and len(call_data) >= 36:
-        # Extract node from calldata
         node = call_data[4:36]
-
-        # We need to figure out which subdomain this node represents
-        # For the hackathon, we'll try all known subdomains
-        # In production, the extraData would contain the DNS name
-
-        # For now, return the deployer address as fallback
-        address = os.environ.get("DEPLOYER_ADDRESS", "0x" + "0" * 40)
-        result = encode(["address"], [address])
+        address = address_for_namehash(node)
+        if not address:
+            return jsonify({"error": "unknown ENS node — no matching subdomain"}), 404
+        result = encode(["address"], [to_checksum_address(address)])
 
     else:
         return jsonify({"error": f"unsupported selector: {selector}"}), 400

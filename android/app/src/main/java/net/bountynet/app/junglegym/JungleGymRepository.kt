@@ -51,15 +51,15 @@ class JungleGymRepository(
                         fromNetwork = true,
                     )
                 }
-                .ifEmpty { bundledFallback() }
+                .ifEmpty { offlineScenarios() }
         } catch (_: Exception) {
-            bundledFallback()
+            offlineScenarios()
         }
     }
 
-    private fun bundledFallback(): List<CiFailureScenario> = listOf(
+    private fun offlineScenarios(): List<CiFailureScenario> = listOf(
         CiFailureScenario(
-            id = "mock-1",
+            id = "offline-1",
             repo = DEFAULT_SIM_REPO,
             checkName = "rust-ci / test",
             commitSha = "a1b2c3d4e5f6",
@@ -67,7 +67,7 @@ class JungleGymRepository(
             fromNetwork = false,
         ),
         CiFailureScenario(
-            id = "mock-2",
+            id = "offline-2",
             repo = DEFAULT_SIM_REPO,
             checkName = "github-actions / build",
             commitSha = "9f8e7d6c5b4a",

@@ -3,7 +3,7 @@ CI Oracle — TEE-attested validation + on-chain resolution.
 
 Two paths:
   1. POST /oracle         — receives check_run webhook, signs via TEE, submits to Arc
-  2. POST /oracle/verify  — verify a TEE signature off-chain (debug)
+  2. POST /oracle/verify  — verify a TEE proof signature locally (EIP-191)
 
 The TEE oracle runs as a Flare FCE extension (oracle-tee/).
 Gateway calls its direct API at ORACLE_TEE_URL/oracle/sign to get a
@@ -108,40 +108,39 @@ def submit_tee_validation(repo: str, sha: str, check_name: str) -> dict | None:
     if proof:
         coston2_result = store_proof_coston2(val_hash, proof, repo, check_name)
 
-    if proof:
-        # Submit validation with TEE attestation to Arc
-        proof_hash = keccak(
-            bytes.fromhex(proof["signer"][2:])
-            + bytes.fromhex(proof["message_hash"][2:])
+    if not proof:
+        emit(
+            "oracle",
+            f"Oracle skipped validation (no TEE proof): {repo}@{sha} — check ORACLE_TEE_URL",
+            repo=repo,
+            data={"tee": False},
         )
-        data = "0x" + (
-            fn_sig("validation_response(bytes32,uint8,bytes32,string)")
-            + encode(
-                ["bytes32", "uint8", "bytes32", "string"],
-                [val_hash, 100, proof_hash, f"tee-attested:{proof['signer']}"],
-            )
-        ).hex()
-    else:
-        # Fallback: direct submission without TEE (degraded mode)
-        data = "0x" + (
-            fn_sig("validation_response(bytes32,uint8,bytes32,string)")
-            + encode(
-                ["bytes32", "uint8", "bytes32", "string"],
-                [val_hash, 100, keccak(b"green"), "direct-no-tee"],
-            )
-        ).hex()
+        return None
+
+    # Submit validation with TEE attestation to Arc
+    proof_hash = keccak(
+        bytes.fromhex(proof["signer"][2:])
+        + bytes.fromhex(proof["message_hash"][2:])
+    )
+    data = "0x" + (
+        fn_sig("validation_response(bytes32,uint8,bytes32,string)")
+        + encode(
+            ["bytes32", "uint8", "bytes32", "string"],
+            [val_hash, 100, proof_hash, f"tee-attested:{proof['signer']}"],
+        )
+    ).hex()
 
     try:
         result = send_tx(VALIDATION, data)
-        tee_msg = f"TEE-attested proof signed by {proof['signer'][:10]}..." if proof else "Direct validation (no TEE)"
+        tee_msg = f"TEE-attested proof signed by {proof['signer'][:10]}..."
         coston2_msg = f", stored on Coston2 (block #{coston2_result['coston2_block']})" if coston2_result else ""
         emit("oracle", f"Oracle validated: {repo}@{sha} — {tee_msg}{coston2_msg}",
-             repo=repo, data={"tee": bool(proof), "coston2": bool(coston2_result)})
+             repo=repo, data={"tee": True, "coston2": bool(coston2_result)})
 
         return {
             "validation_hash": "0x" + val_hash.hex(),
-            "tee_attested": proof is not None,
-            "tee_signer": proof["signer"] if proof else None,
+            "tee_attested": True,
+            "tee_signer": proof["signer"],
             "tee_proof": proof,
             "coston2": coston2_result,
             **result,
@@ -181,29 +180,40 @@ def oracle():
 
 @oracle_bp.route("/oracle/verify", methods=["POST"])
 def verify_proof():
-    """Verify a TEE signature off-chain (debug/demo endpoint)."""
+    """Verify a TEE proof signature locally (EIP-191 over the raw CI proof hash)."""
     body = request.json or {}
     proof = body.get("proof")
     if not proof:
         return jsonify({"error": "proof required"}), 400
 
-    # Recover signer from the proof
-    from eth_account.messages import encode_defunct
     from eth_account import Account
+    from eth_utils import keccak
 
-    msg_hash = bytes.fromhex(proof["message_hash"][2:])
-    v = proof["v"]
-    r = bytes.fromhex(proof["r"][2:])
-    s = bytes.fromhex(proof["s"][2:])
+    try:
+        raw = bytes.fromhex(str(proof["message_hash"]).removeprefix("0x"))
+        prefixed = keccak(b"\x19Ethereum Signed Message:\n32" + raw)
+        v = int(proof["v"])
+        r = bytes.fromhex(str(proof["r"]).removeprefix("0x"))
+        s = bytes.fromhex(str(proof["s"]).removeprefix("0x"))
+    except (KeyError, ValueError) as e:
+        return jsonify({"error": f"invalid proof fields: {e}"}), 400
 
-    # Reconstruct signature
-    sig_bytes = r + s + bytes([v - 27])
+    try:
+        recovered = Account.recover_hash(
+            prefixed,
+            vrs=(v, int.from_bytes(r, "big"), int.from_bytes(s, "big")),
+        )
+    except Exception as e:
+        return jsonify({"claimed_signer": proof.get("signer"), "valid": False, "error": str(e)}), 400
 
+    claimed = (proof.get("signer") or "").lower()
+    valid = recovered.lower() == claimed
     return jsonify({
         "claimed_signer": proof.get("signer"),
+        "recovered_signer": recovered,
         "message_hash": proof["message_hash"],
         "v": v,
-        "valid": True,  # In production, ecrecover and compare
+        "valid": valid,
     })
 
 
