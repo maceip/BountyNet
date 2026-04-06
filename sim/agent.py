@@ -1,5 +1,7 @@
 """
-SimBountyNet Agent — autonomous solver that exercises the full pipeline.
+SimBountyNet Agent — autonomous solver that exercises the full pipeline (HTTP/API).
+
+Browser automation for the same persona lives in `sim/sim_solver.py`.
 
 One script, one agent_id. Run N instances for a fleet.
 Rep accumulates on the agent's EIP-8004 NFT metadata.
@@ -9,6 +11,9 @@ Modes:
   --hallucinate  Submits plausible but wrong fixes (tests failure path)
   --malicious  Tries to game the system (adversarial testing)
 
+Honest mode tries fixes in order: **Cursor Cloud Agents** (`CURSOR_API_KEY`), then
+Anthropic (gateway bearer token from claim, or `ANTHROPIC_API_KEY` direct).
+
 Usage:
   python sim/agent.py                          # honest solver
   python sim/agent.py --hallucinate            # bad solver
@@ -17,6 +22,7 @@ Usage:
 """
 import os
 import sys
+import base64
 import json
 import time
 import argparse
@@ -123,12 +129,68 @@ def clone_repo(repo: str) -> str | None:
 
 
 def read_context(repo_path: str) -> str:
-    parts = []
-    for pattern in [".github/workflows/*.yml", ".github/workflows/*.yaml",
-                    "package.json", "Cargo.toml", "pyproject.toml", "Makefile"]:
-        for f in Path(repo_path).glob(pattern):
-            parts.append(f"=== {f.name} ===\n{f.read_text()[:1500]}")
-    return "\n\n".join(parts[:5]) or "no project files"
+    """Collect CI configs + manifest files + README for the LLM."""
+    parts: list[str] = []
+    for wf_dir in [".github/workflows", ".circleci", ".gitlab-ci.yml"]:
+        wf_path = Path(repo_path) / wf_dir
+        if wf_path.is_dir():
+            for f in list(wf_path.glob("*.yml")) + list(wf_path.glob("*.yaml")):
+                parts.append(f"=== {f.name} ===\n{f.read_text()[:2000]}")
+        elif wf_path.is_file():
+            parts.append(f"=== {wf_dir} ===\n{wf_path.read_text()[:2000]}")
+    for config in ["package.json", "Cargo.toml", "pyproject.toml", "requirements.txt", "Makefile"]:
+        p = Path(repo_path) / config
+        if p.exists():
+            parts.append(f"=== {config} ===\n{p.read_text()[:1500]}")
+    for readme in ["README.md", "readme.md", "README"]:
+        p = Path(repo_path) / readme
+        if p.exists():
+            parts.append(f"=== README ===\n{p.read_text()[:1500]}")
+            break
+    return "\n\n".join(parts) if parts else "No project files found."
+
+
+def get_ci_error(gateway: str, repo: str, context_hash: str, bounty: dict) -> str:
+    try:
+        r = requests.get(f"{gateway}/bounties/{context_hash}", timeout=10)
+        data = r.json()
+        check_name = data.get("check_name", "CI")
+        return f"CI check '{check_name}' failed on {repo}. Fix the build."
+    except Exception:
+        check_name = bounty.get("check_name", "CI")
+        return f"{check_name} failed on {repo}. Diagnose and fix the build error."
+
+
+def generate_fix_cursor(repo: str, ci_error: str, repo_context: str) -> list[dict] | None:
+    api_key = os.environ.get("CURSOR_API_KEY", "")
+    if not api_key:
+        return None
+    try:
+        auth = base64.b64encode(f"{api_key}:".encode()).decode()
+        r = requests.post(
+            "https://api.cursor.com/cloud-agents",
+            headers={
+                "Authorization": f"Basic {auth}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "repo": f"https://github.com/{repo}",
+                "prompt": f"Fix this CI failure:\n{ci_error}\n\nProject context:\n{repo_context[:3000]}",
+            },
+            timeout=300,
+        )
+        if r.status_code != 200:
+            log.warning("Cursor API returned %s", r.status_code)
+            return None
+        data = r.json()
+        changes = data.get("changes", [])
+        if not changes:
+            return None
+        log.info("Cursor agent returned %d file change(s)", len(changes))
+        return [{"path": c["path"], "content": c["content"]} for c in changes]
+    except Exception as e:
+        log.error("Cursor: %s", e)
+        return None
 
 
 def find_source_files(repo_path: str) -> list[Path]:
@@ -141,7 +203,12 @@ def find_source_files(repo_path: str) -> list[Path]:
 # ── Fix Strategies ────────────────────────────────────────────
 
 def fix_honest(repo: str, repo_path: str, ci_error: str, bnet_token: str, gateway: str) -> list[dict] | None:
-    """Call LLM to generate a real fix."""
+    """Call LLM to generate a real fix (Cursor first, then Anthropic)."""
+    context = read_context(repo_path)
+    cursor_files = generate_fix_cursor(repo, ci_error, context)
+    if cursor_files:
+        return cursor_files
+
     api_key = bnet_token or os.environ.get("ANTHROPIC_API_KEY", "")
     base_url = f"{gateway}/v1" if bnet_token else "https://api.anthropic.com/v1"
 
@@ -149,11 +216,10 @@ def fix_honest(repo: str, repo_path: str, ci_error: str, bnet_token: str, gatewa
         log.warning("no API key, falling back to hallucinate")
         return None
 
-    context = read_context(repo_path)
     prompt = f"""Fix this CI failure. Repository: {repo}
 Error: {ci_error}
 Context:
-{context[:3000]}
+{context[:4000]}
 
 Return ONLY a JSON array: [{{"path": "file/path", "content": "full content"}}]"""
 
@@ -259,7 +325,7 @@ def solve(gateway: str, agent_id: int, bounty: dict, mode: str) -> bool:
         return False
 
     bnet_token = c.get("bnet_token", "")
-    ci_error = bounty.get("check_name", "CI") + " failed"
+    ci_error = get_ci_error(gateway, repo, ctx, bounty)
 
     # Clone
     repo_path = clone_repo(repo)

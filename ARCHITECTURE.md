@@ -93,8 +93,7 @@ For the full route list, see [`API.md`](API.md) and `user_journeys.md`.
 |--------|---------|
 | **`sim_staker.py`** | Staker — landing → GitHub App → setup → API key / budget (browser-use). |
 | **`sim_solver.py`** | Solver — landing → login → feed → claim path in the web UI (browser-use). |
-| **`sim/vishy.py`** | Same solver pipeline via **HTTP/API** (poll, LLM, `submit-pr`). |
-| **`sim/agent.py`** | Lighter-weight agent loop (see file). |
+| **`sim/agent.py`** | **HTTP/API solver** — poll, claim, clone, LLM patch (optional Cursor Cloud Agents, then Anthropic via gateway or direct), `submit-pr`; honest / hallucinate / malicious modes. |
 | **`sim/malicious.py`** | Adversarial scenarios against the gateway. |
 
 All sims are **optional tooling**; production behavior is defined by contracts + gateway + CLI above.
