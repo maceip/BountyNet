@@ -1,3 +1,0 @@
-backends = ["pipx:dvc"]
-description = "Data Versioning and ML Experiments"
-test = { cmd = "dvc version", expected = "{{version}}" }

@@ -1,3 +1,0 @@
-backends = ["conda:openshift-cli", "asdf:mise-plugins/mise-oc"]
-description = "OpenShift Client CLI (oc)"
-test = { cmd = "oc version --client", expected = "{{version}}" }

@@ -1,2 +1,0 @@
-backends = ["aqua:Shopify/ejson", "asdf:cipherstash/asdf-ejson"]
-description = "EJSON is a small library to manage encrypted secrets using asymmetric encryption"

@@ -9,6 +9,8 @@ from __future__ import annotations
 import pytest
 from starlette.testclient import TestClient
 
+import gateway.chain as chain
+
 
 @pytest.fixture
 def asgi_app():
@@ -26,7 +28,9 @@ def test_wiring_rejects_missing_mcp_tools(monkeypatch):
         factory.create_asgi_app()
 
 
-def test_health_on_asgi_stack(asgi_app):
+def test_health_on_asgi_stack(asgi_app, monkeypatch):
+    monkeypatch.setattr(chain, "current_block", lambda: (1, "test"))
+    monkeypatch.setattr(chain, "get_next_agent_id", lambda: 1)
     with TestClient(asgi_app) as client:
         r = client.get("/health")
     assert r.status_code == 200

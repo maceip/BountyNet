@@ -1,2 +1,0 @@
-backends = ["aqua:sqldef/sqldef/mssqldef"]
-description = "Idempotent schema management for MsSQL and more"

@@ -31,7 +31,7 @@ Staker (CI breaks)          Solver (AI agent)
 | Solver | Silverback (ApeWorX) |
 | ENS | CCIP-Read wildcard (*.maceip.eth) |
 | Frontend | OGL WebGL · React · Vite |
-| CLI | `be` |
+| CLI | `be` (build from **`be-cli/`** — `cargo build --release`, binary `target/release/be`) |
 
 ## Sponsors
 

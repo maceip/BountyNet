@@ -14,7 +14,8 @@ const PLUGIN_ROOT = path.resolve(__dirname, "..");
 const STATUSLINE_JS = path.join(PLUGIN_ROOT, "lib", "statusline.mjs");
 const CHAIN_JS = path.join(PLUGIN_ROOT, "lib", "statusline-chain.mjs");
 const CHAIN_PATH = path.join(os.homedir(), ".bountynet", "statusline-chain.json");
-const BE_DIR = path.resolve(PLUGIN_ROOT, "..", "..", "be");
+const REPO_ROOT = path.resolve(PLUGIN_ROOT, "..", "..");
+const BE_CLI_DIR = path.join(REPO_ROOT, "be-cli");
 
 /** readline/promises breaks after the first prompt when stdin is a pipe; drain first. */
 let ttyRl = null;
@@ -67,13 +68,19 @@ function commandReferencesOurStatusline(cmd) {
   return false;
 }
 
-function whichBounty() {
+function whichBe() {
+  const name = process.platform === "win32" ? "be.exe" : "be";
   const pathEnv = process.env.PATH || "";
   for (const dir of pathEnv.split(path.delimiter)) {
-    const p = path.join(dir, process.platform === "win32" ? "bounty.exe" : "bounty");
+    const p = path.join(dir, name);
     if (fs.existsSync(p)) return p;
   }
   return null;
+}
+
+function releaseBePath() {
+  const rel = process.platform === "win32" ? ["target", "release", "be.exe"] : ["target", "release", "be"];
+  return path.join(BE_CLI_DIR, ...rel);
 }
 
 async function main() {
@@ -95,28 +102,27 @@ async function main() {
     if (key) process.env.ANTHROPIC_API_KEY = key;
   }
 
-  let bountyBin = whichBounty();
-  if (bountyBin) {
-    console.log("Found bounty:", bountyBin);
-  } else {
-    console.log("Installing bounty CLI...");
-    const installDir = path.join(os.homedir(), ".bountynet", "bin");
-    fs.mkdirSync(installDir, { recursive: true });
-    bountyBin = path.join(installDir, "bounty");
-
-    const arch = os.arch() === "x64" ? "x64" : "arm64";
-    const platform = os.platform();
-    const url = `https://bountynet.stare.network/bounty-${platform}-${arch}`;
-
-    console.log(`Downloading from ${url}...`);
-    const st = run("curl", ["-fsSL", url, "-o", bountyBin]);
+  let beBin = whichBe();
+  if (beBin) {
+    console.log("Found be CLI:", beBin);
+  } else if (fs.existsSync(path.join(BE_CLI_DIR, "Cargo.toml"))) {
+    console.log("Building `be` from be-cli/ (cargo build --release)...");
+    const st = run("cargo", ["build", "--release"], { cwd: BE_CLI_DIR, env: process.env });
     if (st !== 0) {
-      console.error("Download failed. Install manually:");
-      console.error(`  curl -fsSL ${url} -o ${bountyBin} && chmod +x ${bountyBin}`);
+      console.error("cargo build failed. Install Rust, then: cd be-cli && cargo build --release");
       process.exit(1);
     }
-    fs.chmodSync(bountyBin, 0o755);
-    console.log("Installed:", bountyBin);
+    beBin = releaseBePath();
+    if (!fs.existsSync(beBin)) {
+      console.error("Expected binary missing:", beBin);
+      process.exit(1);
+    }
+    console.log("Built:", beBin);
+  } else {
+    console.error(
+      "No `be` on PATH and be-cli/ not found next to this repo. Add be-cli to your checkout or install `be` on PATH.",
+    );
+    process.exit(1);
   }
 
   const settingsPath = path.join(os.homedir(), ".claude", "settings.json");
@@ -181,14 +187,14 @@ async function main() {
   console.log("Wrote statusLine to", settingsPath);
   console.log("  command:", data.statusLine.command);
 
-  const djoin = (await ask("Run bounty join now (browser OAuth)? (Y/n) ")).trim();
+  const djoin = (await ask("Run `be join` now (browser OAuth)? (Y/n) ")).trim();
   if (!/^n/i.test(djoin)) {
-    run(bountyBin, ["join"], { env: process.env });
+    run(beBin, ["join"], { env: process.env });
   }
 
   console.log(`
 Optional: in another terminal:
-  ${bountyBin} bounties watch
+  ${beBin} bounties watch
 
 Restart Claude Code or send a message so the status line refreshes.
 `);

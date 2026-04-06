@@ -1,2 +1,0 @@
-backends = ["github:onyx-lang/onyx", "asdf:jtakakura/asdf-onyx"]
-description = "The compiler and developer toolchain for Onyx"

@@ -1,2 +1,0 @@
-backends = ["vfox:mise-plugins/vfox-neovim", "aqua:neovim/neovim"]
-description = "Vim-fork focused on extensibility and usability"

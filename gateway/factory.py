@@ -16,6 +16,7 @@ from pathlib import Path
 from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.wsgi import WSGIMiddleware
+from starlette.responses import Response
 from starlette.routing import Mount, Route
 
 from gateway.app import app as flask_app
@@ -41,6 +42,21 @@ def _verify_gateway_wiring() -> None:
     _require(widget.stat().st_size >= 64, f"MCP widget asset empty or corrupt: {widget}")
 
 
+class _McpHttpAsgi:
+    """OPTIONS for probes / non-CORS clients; Streamable HTTP only handles GET/POST/DELETE."""
+
+    __slots__ = ("_inner",)
+
+    def __init__(self, inner):
+        self._inner = inner
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] == "http" and scope["method"] == "OPTIONS":
+            await Response(status_code=204)(scope, receive, send)
+            return
+        await self._inner(scope, receive, send)
+
+
 def create_asgi_app():
     """
     Build the ASGI application: CORS + `/mcp` (MCP Streamable HTTP) + Flask mounted at `/`.
@@ -56,12 +72,11 @@ def create_asgi_app():
         async with session_manager.run():
             yield
 
-    async def mcp_dispatch(scope, receive, send):
-        await mcp_http_asgi(scope, receive, send)
-
+    # Route (not Mount): Starlette Mount("/mcp") matches only `/mcp/...`, not `/mcp`. Endpoint must be an ASGI object, not an `async def` (that becomes a Request handler).
+    mcp_route_app = _McpHttpAsgi(mcp_http_asgi)
     starlette_app = Starlette(
         routes=[
-            Route("/mcp", endpoint=mcp_dispatch, methods=["GET", "POST", "DELETE", "OPTIONS"]),
+            Route("/mcp", endpoint=mcp_route_app, methods=["GET", "POST", "DELETE", "OPTIONS"]),
             Mount("/", WSGIMiddleware(flask_app)),
         ],
         lifespan=lifespan,

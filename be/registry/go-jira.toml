@@ -1,2 +1,0 @@
-backends = ["aqua:go-jira/jira", "asdf:dguihal/asdf-go-jira"]
-description = "simple jira command line client in Go"

@@ -15,7 +15,7 @@ from flask import Blueprint, request, jsonify
 from gateway.events import emit
 from eth_utils import keccak
 from eth_abi import encode
-from gateway.routes.github import verify_webhook
+from gateway.github.app_auth import verify_webhook
 from gateway.chain import send_tx, sig as fn_sig, call, VALIDATION, w3
 
 oracle_bp = Blueprint("oracle", __name__)

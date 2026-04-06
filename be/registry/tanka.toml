@@ -1,2 +1,0 @@
-backends = ["aqua:grafana/tanka", "asdf:trotttrotttrott/asdf-tanka"]
-description = "Flexible, reusable and concise configuration for Kubernetes"

@@ -1,2 +1,0 @@
-backends = ["aqua:joerdav/xc", "asdf:airtonix/asdf-xc"]
-description = "Markdown defined task runner"

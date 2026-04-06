@@ -1,2 +1,0 @@
-backends = ["aqua:carvel-dev/imgpkg", "asdf:vmware-tanzu/asdf-carvel"]
-description = "Store application configuration files in Docker/OCI registries"

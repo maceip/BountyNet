@@ -1,2 +1,0 @@
-backends = ["aqua:goreleaser/goreleaser", "asdf:kforsthoevel/asdf-goreleaser"]
-description = "Deliver Go binaries as fast and easily as possible"

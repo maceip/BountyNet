@@ -2,19 +2,28 @@
 Identity routes — onboarding + status.
 
 POST /identity/onboard   — create Dynamic identity, check EIP-8004 registration
-GET  /identity/<agent_id> — wallet, balances, ENS name, roles
+POST /identity/android-attestation/bind — link verified leaf SPKI (bind_token from /attest/android-key/verify)
+GET  /identity/<agent_id> — wallet, balances, ENS name, roles, android_attestations
 """
 import os
 import json
 import subprocess
+from urllib.parse import urlencode, urlparse, parse_qsl, urlunparse
 from flask import Blueprint, request, jsonify, redirect
 from eth_abi import encode as abi_encode
 from eth_account import Account
 from gateway.chain import get_agent_wallet, eurc_balance, get_next_agent_id, native_balance, ESCROW, send_tx, sig, IDENTITY
 from gateway.events import emit
-from gateway.auth import require_auth
+from gateway.auth import require_auth, verify_dynamic_jwt
+from gateway.routes.android_key_attestation import (
+    list_android_spki_bindings,
+    record_android_spki_binding,
+    verify_and_consume_bind_token,
+)
 
 DYNAMIC_ENV_ID = os.environ.get("DYNAMIC_ENV_ID", "")
+APP_REDIRECT_DEFAULT = os.environ.get("APP_REDIRECT_URL", "https://bountynet.stare.network/")
+GATEWAY_PUBLIC_URL = os.environ.get("GATEWAY_PUBLIC_URL", "https://gateway.stare.network")
 
 identity_bp = Blueprint("identity", __name__)
 RELAYER_ADDRESS = Account.from_key(os.environ.get("DEPLOYER_PRIVATE_KEY", "")).address if os.environ.get("DEPLOYER_PRIVATE_KEY") else None
@@ -63,6 +72,27 @@ def find_agent_id_by_wallet(address: str) -> int | None:
     return None
 
 
+def resolve_wallet_and_agent(claims: dict) -> tuple[str | None, int | None]:
+    """
+    EVM wallet + existing on-chain agent id for this Dynamic user.
+    Does not create users, wallets, or mint agents (use POST /identity/onboard for that).
+    """
+    body: dict = {}
+    external_id = derive_external_id(claims, body)
+    if not external_id:
+        return None, None
+    user = call_dynamic("get-user", external_id)
+    if "error" in user:
+        return None, None
+    wallets = user.get("wallets", [])
+    evm = next((w for w in wallets if w.get("chain") == "EVM"), None)
+    address = (evm or {}).get("address")
+    if not address:
+        return None, None
+    agent_id = find_agent_id_by_wallet(str(address))
+    return str(address), agent_id
+
+
 def register_agent_for_wallet(wallet: str, agent_uri: str) -> tuple[int | None, list[dict]]:
     """
     Mint a new EIP-8004 agent from the relayer and transfer it to the user wallet.
@@ -98,6 +128,64 @@ def register_agent_for_wallet(wallet: str, agent_uri: str) -> tuple[int | None, 
     return agent_id, txs
 
 
+def append_query(url: str, params: dict[str, str]) -> str:
+    parsed = urlparse(url)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query.update({k: v for k, v in params.items() if v is not None})
+    return urlunparse(parsed._replace(query=urlencode(query)))
+
+
+def onboard_identity(body: dict, claims: dict) -> dict:
+    external_id = derive_external_id(claims, body)
+    if not external_id:
+        raise ValueError("could not derive external identity")
+
+    user = call_dynamic("get-user", external_id)
+    if "error" in user:
+        user = call_dynamic("create-user", external_id)
+    if "error" in user:
+        raise RuntimeError(user["error"])
+
+    wallets = user.get("wallets", [])
+    evm = next((w for w in wallets if w.get("chain") == "EVM"), None)
+
+    if not evm:
+        call_dynamic("create-wallet", user["userId"])
+        user = call_dynamic("get-user", external_id)
+        wallets = user.get("wallets", [])
+        evm = next((w for w in wallets if w.get("chain") == "EVM"), None)
+
+    address = evm["address"] if evm else None
+
+    agent_id = None
+    ens_name = None
+    txs: list[dict] = []
+    if address:
+        agent_id = find_agent_id_by_wallet(address)
+        if agent_id is None:
+            agent_uri = str(body.get("agent_uri") or "ipfs://bountynet-agent.json")
+            agent_id, txs = register_agent_for_wallet(address, agent_uri)
+        if agent_id is not None:
+            ens_name = f"agent-{agent_id}.maceip.eth"
+
+    emit("agent", f"Agent onboarded: {external_id} → {address[:10]}... (agent #{agent_id})" if address else f"Agent onboarded: {external_id}",
+         agent_id=agent_id, data={"external_id": external_id, "wallet": address})
+
+    return {
+        "external_id": external_id,
+        "identity_anchor": external_id,
+        "claims_sub": claims.get("sub"),
+        "dynamic_user_id": user.get("userId"),
+        "agent_id": agent_id,
+        "wallet": address,
+        "ens": ens_name,
+        "registered_on_chain": agent_id is not None,
+        "identity_registry": IDENTITY,
+        "txs": txs,
+        "roles": ["staker", "solver"],
+    }
+
+
 @identity_bp.route("/identity/login")
 def login():
     """
@@ -105,9 +193,84 @@ def login():
     to the redirect_uri with a JWT token.
     Used by `be join` — opens browser to this URL.
     """
-    redirect_uri = request.args.get("redirect_uri", "http://localhost:9876/callback")
+    redirect_uri = request.args.get("redirect_uri")
+    app_redirect = request.args.get("app_redirect")
+    if not redirect_uri and app_redirect:
+        redirect_uri = f"{GATEWAY_PUBLIC_URL.rstrip('/')}/identity/complete?{urlencode({'app_redirect': app_redirect})}"
+    if not redirect_uri:
+        redirect_uri = "http://localhost:9876/callback"
     dynamic_url = f"https://app.dynamic.xyz/connect/{DYNAMIC_ENV_ID}?redirect_uri={redirect_uri}"
     return redirect(dynamic_url)
+
+
+@identity_bp.route("/identity/complete")
+def complete():
+    token = request.args.get("token") or request.args.get("jwt")
+    app_redirect = request.args.get("app_redirect") or APP_REDIRECT_DEFAULT
+    if not token:
+        return jsonify({"error": "missing token"}), 400
+
+    claims = verify_dynamic_jwt(token)
+    if not claims:
+        return jsonify({"error": "invalid token"}), 401
+
+    try:
+        result = onboard_identity({}, claims)
+    except Exception as e:
+        return redirect(append_query(app_redirect, {"onboarding_error": str(e)}))
+
+    return redirect(append_query(app_redirect, {
+        "agent_id": str(result.get("agent_id") or ""),
+        "ens": result.get("ens") or "",
+        "wallet": result.get("wallet") or "",
+    }))
+
+
+@identity_bp.route("/identity/android-attestation/bind", methods=["POST"])
+def bind_android_attestation():
+    """
+    Link a verified hardware attestation (leaf SPKI hash) to the signed-in agent.
+
+    1) Complete POST /attest/android-key/challenge → …/verify (returns bind_token).
+    2) Same client: Authorization: Bearer <Dynamic JWT>, body { "bind_token": "…" }.
+
+    The Dynamic user must already have an on-chain agent (POST /identity/onboard first).
+    """
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer ") or auth.startswith("Bearer bnet_"):
+        return jsonify({"error": "Dynamic JWT required (Bearer token, not bnet_)"}), 401
+    dynamic_jwt = auth[7:]
+    claims = verify_dynamic_jwt(dynamic_jwt)
+    if not claims:
+        return jsonify({"error": "invalid token"}), 401
+
+    body = request.json or {}
+    bind_token = body.get("bind_token")
+    if not bind_token or not isinstance(bind_token, str):
+        return jsonify({"error": "bind_token required"}), 400
+
+    spki_hex = verify_and_consume_bind_token(bind_token)
+    if not spki_hex:
+        return jsonify({"error": "invalid, expired, or reused bind_token"}), 400
+
+    wallet, agent_id = resolve_wallet_and_agent(claims)
+    if not agent_id:
+        return jsonify(
+            {
+                "error": "no agent for this wallet — complete POST /identity/onboard first",
+                "wallet": wallet,
+            }
+        ), 400
+
+    record_android_spki_binding(agent_id, spki_hex)
+    return jsonify(
+        {
+            "bound": True,
+            "agent_id": agent_id,
+            "leaf_spki_sha256_hex": spki_hex,
+            "android_attestations": list_android_spki_bindings(agent_id),
+        }
+    )
 
 
 @identity_bp.route("/identity/onboard", methods=["POST"])
@@ -120,60 +283,12 @@ def onboard():
     """
     body = request.json or {}
     claims = getattr(request, "auth_claims", {}) or {}
-    external_id = derive_external_id(claims, body)
-    if not external_id:
-        return jsonify({"error": "could not derive external identity"}), 400
-
-    # Get/create Dynamic identity
-    user = call_dynamic("get-user", external_id)
-    if "error" in user:
-        user = call_dynamic("create-user", external_id)
-    if "error" in user:
-        return jsonify(user), 500
-
-    wallets = user.get("wallets", [])
-    evm = next((w for w in wallets if w.get("chain") == "EVM"), None)
-
-    if not evm:
-        # Create wallet
-        call_dynamic("create-wallet", user["userId"])
-        user = call_dynamic("get-user", external_id)
-        wallets = user.get("wallets", [])
-        evm = next((w for w in wallets if w.get("chain") == "EVM"), None)
-
-    address = evm["address"] if evm else None
-
-    # Look up on-chain agent ID for this wallet
-    agent_id = None
-    ens_name = None
-    txs: list[dict] = []
-    if address:
-        try:
-            agent_id = find_agent_id_by_wallet(address)
-            if agent_id is None:
-                agent_uri = str(body.get("agent_uri") or "ipfs://bountynet-agent.json")
-                agent_id, txs = register_agent_for_wallet(address, agent_uri)
-            if agent_id is not None:
-                ens_name = f"agent-{agent_id}.maceip.eth"
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
-    emit("agent", f"Agent onboarded: {external_id} → {address[:10]}... (agent #{agent_id})" if address else f"Agent onboarded: {external_id}",
-         agent_id=agent_id, data={"external_id": external_id, "wallet": address})
-
-    return jsonify({
-        "external_id": external_id,
-        "identity_anchor": external_id,
-        "claims_sub": claims.get("sub"),
-        "dynamic_user_id": user.get("userId"),
-        "agent_id": agent_id,
-        "wallet": address,
-        "ens": ens_name,
-        "registered_on_chain": agent_id is not None,
-        "identity_registry": IDENTITY,
-        "txs": txs,
-        "roles": ["staker", "solver"],
-    })
+    try:
+        return jsonify(onboard_identity(body, claims))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @identity_bp.route("/identity/<int:agent_id>/wallet", methods=["POST"])
@@ -241,4 +356,5 @@ def agent_status(agent_id: int):
         "escrow": ESCROW,
         "can_stake": bal > 0,
         "can_solve": True,
+        "android_attestations": list_android_spki_bindings(agent_id),
     })

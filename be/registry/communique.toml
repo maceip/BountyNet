@@ -1,3 +1,0 @@
-backends = ["github:jdx/communique"]
-description = "Editorialized release notes powered by AI"
-test = { cmd = "communique --version", expected = "communique {{version}}" }

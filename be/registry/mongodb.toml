@@ -1,2 +1,0 @@
-backends = ["asdf:mise-plugins/mise-mongodb", "vfox:echocat/vfox-mongod"]
-description = "MongoDB"

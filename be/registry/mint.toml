@@ -1,2 +1,0 @@
-backends = ["github:mint-lang/mint", "asdf:mint-lang/asdf-mint"]
-description = "🍃 A refreshing programming language for the front-end web"

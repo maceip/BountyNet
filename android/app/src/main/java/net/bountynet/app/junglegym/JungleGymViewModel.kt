@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import net.bountynet.app.BuildConfig
+import net.bountynet.app.attestation.AttestationGateway
 
 data class JungleGymUiState(
     val scenarios: List<CiFailureScenario> = emptyList(),
@@ -25,6 +26,10 @@ data class JungleGymUiState(
     val loadingScenarios: Boolean = false,
     val agentDisplayName: String = "junglegym-solver-01",
     val adapterDisplayName: String = "relay-ci-runs-v0",
+    val attestationRunning: Boolean = false,
+    val attestationLastLine: String? = null,
+    /** Paste Dynamic JWT after web login to bind this device's attestation to your agent. */
+    val attestationBindJwt: String = "",
 )
 
 class JungleGymViewModel(
@@ -146,6 +151,34 @@ class JungleGymViewModel(
             it.copy(loopPhase = SolveLoopPhase.Idle, loopHistory = emptyList(), stepIndex = 0, lastTurn = null)
         }
         appendTerminal("[loop] reset")
+    }
+
+    /** Key + certificate attestation: local [android/keyattestation] verify, then gateway checks chain + challenge. */
+    fun setAttestationBindJwt(value: String) {
+        _ui.update { it.copy(attestationBindJwt = value) }
+    }
+
+    fun runDeviceAttestation() {
+        viewModelScope.launch {
+            _ui.update { it.copy(attestationRunning = true) }
+            val gw = AttestationGateway(BuildConfig.GATEWAY_URL)
+            try {
+                val jwt = _ui.value.attestationBindJwt.trim().takeIf { it.isNotEmpty() }
+                val r = gw.runAttestationFlow(dynamicJwtForBind = jwt)
+                appendTerminal("[attest] ${if (r.ok) "OK" else "FAIL"} — ${r.message}")
+                _ui.update { it.copy(attestationLastLine = r.message, attestationRunning = false) }
+            } catch (e: Exception) {
+                appendTerminal("[attest] error: ${e.message}")
+                _ui.update {
+                    it.copy(
+                        attestationLastLine = e.message,
+                        attestationRunning = false,
+                    )
+                }
+            } finally {
+                gw.close()
+            }
+        }
     }
 
     /** Full JSON export for “register on BountyNet” flow (share sheet — last mile still mock). */

@@ -7,6 +7,7 @@ eth-utils>=5.0
 eth-account>=0.13
 requests>=2.31
 PyJWT[crypto]>=2.8
+asn1crypto>=1.5.1
 litellm>=1.50
 mcp>=1.26.0
 uvicorn[standard]>=0.31.0

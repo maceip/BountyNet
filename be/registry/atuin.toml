@@ -1,3 +1,0 @@
-backends = ["aqua:atuinsh/atuin", "cargo:atuin"]
-description = "✨ Magical shell history"
-test = { cmd = "atuin --version", expected = "atuin {{version}}" }

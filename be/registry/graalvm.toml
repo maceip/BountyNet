@@ -1,2 +1,0 @@
-backends = ["asdf:mise-plugins/mise-graalvm"]
-description = "An advanced JDK with ahead-of-time Native Image compilation"

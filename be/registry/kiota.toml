@@ -1,2 +1,0 @@
-backends = ["aqua:microsoft/kiota", "asdf:asdf-community/asdf-kiota"]
-description = "OpenAPI based HTTP Client code generator"

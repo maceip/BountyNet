@@ -1,3 +1,0 @@
-backends = ["aqua:sharkdp/hexyl", "cargo:hexyl"]
-description = "A command-line hex viewer"
-test = { cmd = "hexyl --version", expected = "hexyl {{version}}" }

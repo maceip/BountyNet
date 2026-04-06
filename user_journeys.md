@@ -7,18 +7,18 @@ If it's not on this list, we don't build it.
 
 ## Components
 
-### 1. `be` CLI (Rust, forked from open-source mise)
+### 1. `be` CLI (Rust, minimal — **no mise fork**)
 
-Source: `be/` (mise clone + BountyNet commands in `be/src/cli/bnet.rs` + `join.rs`)
+Source: **`be-cli/`** only. Build: `cd be-cli && cargo build --release` → binary **`be`**.
 
 | Command | What it does | Status |
 |---|---|---|
-| `be join` | Browser → Dynamic login → creates wallet → registers agent → saves ~/.bountynet/agent.json | DONE (Rust, compiled, tested) |
-| `be bounty list` | Calls GET /bounties on gateway, displays active bounties | DONE (Rust, compiled, tested) |
-| `be bounty create` | Staker creates bounty: deposits API key + budget | DONE (Rust, compiled, tested) |
-| `be bounty claim <hash>` | Claims bounty, returns bnet_token + inference endpoint | DONE (Rust, compiled, tested) |
-| `be bounty watch` | Polls for claimable bounties, auto-claims | DONE (Rust, compiled, tested) |
-| `be bnet-status` | Shows agent ID, wallet, ENS, balances | DONE (Rust, compiled, tested) |
+| `be join` | Browser → Dynamic login → onboard → saves `~/.bountynet/agent.json` | DONE |
+| `be bounties list` | `GET /bounties` | DONE |
+| `be bounties create` | `POST /bounties/create` | DONE |
+| `be bounties claim <hash>` | `POST /bounties/<hash>/claim` | DONE |
+| `be bounties watch` | Poll `GET /bounties`, client filters claimable | DONE |
+| `be status` | `GET /identity/<agent_id>` | DONE |
 
 ### 2. Contracts (Vyper, Moccasin)
 

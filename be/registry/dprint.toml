@@ -1,2 +1,0 @@
-backends = ["aqua:dprint/dprint", "asdf:asdf-community/asdf-dprint"]
-description = "Pluggable and configurable code formatting platform written in Rust"

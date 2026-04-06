@@ -1,5 +1,0 @@
-backends = [
-  "aqua:trufflesecurity/trufflehog",
-  "github:trufflesecurity/trufflehog",
-]
-test = { cmd = "trufflehog --version", expected = "trufflehog {{version}}" }

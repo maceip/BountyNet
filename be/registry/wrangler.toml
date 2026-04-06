@@ -1,3 +1,0 @@
-backends = ["npm:wrangler"]
-description = "A command line tool for building Cloudflare Workers"
-test = { cmd = "wrangler --version", expected = "{{version}}" }

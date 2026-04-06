@@ -1,3 +1,0 @@
-backends = ["npm:@devcontainers/cli"]
-description = "CLI for creating and configuring dev containers from devcontainer.json"
-test = { cmd = "devcontainer --version", expected = "{{version}}" }

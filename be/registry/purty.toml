@@ -1,3 +1,0 @@
-backends = ["npm:purty"]
-description = "PureScript pretty-printer"
-test = { cmd = "purty version", expected = "Purty version: {{version}}" }

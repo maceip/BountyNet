@@ -1,2 +1,0 @@
-backends = ["github:jgm/pandoc", "asdf:Fbrisset/asdf-pandoc"]
-description = "Universal markup converter"

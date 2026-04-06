@@ -95,7 +95,7 @@ async function main() {
 
   const agent = loadJson(AGENT_PATH);
   if (!agent.agent_id) {
-    console.log(`${DIM}[${model}]${RESET} ${PINK}bounty[—]${RESET} run \`bounty join\``);
+    console.log(`${DIM}[${model}]${RESET} ${PINK}bounty[—]${RESET} run \`be join\``);
     return;
   }
 

@@ -1,3 +1,0 @@
-backends = ["aqua:aristocratos/btop"]
-description = "A monitor of resources"
-test = { cmd = "btop --version", expected = "btop version: {{version}}" }

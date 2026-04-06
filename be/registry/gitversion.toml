@@ -1,2 +1,0 @@
-backends = ["aqua:gittools/gitversion"]
-description = "From git log to SemVer in no time"

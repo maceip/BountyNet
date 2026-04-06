@@ -7,7 +7,7 @@ Native **Claude Code plugin** (not MCP-first): skills + `bin/` tools + status li
 | Piece | Role |
 |--------|------|
 | **Skill** `onboard-staker` | `/bountynet:onboard-staker` — guided onboarding with consent rules |
-| **`bin/bountynet-setup`** | Wizard: API key consent, build `bounty` from `be/`, merge `statusLine` into `~/.claude/settings.json`, optional `bounty join` |
+| **`bin/bountynet-setup`** | Wizard: API key consent, build **`be`** from **`be-cli/`** (or use `be` on `PATH`), merge `statusLine` into `~/.claude/settings.json`, optional `be join` |
 | **`bin/bountynet-statusline`** | Pink `bounty[agentId]` + remaining credits; **yellow `+Δ` flash** for a few seconds when gateway `GET /credits/<id>` **`total`** increases |
 
 ## Install (dev — plugin dir)
@@ -61,11 +61,11 @@ export BOUNTYNET_STATUSLINE_MOCK=1
 claude --plugin-dir ./integrations/claude-code-bountynet
 ```
 
-## CLI commands (Rust binary **`bounty`**)
+## CLI commands (Rust binary **`be`** from `be-cli/`)
 
-- `bounty join` — Dynamic / GitHub OAuth, writes `~/.bountynet/agent.json`
-- `bounty bounties watch` — poll claimable bounties
-- `bounty status` — agent summary
+- `be join` — Dynamic / GitHub OAuth, writes `~/.bountynet/agent.json`
+- `be bounties watch` — poll claimable bounties
+- `be status` — agent summary
 
 ## Consent
 

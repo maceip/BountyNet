@@ -1,2 +1,0 @@
-backends = ["aqua:kyoh86/richgo", "asdf:paxosglobal/asdf-richgo"]
-description = "Enrich `go test` outputs with text decorations"

@@ -1,2 +1,0 @@
-backends = ["aqua:ibotta/sopstool", "asdf:elementalvoid/asdf-sopstool"]
-description = "SOPS multi-file wrapper"

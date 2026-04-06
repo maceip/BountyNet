@@ -1,2 +1,0 @@
-backends = ["github:VirtusLab/scala-cli", "asdf:mise-plugins/mise-scala-cli"]
-description = "Scala CLI is a command-line tool to interact with the Scala language. It lets you compile, run, test, and package your Scala code (and more!)"

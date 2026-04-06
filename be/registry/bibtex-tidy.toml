@@ -1,3 +1,0 @@
-backends = ["npm:bibtex-tidy"]
-description = "Cleaner and Formatter for BibTeX files"
-test = { cmd = "bibtex-tidy --version", expected = "v{{version}}" }

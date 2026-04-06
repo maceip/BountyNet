@@ -1,2 +1,0 @@
-backends = ["aqua:cloudflare/pint", "asdf:sam-burrell/asdf-pint"]
-description = "Prometheus rule linter/validator"

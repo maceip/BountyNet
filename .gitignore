@@ -15,4 +15,9 @@ android/local.properties
 .vscode/
 .DS_Store
 be/target/
+be-cli/target/
 android/app/build/
+android/build/
+android/.gradle/
+android/third_party/keyattestation/build/
+android/third_party/keyattestation/.gradle/

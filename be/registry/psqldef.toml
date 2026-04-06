@@ -1,2 +1,0 @@
-backends = ["aqua:sqldef/sqldef/psqldef"]
-description = "Idempotent schema management for PostgreSQL"

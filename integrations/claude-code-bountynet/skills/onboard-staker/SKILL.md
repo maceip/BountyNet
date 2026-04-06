@@ -31,7 +31,7 @@ Get the developer from zero → **joined agent** → **inference/credits visible
    integrations/claude-code-bountynet/bin/bountynet-setup
    ```
 
-3. After `bountynet-setup` completes, **`bounty join`** will have opened **Dynamic / GitHub OAuth** in the browser. When join succeeds, suggest starting **`bounty bounties watch`** in a separate terminal (or use what the wizard started).
+3. After `bountynet-setup` completes, **`be join`** will have opened **Dynamic / GitHub OAuth** in the browser. When join succeeds, suggest starting **`be bounties watch`** in a separate terminal (or use what the wizard started).
 
 4. Ask them to **restart Claude Code** (or `/reload-plugins`) if the status line did not appear — `statusLine` is merged into `~/.claude/settings.json`.
 
@@ -43,7 +43,7 @@ If **another plugin** already owns `statusLine.command`, only one can win unless
 
 ## CLI name
 
-The Rust binary is **`bounty`** (`cargo build --bin bounty` in `be/`). Commands: `bounty join`, `bounty bounties watch`, `bounty status`, etc.
+The Rust binary is **`be`** (build from **`be-cli/`**: `cargo build --release` → `target/release/be`). Commands: `be join`, `be bounties watch`, `be status`, etc.
 
 ## If something fails
 

@@ -1,2 +1,0 @@
-backends = ["github:purescript/spago", "asdf:jrrom/asdf-spago"]
-description = "🍝 PureScript package manager and build tool"

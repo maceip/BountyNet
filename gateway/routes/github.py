@@ -1,7 +1,7 @@
 """
 GitHub App — unified webhook handler + PR submission + setup.
 
-One file handles all GitHub interactions:
+Routes here; shared GitHub App auth + REST helpers in `gateway.github`:
   POST /github/webhook    — receives all GitHub App events
   POST /github/submit-pr  — solver submits a patch (we create the PR)
   POST /github/setup      — Joe configures repos after app install
@@ -12,36 +12,24 @@ In-memory stores (dev mode — sqlite in prod):
   bounty_prs:    context_hash → { pr_number, repo, solver_agent_id }
 """
 import os
-import hmac
-import hashlib
 import time
 import json
-import jwt as pyjwt
 import requests
 from flask import Blueprint, request, jsonify
 from eth_utils import keccak
 from eth_abi import encode
 from gateway.chain import send_tx, sig, ESCROW, VALIDATION, w3
 from gateway.events import emit
+from gateway.github.api import (
+    gh_commit_files,
+    gh_create_branch,
+    gh_create_pr,
+    gh_list_repos,
+    gh_post_comment,
+)
+from gateway.github.app_auth import get_installation_token, verify_webhook
 
 github_bp = Blueprint("github", __name__)
-
-APP_ID = os.environ.get("GITHUB_APP_ID", "")
-
-def _load_private_key() -> str:
-    # Try file first (most reliable for PEM)
-    for path in ["github_app_key.pem", "/home/hackathon/bountynet-gateway/github_app_key.pem"]:
-        try:
-            with open(path) as f:
-                return f.read()
-        except FileNotFoundError:
-            pass
-    # Fallback to env var with \n conversion
-    raw = os.environ.get("GITHUB_APP_PRIVATE_KEY", "") or os.environ.get("GITHUB_SIGNING_KEY", "")
-    return raw.replace("\\n", "\n") if raw else ""
-
-PRIVATE_KEY = _load_private_key()
-WEBHOOK_SECRET = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
 
 # ── Storage (in-memory, dev mode) ──────────────────────────────
 
@@ -53,146 +41,6 @@ bounty_prs: dict = {}
 
 # installation_id → [repo_full_name, ...]
 install_repos: dict = {}
-
-
-# ── GitHub App Auth ────────────────────────────────────────────
-
-def verify_webhook(payload: bytes, signature: str) -> bool:
-    if not WEBHOOK_SECRET:
-        return True
-    expected = "sha256=" + hmac.new(
-        WEBHOOK_SECRET.encode(), payload, hashlib.sha256
-    ).hexdigest()
-    return hmac.compare_digest(expected, signature)
-
-
-def get_app_jwt() -> str:
-    """Generate a short-lived JWT for GitHub App authentication."""
-    now = int(time.time())
-    payload = {"iat": now - 60, "exp": now + 600, "iss": APP_ID}
-    return pyjwt.encode(payload, PRIVATE_KEY, algorithm="RS256")
-
-
-def get_installation_token(installation_id: int) -> str:
-    """Exchange app JWT for an installation access token."""
-    try:
-        resp = requests.post(
-            f"https://api.github.com/app/installations/{installation_id}/access_tokens",
-            headers={
-                "Authorization": f"Bearer {get_app_jwt()}",
-                "Accept": "application/vnd.github+json",
-            },
-            timeout=10,
-        )
-        return resp.json().get("token", "")
-    except Exception:
-        return ""
-
-
-# ── GitHub API helpers ─────────────────────────────────────────
-
-def gh_post_comment(token: str, repo: str, sha: str, body: str):
-    """Post a commit comment via GitHub API."""
-    requests.post(
-        f"https://api.github.com/repos/{repo}/commits/{sha}/comments",
-        headers={"Authorization": f"token {token}", "Accept": "application/vnd.github+json"},
-        json={"body": body},
-        timeout=10,
-    )
-
-
-def gh_create_branch(token: str, repo: str, branch: str, from_sha: str) -> bool:
-    """Create a branch from a SHA."""
-    resp = requests.post(
-        f"https://api.github.com/repos/{repo}/git/refs",
-        headers={"Authorization": f"token {token}", "Accept": "application/vnd.github+json"},
-        json={"ref": f"refs/heads/{branch}", "sha": from_sha},
-        timeout=10,
-    )
-    return resp.status_code in (200, 201)
-
-
-def gh_commit_files(token: str, repo: str, branch: str, files: list, message: str) -> str | None:
-    """Commit files to a branch. Returns the new commit SHA or None."""
-    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github+json"}
-
-    # Get current branch head
-    ref_resp = requests.get(
-        f"https://api.github.com/repos/{repo}/git/ref/heads/{branch}",
-        headers=headers, timeout=10,
-    )
-    if ref_resp.status_code != 200:
-        return None
-    base_sha = ref_resp.json()["object"]["sha"]
-
-    # Get the base tree
-    commit_resp = requests.get(
-        f"https://api.github.com/repos/{repo}/git/commits/{base_sha}",
-        headers=headers, timeout=10,
-    )
-    base_tree = commit_resp.json()["tree"]["sha"]
-
-    # Create blobs for each file
-    tree_items = []
-    for f in files:
-        blob = requests.post(
-            f"https://api.github.com/repos/{repo}/git/blobs",
-            headers=headers, json={"content": f["content"], "encoding": "utf-8"},
-            timeout=10,
-        ).json()
-        tree_items.append({
-            "path": f["path"],
-            "mode": "100644",
-            "type": "blob",
-            "sha": blob["sha"],
-        })
-
-    # Create tree
-    tree = requests.post(
-        f"https://api.github.com/repos/{repo}/git/trees",
-        headers=headers, json={"base_tree": base_tree, "tree": tree_items},
-        timeout=10,
-    ).json()
-
-    # Create commit
-    commit = requests.post(
-        f"https://api.github.com/repos/{repo}/git/commits",
-        headers=headers,
-        json={"message": message, "tree": tree["sha"], "parents": [base_sha]},
-        timeout=10,
-    ).json()
-
-    # Update branch ref
-    requests.patch(
-        f"https://api.github.com/repos/{repo}/git/refs/heads/{branch}",
-        headers=headers, json={"sha": commit["sha"]},
-        timeout=10,
-    )
-
-    return commit.get("sha")
-
-
-def gh_create_pr(token: str, repo: str, head: str, base: str, title: str, body: str) -> dict:
-    """Create a pull request."""
-    return requests.post(
-        f"https://api.github.com/repos/{repo}/pulls",
-        headers={"Authorization": f"token {token}", "Accept": "application/vnd.github+json"},
-        json={"title": title, "body": body, "head": head, "base": base},
-        timeout=10,
-    ).json()
-
-
-def gh_list_repos(installation_id: int) -> list:
-    """List repos accessible to an installation."""
-    token = get_installation_token(installation_id)
-    if not token:
-        return []
-    resp = requests.get(
-        "https://api.github.com/installation/repositories",
-        headers={"Authorization": f"token {token}", "Accept": "application/vnd.github+json"},
-        timeout=10,
-    )
-    return [r["full_name"] for r in resp.json().get("repositories", [])]
 
 
 # ── On-chain helpers ───────────────────────────────────────────

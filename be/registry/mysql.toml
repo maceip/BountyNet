@@ -1,3 +1,0 @@
-backends = ["asdf:mise-plugins/mise-mysql"]
-description = "MySQL Database"
-test = { cmd = "mysql --version", expected = "{{version}}" }

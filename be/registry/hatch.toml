@@ -1,3 +1,0 @@
-backends = ["pipx:hatch"]
-description = "Modern, extensible Python project management."
-test = { cmd = "hatch --version", expected = "{{version}}" }

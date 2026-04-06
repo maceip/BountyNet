@@ -1,3 +1,0 @@
-backends = ["npm:oxfmt"]
-description = "This is the formatter for oxc."
-test = { cmd = "oxfmt --version", expected = "Version: {{version}}" }

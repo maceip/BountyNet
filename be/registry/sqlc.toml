@@ -1,3 +1,0 @@
-backends = ["github:sqlc-dev/sqlc"]
-description = "Generate type-safe code from SQL"
-test = { cmd = "sqlc version", expected = "{{version}}" }

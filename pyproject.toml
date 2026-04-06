@@ -28,10 +28,8 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
+pythonpath = ["."]
 testpaths = ["contracts/tests", "gateway/tests"]
-collect_ignore_glob = ["vendor/*"]
 
-[tool.uv]
-dev-dependencies = [
-    "pytest>=8.0",
-]
+[dependency-groups]
+dev = ["pytest>=8.0"]

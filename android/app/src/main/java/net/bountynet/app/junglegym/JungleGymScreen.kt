@@ -129,6 +129,49 @@ fun JungleGymScreen(
                 }
             }
 
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(
+                            "Key attestation",
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        Text(
+                            "Runs android/keyattestation locally, then POSTs the cert chain to " +
+                                "/attest/android-key/verify. With a Dynamic JWT (from web login), " +
+                                "the gateway also binds the leaf SPKI hash to your agent.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = st.attestationBindJwt,
+                            onValueChange = vm::setAttestationBindJwt,
+                            label = { Text("Dynamic JWT (optional)") },
+                            placeholder = { Text("Paste after login — binds device to agent") },
+                            minLines = 2,
+                            maxLines = 4,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = vm::runDeviceAttestation,
+                            enabled = !st.attestationRunning,
+                        ) {
+                            Text(if (st.attestationRunning) "Attesting…" else "Attest & verify with gateway")
+                        }
+                        st.attestationLastLine?.let { line ->
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                line,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontFamily = FontFamily.Monospace,
+                            )
+                        }
+                    }
+                }
+            }
+
             if (st.loadingScenarios) {
                 item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
             }

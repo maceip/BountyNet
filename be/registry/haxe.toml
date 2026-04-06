@@ -1,3 +1,0 @@
-backends = ["github:HaxeFoundation/haxe", "asdf:mise-plugins/mise-haxe"]
-description = "Haxe - The Cross-Platform Toolkit"
-test = { cmd = "haxe --version", expected = "{{version}}" }

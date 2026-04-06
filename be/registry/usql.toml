@@ -1,2 +1,0 @@
-backends = ["aqua:xo/usql", "asdf:itspngu/asdf-usql"]
-description = "Universal command-line interface for SQL databases"

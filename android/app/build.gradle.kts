@@ -55,6 +55,8 @@ android {
 }
 
 dependencies {
+    implementation(project(":keyattestation"))
+
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)

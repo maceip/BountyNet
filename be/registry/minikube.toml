@@ -1,2 +1,0 @@
-backends = ["aqua:kubernetes/minikube", "asdf:alvarobp/asdf-minikube"]
-description = "Run Kubernetes locally"

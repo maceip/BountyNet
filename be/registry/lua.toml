@@ -1,2 +1,0 @@
-backends = ["vfox:mise-plugins/vfox-lua", "asdf:mise-plugins/mise-lua"]
-description = "Lua language"

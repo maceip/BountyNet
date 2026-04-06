@@ -1,2 +1,0 @@
-backends = ["aqua:vmware-tanzu/velero", "asdf:looztra/asdf-velero"]
-description = "Backup and migrate Kubernetes applications and their persistent volumes"

@@ -1,2 +1,0 @@
-backends = ["asdf:mise-plugins/mise-groovy", "vfox:mise-plugins/vfox-groovy"]
-description = "A flexible and extensible Java-like language for the JVM"

@@ -1,3 +1,0 @@
-backends = ["core:swift"]
-description = "Swift Lang (Core)"
-os = ["linux", "macos"]

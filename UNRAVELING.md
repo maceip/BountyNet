@@ -79,22 +79,9 @@ This is flimsy because:
 
 ### CLI
 
-There are two different join implementations:
+The **supported** CLI is **`be-cli/`** → binary `be` (minimal Rust; gateway routes only).
 
-- [`be/src/cli/join.rs`](/home/cory/BountyNet/be/src/cli/join.rs)
-- [`be/join.py`](/home/cory/BountyNet/be/join.py)
-
-They disagree on payload shape:
-
-- Rust posts `external_id: dynamic:<jwt>` plus `dynamic_token`
-- Python posts only `dynamic_token`
-
-The gateway only requires `external_id`, so:
-
-- Rust uses a terrible unstable external id derived from a JWT
-- Python does not even match the route contract cleanly
-
-This means the CLI does not produce a durable identity anchor. It produces a one-off onboarding attempt.
+Older duplicate flows (`be/` mise fork, `be/join.py`) were **removed** from this repo. If join/onboard behavior regresses, debug against `be-cli/src/commands/join.rs` and the current `POST /identity/onboard` contract on the gateway.
 
 ### Arc / EIP-8004
 
@@ -138,89 +125,19 @@ The weakness is upstream:
 - ENS is only as truthful as the Arc agent record
 - Arc agent creation is not currently guaranteed by web or CLI onboarding
 
-## 4. `webv3` Status
+## 4. Web frontend
 
-`webv3/` is not a product yet. It is scaffolding.
+There is **one** app: **`web/`** (Vite + React). Older trees such as **`webv3/`** were removed — do not reintroduce v2/v3 splits.
 
-What is good:
+The open product question is the same as before: **identity truth** (gateway + Dynamic + Arc) must match what the UI claims. Point the UI at real routes (`/health`, `/bounties`, `/identity/...`, GitHub setup, etc.) and avoid “demo identity” shortcuts.
 
-- separate from the damaged `web/`
-- Vite
-- Tailwind v4
-- shadcn initialized
-- `motion`
-- `lucide-react`
-- alias + `cn()` helper
-
-What is bad:
-
-- no real gateway integration yet
-- no auth path
-- no setup flow
-- no data model
-- still contains starter assets and unused scaffold files
-- committed `dist/` and `node_modules/`, which should be removed
-
-So `webv3` is viable as the replacement path, but not yet the app.
-
-## 5. Recommended Recovery Plan
-
-### Phase A: Stop The Bleeding In `web/`
-
-Keep `web/` only as the emergency demo surface.
-
-Do not add more auth logic there.
-Do not claim it is truthful identity.
-Only keep:
-
-- landing
-- `/setup`
-- minimal post-setup control plane
-
-### Phase B: Make Identity Canonical
-
-Choose one canonical identity anchor:
-
-- Dynamic user id
-- or wallet address
-- but persistently map it to one Arc agent id
-
-Required changes:
-
-1. `POST /identity/onboard` must create or bind a real Arc agent, not just scan and hope.
-2. CLI and web must send the same stable identity payload.
-3. The gateway must persist the mapping:
-   Dynamic user id -> Arc agent id
-4. Web should display agent state only after the gateway returns a real bound agent.
-
-### Phase C: Replace `web/` With `webv3`
-
-`webv3` should have exactly three surfaces:
-
-1. Landing
-2. Setup
-3. Control plane
-
-And it should only talk to real endpoints:
-
-- `/github/repos/:installation_id`
-- `/github/test-key`
-- `/github/setup`
-- `/github/scan/:installation_id`
-- `/bounties`
-- `/events`
-- `/identity/:id`
-- `/oracle/health`
-- `/resources`
-- `/sessions`
-
-## 6. Short Version
+## 5. Short version (recovery themes)
 
 The damage is not visual. The damage is identity truth.
 
-- `web/` became a demo shell
-- gateway onboarding discovers identity but does not guarantee it
-- CLI join is inconsistent and unstable
+- the web app must not pretend identity is settled until the gateway does
+- gateway onboarding discovers identity but does not guarantee it on all branches
+- keep **one** CLI path: **`be-cli/`** (`be`); delete duplicate / forked CLIs when they appear
 - Arc + ENS are the strongest primitives, but the product layers above them do not bind to them cleanly
 
 That is the real thing to fix next.
