@@ -10,6 +10,10 @@ Native **Claude Code plugin** (not MCP-first): skills + `bin/` tools + status li
 | **`bin/bountynet-setup`** | Wizard: API key consent, build **`be`** from **`be-cli/`** (or use `be` on `PATH`), merge `statusLine` into `~/.claude/settings.json`, optional `be join` |
 | **`bin/bountynet-statusline`** | Pink `bounty[agentId]` + remaining credits; **yellow `+Δ` flash** for a few seconds when gateway `GET /credits/<id>` **`total`** increases |
 
+## `be` CLI resolution
+
+The setup wizard looks for the **`be`** binary in order: `BOUNTYNET_BE_BIN`, your `PATH`, `~/.cargo/bin/be`, then it tries **`cargo build --release`** in every discovered `be-cli/` directory (walks up from the plugin, and honors **`BOUNTYNET_REPO_ROOT`** or `../..` from `integrations/claude-code-bountynet`).
+
 ## Install (dev — plugin dir)
 
 From repo root:

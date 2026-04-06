@@ -65,7 +65,6 @@ import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
-import { Meter, MeterIndicator, MeterTrack } from "@/components/ui/meter";
 import { Progress, ProgressIndicator, ProgressTrack } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -111,8 +110,27 @@ type BountyRow = {
   commit?: string;
 };
 
+/** Dev defaults to localhost; production builds default to the public gateway unless overridden. */
 const DEFAULT_GATEWAY =
-  import.meta.env.VITE_GATEWAY_URL ?? "http://127.0.0.1:8090";
+  import.meta.env.VITE_GATEWAY_URL?.trim() ||
+  (import.meta.env.DEV ? "http://127.0.0.1:8090" : "https://gateway.stare.network");
+
+type CreditsRatesPayload = {
+  models?: Record<string, unknown>;
+  instances?: Record<string, unknown>;
+  usd_to_eurc?: number;
+  examples?: Record<string, string>;
+  error?: string;
+};
+
+type ResourceStakeRow = {
+  token_id?: number;
+  resource_type?: string;
+  provider?: string;
+  spec?: string;
+  tokens_remaining?: number;
+  active?: boolean;
+};
 
 function GitHubMark(props: ComponentProps<"svg">) {
   return (
@@ -153,6 +171,10 @@ export default function App() {
   const [bountiesLoading, setBountiesLoading] = useState(false);
   const [bountyError, setBountyError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [ratesData, setRatesData] = useState<CreditsRatesPayload | null>(null);
+  const [resourceRows, setResourceRows] = useState<ResourceStakeRow[]>([]);
+  const [resourcesError, setResourcesError] = useState<string | null>(null);
+  const [resourcesLoading, setResourcesLoading] = useState(false);
 
   const persistGateway = useCallback((next: string) => {
     setGatewayBase(next);
@@ -195,6 +217,43 @@ export default function App() {
     }
   }, [gatewayBase]);
 
+  const fetchResourcesTab = useCallback(async () => {
+    setResourcesLoading(true);
+    setResourcesError(null);
+    const base = gatewayBase.replace(/\/$/, "");
+    try {
+      const [rRates, rRes] = await Promise.all([
+        fetch(`${base}/credits/rates`),
+        fetch(`${base}/resources`),
+      ]);
+      const ratesJson = (await rRates.json()) as CreditsRatesPayload;
+      const resJson = (await rRes.json()) as {
+        resources?: ResourceStakeRow[];
+        error?: string;
+      };
+      let err: string | null = null;
+      if (!rRates.ok) {
+        setRatesData(null);
+        err = ratesJson.error ?? rRates.statusText;
+      } else {
+        setRatesData(ratesJson);
+      }
+      if (!rRes.ok) {
+        setResourceRows([]);
+        err = err ?? resJson.error ?? rRes.statusText;
+      } else {
+        setResourceRows(resJson.resources ?? []);
+      }
+      setResourcesError(err);
+    } catch (e) {
+      setRatesData(null);
+      setResourceRows([]);
+      setResourcesError(e instanceof Error ? e.message : "Request failed");
+    } finally {
+      setResourcesLoading(false);
+    }
+  }, [gatewayBase]);
+
   const fetchBounties = useCallback(async () => {
     setBountiesLoading(true);
     setBountyError(null);
@@ -224,12 +283,14 @@ export default function App() {
     if (mainTab === "bounties") void fetchBounties();
   }, [mainTab, fetchBounties]);
 
+  useEffect(() => {
+    if (mainTab === "resources") void fetchResourcesTab();
+  }, [mainTab, fetchResourcesTab]);
+
   const healthOk = health?.status === "ok";
-  const readiness = useMemo(() => {
-    if (healthLoading) return 35;
-    if (healthOk) return 100;
-    if (health?.status === "error") return 55;
-    return 20;
+  const readinessPercent = useMemo(() => {
+    if (healthLoading) return 0;
+    return healthOk ? 100 : 0;
   }, [health, healthLoading, healthOk]);
 
   const agents =
@@ -285,7 +346,7 @@ export default function App() {
                   <SidebarMenuButton
                     isActive={mainTab === "bounties"}
                     onClick={() => setMainTab("bounties")}
-                    tooltip="On-chain and API-key bounties"
+                    tooltip="Bounty feed from the gateway"
                   >
                     <ListOrderedIcon />
                     <span>{TAB_LABEL.bounties}</span>
@@ -433,7 +494,7 @@ export default function App() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base">Registered agents</CardTitle>
-                    <CardDescription>From live chain + registry</CardDescription>
+                    <CardDescription>Reported by gateway /health</CardDescription>
                   </CardHeader>
                   <CardPanel className="text-3xl font-semibold tabular-nums">
                     {healthLoading ? <Skeleton className="h-9 w-16" /> : agents}
@@ -476,27 +537,18 @@ export default function App() {
                 <CardHeader>
                   <CardTitle className="text-base">Gateway readiness</CardTitle>
                   <CardDescription>
-                    Ping health from the Gateway tab for a precise score
+                    100% when the last /health response reported status ok
                   </CardDescription>
                 </CardHeader>
                 <CardPanel className="space-y-4">
-                  <Progress value={readiness}>
+                  <Progress value={readinessPercent}>
                     <ProgressTrack>
                       <ProgressIndicator />
                     </ProgressTrack>
                   </Progress>
-                  <Meter
-                    aria-label="Synthetic load"
-                    className="max-w-md"
-                    value={72}
-                  >
-                    <MeterTrack>
-                      <MeterIndicator />
-                    </MeterTrack>
-                  </Meter>
                   <p className="text-muted-foreground text-xs">
-                    Meter shows a styled token strip (coss ui); progress reflects
-                    /health when you run a check.
+                    Use the Gateway tab to ping /health. Stats above update from that
+                    response.
                   </p>
                 </CardPanel>
               </Card>
@@ -527,7 +579,7 @@ export default function App() {
                 <div>
                   <h2 className="font-heading font-semibold text-lg">Bounty feed</h2>
                   <p className="text-muted-foreground text-sm">
-                    Merged on-chain events and in-memory API-key listings
+                    From <code className="text-xs">GET /bounties</code> on your gateway
                   </p>
                 </div>
                 <Button
@@ -628,14 +680,14 @@ export default function App() {
                     <Input
                       name="gateway"
                       onChange={(e) => persistGateway(e.target.value)}
-                      placeholder="http://127.0.0.1:8090"
+                      placeholder="https://gateway.stare.network"
                       value={gatewayBase}
                     />
                     <FieldDescription>
-                      Saved in <code className="text-xs">localStorage</code> under{" "}
-                      <code className="text-xs">bountynet.gateway</code>. Override
-                      with <code className="text-xs">VITE_GATEWAY_URL</code> at build
-                      time for the default.
+                      Persisted in <code className="text-xs">localStorage</code> (
+                      <code className="text-xs">bountynet.gateway</code>). Build-time
+                      default from <code className="text-xs">VITE_GATEWAY_URL</code>{" "}
+                      (see <code className="text-xs">web/.env.example</code>).
                     </FieldDescription>
                   </Field>
                   <div className="flex flex-wrap items-center gap-3">
@@ -663,65 +715,119 @@ export default function App() {
                 </CardPanel>
               </Card>
 
-              <Alert variant="success">
-                <AlertTitle>coss ui + Tailwind v4</AlertTitle>
-                <AlertDescription>
-                  This surface uses the neutral theme preset from{" "}
-                  <code className="rounded-md bg-muted px-1.5 py-0.5 text-xs">
-                    @coss/style
-                  </code>{" "}
-                  with
-                  Base UI primitives and Lucide icons.
-                </AlertDescription>
-              </Alert>
             </TabsPanel>
 
             <TabsPanel className="flex flex-col gap-4 pt-4" value="resources">
               <Alert variant="warning">
-                <AlertTitle>Resource claims</AlertTitle>
+                <AlertTitle>Resources & credits</AlertTitle>
                 <AlertDescription>
-                  Stake compute or API capacity as{" "}
-                  <code className="rounded-md bg-muted px-1.5 py-0.5 text-xs">
-                    POST /resources/stake
-                  </code>{" "}
-                  — pricing tables live at{" "}
+                  Data below is loaded from{" "}
                   <code className="rounded-md bg-muted px-1.5 py-0.5 text-xs">
                     GET /credits/rates
+                  </code>{" "}
+                  and{" "}
+                  <code className="rounded-md bg-muted px-1.5 py-0.5 text-xs">
+                    GET /resources
+                  </code>{" "}
+                  on the configured gateway. Staking uses{" "}
+                  <code className="rounded-md bg-muted px-1.5 py-0.5 text-xs">
+                    POST /resources/stake
                   </code>
                   .
                 </AlertDescription>
               </Alert>
-              <div className="grid gap-4 md:grid-cols-2">
+
+              {resourcesError ? (
+                <Alert variant="error">
+                  <AlertTitle>Could not load resources</AlertTitle>
+                  <AlertDescription>{resourcesError}</AlertDescription>
+                </Alert>
+              ) : null}
+
+              {resourcesLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ) : null}
+
+              {!resourcesLoading && ratesData ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <CpuIcon className="size-4 opacity-80" />
+                        Instance rates
+                      </CardTitle>
+                      <CardDescription>Keys from /credits/rates instances</CardDescription>
+                    </CardHeader>
+                    <CardPanel className="flex flex-wrap gap-2">
+                      {ratesData.instances && Object.keys(ratesData.instances).length > 0 ? (
+                        Object.keys(ratesData.instances).map((k) => (
+                          <Badge key={k} variant="secondary">
+                            {k}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No instance rows returned</span>
+                      )}
+                    </CardPanel>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Model rates</CardTitle>
+                      <CardDescription>Keys from /credits/rates models</CardDescription>
+                    </CardHeader>
+                    <CardPanel className="flex flex-wrap gap-2">
+                      {ratesData.models && Object.keys(ratesData.models).length > 0 ? (
+                        Object.keys(ratesData.models).map((k) => (
+                          <Badge key={k} variant="info">
+                            {k}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No model rows returned</span>
+                      )}
+                    </CardPanel>
+                  </Card>
+                </div>
+              ) : null}
+
+              {!resourcesLoading && resourceRows.length > 0 ? (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <CpuIcon className="size-4 opacity-80" />
-                      XL instances
-                    </CardTitle>
-                    <CardDescription>
-                      Hourly USD → EURC estimates for common shapes
-                    </CardDescription>
+                    <CardTitle className="text-base">Staked resources</CardTitle>
+                    <CardDescription>From GET /resources</CardDescription>
                   </CardHeader>
-                  <CardPanel className="flex flex-wrap gap-2">
-                    <Badge variant="secondary">c6i.8xlarge</Badge>
-                    <Badge variant="secondary">r6i.16xlarge</Badge>
-                    <Badge variant="secondary">n2-highcpu-32</Badge>
+                  <CardPanel>
+                    <Table data-slot="frame">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>ID</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Spec</TableHead>
+                          <TableHead>Remaining</TableHead>
+                          <TableHead>Active</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {resourceRows.map((r) => (
+                          <TableRow key={r.token_id ?? `${r.spec}-${r.provider}`}>
+                            <TableCell>{r.token_id ?? "—"}</TableCell>
+                            <TableCell>{r.resource_type ?? "—"}</TableCell>
+                            <TableCell className="max-w-[200px] truncate font-mono text-xs">
+                              {r.spec ?? "—"}
+                            </TableCell>
+                            <TableCell>{r.tokens_remaining ?? "—"}</TableCell>
+                            <TableCell>{r.active === undefined ? "—" : String(r.active)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </CardPanel>
                 </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Inference meters</CardTitle>
-                    <CardDescription>
-                      Token models map to EURC via gateway rates
-                    </CardDescription>
-                  </CardHeader>
-                  <CardPanel className="flex flex-wrap gap-2">
-                    <Badge variant="info">claude-sonnet-4</Badge>
-                    <Badge variant="info">gpt-4o-mini</Badge>
-                    <Badge variant="info">claude-haiku-4</Badge>
-                  </CardPanel>
-                </Card>
-              </div>
+              ) : null}
+
             </TabsPanel>
           </Tabs>
         </div>

@@ -14,8 +14,35 @@ const PLUGIN_ROOT = path.resolve(__dirname, "..");
 const STATUSLINE_JS = path.join(PLUGIN_ROOT, "lib", "statusline.mjs");
 const CHAIN_JS = path.join(PLUGIN_ROOT, "lib", "statusline-chain.mjs");
 const CHAIN_PATH = path.join(os.homedir(), ".bountynet", "statusline-chain.json");
-const REPO_ROOT = path.resolve(PLUGIN_ROOT, "..", "..");
-const BE_CLI_DIR = path.join(REPO_ROOT, "be-cli");
+
+/** Monorepo root when plugin lives at integrations/claude-code-bountynet */
+const DEFAULT_REPO_ROOT = path.resolve(PLUGIN_ROOT, "..", "..");
+
+function collectBeCliCandidates() {
+  const dirs = [];
+  const envCli = process.env.BOUNTYNET_BE_CLI?.trim();
+  if (envCli) dirs.push(envCli);
+  const envRoot = process.env.BOUNTYNET_REPO_ROOT?.trim();
+  const roots = new Set();
+  if (envRoot) roots.add(path.resolve(envRoot));
+  roots.add(DEFAULT_REPO_ROOT);
+  let walk = PLUGIN_ROOT;
+  for (let i = 0; i < 10; i++) {
+    roots.add(walk);
+    walk = path.dirname(walk);
+  }
+  for (const r of roots) {
+    const c = path.join(r, "be-cli");
+    if (fs.existsSync(path.join(c, "Cargo.toml"))) dirs.push(c);
+  }
+  return [...new Set(dirs)];
+}
+
+function cargoHomeBe() {
+  const home = os.homedir();
+  const name = process.platform === "win32" ? "be.exe" : "be";
+  return path.join(home, ".cargo", "bin", name);
+}
 
 /** readline/promises breaks after the first prompt when stdin is a pipe; drain first. */
 let ttyRl = null;
@@ -68,19 +95,29 @@ function commandReferencesOurStatusline(cmd) {
   return false;
 }
 
+function explicitBeBin() {
+  const v = process.env.BOUNTYNET_BE_BIN?.trim();
+  if (v && fs.existsSync(v)) return path.resolve(v);
+  return null;
+}
+
 function whichBe() {
+  const hit = explicitBeBin();
+  if (hit) return hit;
   const name = process.platform === "win32" ? "be.exe" : "be";
   const pathEnv = process.env.PATH || "";
   for (const dir of pathEnv.split(path.delimiter)) {
     const p = path.join(dir, name);
     if (fs.existsSync(p)) return p;
   }
+  const cargo = cargoHomeBe();
+  if (fs.existsSync(cargo)) return cargo;
   return null;
 }
 
-function releaseBePath() {
+function releaseBePath(beCliDir) {
   const rel = process.platform === "win32" ? ["target", "release", "be.exe"] : ["target", "release", "be"];
-  return path.join(BE_CLI_DIR, ...rel);
+  return path.join(beCliDir, ...rel);
 }
 
 async function main() {
@@ -104,25 +141,36 @@ async function main() {
 
   let beBin = whichBe();
   if (beBin) {
-    console.log("Found be CLI:", beBin);
-  } else if (fs.existsSync(path.join(BE_CLI_DIR, "Cargo.toml"))) {
-    console.log("Building `be` from be-cli/ (cargo build --release)...");
-    const st = run("cargo", ["build", "--release"], { cwd: BE_CLI_DIR, env: process.env });
-    if (st !== 0) {
-      console.error("cargo build failed. Install Rust, then: cd be-cli && cargo build --release");
-      process.exit(1);
-    }
-    beBin = releaseBePath();
-    if (!fs.existsSync(beBin)) {
-      console.error("Expected binary missing:", beBin);
-      process.exit(1);
-    }
-    console.log("Built:", beBin);
+    console.log("Using be CLI:", beBin);
   } else {
-    console.error(
-      "No `be` on PATH and be-cli/ not found next to this repo. Add be-cli to your checkout or install `be` on PATH.",
-    );
-    process.exit(1);
+    const candidates = collectBeCliCandidates();
+    let built = null;
+    for (const beCliDir of candidates) {
+      console.log("Building `be` from", beCliDir, "…");
+      const st = run("cargo", ["build", "--release"], { cwd: beCliDir, env: process.env });
+      if (st === 0) {
+        const out = releaseBePath(beCliDir);
+        if (fs.existsSync(out)) {
+          built = out;
+          break;
+        }
+      }
+    }
+    if (built) {
+      beBin = built;
+      console.log("Built:", beBin);
+    } else {
+      console.error(`
+Could not find or build the BountyNet CLI (binary name: be).
+
+Fix one of:
+  • Put "be" on your PATH (e.g. cargo install --path /path/to/BountyNet/be-cli)
+  • Set BOUNTYNET_BE_BIN to the full path of the "be" executable
+  • Set BOUNTYNET_REPO_ROOT to your BountyNet checkout (must contain be-cli/)
+  • Clone github.com/maceip/BountyNet and run this wizard from that tree
+`);
+      process.exit(1);
+    }
   }
 
   const settingsPath = path.join(os.homedir(), ".claude", "settings.json");

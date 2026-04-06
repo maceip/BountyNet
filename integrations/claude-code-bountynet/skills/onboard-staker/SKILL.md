@@ -1,6 +1,6 @@
 ---
 name: onboard-staker
-description: Set up BountyNet for a staker or solver working inside Claude Code — API key consent, install the bounty CLI, join the network (GitHub OAuth via Dynamic), optional bounty watch, and install the pink bounty[] status line. Use when the user wants to connect Claude Code to BountyNet, stake, or run solver workflows.
+description: Set up BountyNet for a staker or solver working inside Claude Code — API key consent, install or build the `be` CLI from `be-cli/`, join the network (Dynamic), optional `be bounties watch`, and install the pink bounty[] status line. Use when the user wants to connect Claude Code to BountyNet, stake, or run solver workflows.
 ---
 
 # BountyNet × Claude Code onboarding

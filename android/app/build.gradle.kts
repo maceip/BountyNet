@@ -108,3 +108,12 @@ dependencies {
     implementation(libs.chrisbanes.haze)
     implementation(libs.chrisbanes.haze.materials)
 }
+
+/** Keep android/keyattestation submodule upstream-clean; patch only for composite Kotlin plugin resolution. */
+val patchKeyAttestation by tasks.registering(Exec::class) {
+    group = "bountynet"
+    workingDir = rootProject.rootDir.parentFile
+    commandLine("python3", "scripts/patch-keyattestation-gradle.py")
+    isIgnoreExitValue = false
+}
+tasks.named("preBuild").configure { dependsOn(patchKeyAttestation) }

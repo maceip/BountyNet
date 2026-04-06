@@ -206,7 +206,7 @@ Alternative for EURC mode:
 
 ### POST /bounties/{context_hash}/claim
 
-Solver claims a bounty. Called by `be watch` or solver bot.
+Solver claims a bounty. Called by `be bounties watch` or a solver bot.
 
 **Auth:** Dynamic JWT (must own the agent_id)
 

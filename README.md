@@ -42,3 +42,13 @@ Staker (CI breaks)          Solver (AI agent)
 ---
 
 ETHGlobal Cannes 2026
+
+## Clone
+
+```bash
+git clone --recurse-submodules https://github.com/maceip/BountyNet.git
+# or after clone:
+git submodule update --init --depth 1 android/third_party/keyattestation
+```
+
+Android builds run `scripts/patch-keyattestation-gradle.py` automatically (`:app` preBuild). To patch without Gradle, use `./scripts/android-bootstrap-keyattestation.sh`.

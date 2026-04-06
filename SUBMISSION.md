@@ -29,7 +29,7 @@ BountyNet turns broken CI into **bounties** settled on **Arc** with **EURC**. St
 - **How it works:** Bounties and payouts are modeled against **EURC** and Arc contracts; the web stack can build **Circle smart accounts** on **Arc Testnet**; the gateway submits transactions to chain helpers.
 
 #### Dynamic — auth, embedded wallets, JWT to gateway
-- **What we used:** **Dynamic Labs JS SDK** (`@dynamic-labs/sdk-react-core`, `@dynamic-labs/ethereum`); **Node** bridge for server-side Dynamic calls (`wallet/dynamic_bridge.mjs` invoked from `gateway/routes/identity.py`); **mobile** sign-in via **`/android-auth`** and `bountynet://auth/callback` (`web/src/pages/AndroidAuth.tsx`, Android `MainActivity` + `PartialCustomTabLogin`).
+- **What we used:** **Dynamic Labs JS SDK** (`@dynamic-labs/sdk-react-core`, `@dynamic-labs/ethereum`); **Node** bridge for server-side Dynamic calls (`wallet/dynamic_bridge.mjs` invoked from `gateway/routes/identity.py`); **mobile** sign-in via **`/android-auth`** (served from **`web/`** when that route ships) and `bountynet://auth/callback` (see `android/` `MainActivity` + Custom Tabs).
 - **Where in the code:** `web/src/auth/DynamicProvider.tsx`, `web/src/auth/useAuth.ts`, `web/src/App.tsx` · `gateway/routes/identity.py`, `gateway/routes/github.py` (Dynamic user creation for stakers) · `wallet/dynamic_bridge.mjs` · `android/.../MainNav.kt`, `MainActivity.kt`, `AndroidManifest.xml` (deep link)
 - **How it works:** Users sign in with Dynamic; the app gets a **JWT** and calls **`GATEWAY`** (`VITE_GATEWAY_URL`, default `https://gateway.stare.network` in `useAuth.ts`); Android can complete the same flow and store the JWT locally.
 
