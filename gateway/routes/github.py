@@ -210,7 +210,7 @@ def _on_ci_failure(installation_id, repo, sha, name, check):
         "created_at": int(time.time()),
     }
 
-    # Create bounty on-chain (if EURC mode — for API key mode we skip on-chain)
+    # API-key-funded bounties stay in the gateway feed only; EURC path uses on-chain escrow.
     tx_result = None
     if not api_key and ESCROW:
         tx_result = create_bounty_onchain(

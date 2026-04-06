@@ -29,7 +29,11 @@ WEBHOOK_SECRET = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
 
 def verify_webhook(payload: bytes, signature: str) -> bool:
     if not WEBHOOK_SECRET:
-        return True
+        return os.environ.get("BOUNTYNET_ALLOW_UNSIGNED_GITHUB_WEBHOOKS", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
     expected = "sha256=" + hmac.new(
         WEBHOOK_SECRET.encode(), payload, hashlib.sha256
     ).hexdigest()

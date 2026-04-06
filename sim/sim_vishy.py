@@ -29,6 +29,13 @@ log = logging.getLogger("sim-vishy")
 
 SITE = os.environ.get("BOUNTYNET_URL", "https://bountynet.stare.network")
 GATEWAY = os.environ.get("BOUNTYNET_GATEWAY", "https://gateway.stare.network")
+_INSTALLATION_ID = os.environ.get("BOUNTYNET_INSTALLATION_ID", "").strip()
+
+
+def _setup_url() -> str:
+    if _INSTALLATION_ID:
+        return f"{SITE}/setup?installation_id={_INSTALLATION_ID}"
+    return f"{SITE}/setup"
 
 
 async def run_vishy(email: str = "", headless: bool = False, task: str = "explore"):
@@ -87,7 +94,7 @@ def _get_task_prompt(task: str, email: str) -> str:
 7. Report: login flow, post-login state, any errors
 """,
         "setup": f"""
-1. Go to {SITE}/setup?installation_id=demo
+1. Go to {_setup_url()} (set BOUNTYNET_INSTALLATION_ID for a specific GitHub App install)
 2. Note what the setup page shows
 3. Check: is there a repo list? CI analysis section?
 4. Check: is there an API key input and budget slider?
@@ -109,7 +116,7 @@ def _get_task_prompt(task: str, email: str) -> str:
 4. Check dashboard — agent ID, wallet, balances
 5. Look for bounties — are any claimable?
 6. If there's a "Create Bounty" button, click it and note what happens
-7. Navigate to {SITE}/setup?installation_id=demo
+7. Navigate to {_setup_url()}
 8. Check the setup page — scan results, config form
 9. Go back to main page
 10. Report: full end-to-end experience, what works, what breaks

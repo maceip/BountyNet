@@ -27,6 +27,13 @@ log = logging.getLogger("sim-joe")
 
 SITE = os.environ.get("BOUNTYNET_URL", "https://bountynet.stare.network")
 GATEWAY = os.environ.get("BOUNTYNET_GATEWAY", "https://gateway.stare.network")
+_INSTALLATION_ID = os.environ.get("BOUNTYNET_INSTALLATION_ID", "").strip()
+
+
+def _setup_url() -> str:
+    if _INSTALLATION_ID:
+        return f"{SITE}/setup?installation_id={_INSTALLATION_ID}"
+    return f"{SITE}/setup"
 
 
 async def run_joe(headless: bool = False, task: str = "full_flow", api_key_to_paste: str = ""):
@@ -91,7 +98,7 @@ def _get_task_prompt(task: str, api_key: str) -> str:
 6. Report: is the install flow clear? Would a dev trust this?
 """,
         "setup_only": f"""
-1. Go to {SITE}/setup?installation_id=demo
+1. Go to {_setup_url()} (export BOUNTYNET_INSTALLATION_ID for a real GitHub App install)
 2. What do you see? Is there a loading/scanning state?
 3. Wait for the scan to complete (or timeout)
 4. Are repos listed? Do they have status indicators?
@@ -108,7 +115,7 @@ You are Joe, a developer new to BountyNet. Walk through the entire staker experi
 1. Go to {SITE}
 2. Read the landing page. Understand what BountyNet does.
 3. Click "Install GitHub App" — note the GitHub page, then go back
-4. Now go to {SITE}/setup?installation_id=demo (pretend you just installed)
+4. Now go to {_setup_url()} (use a real install id in BOUNTYNET_INSTALLATION_ID when exercising scan)
 5. Watch the scan results load
 6. Look at what it found — any CI failures? Any suggestions?
 7. In the API key field, type: {key}

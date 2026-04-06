@@ -16,6 +16,15 @@ from flask import request, jsonify
 JWKS_URL = os.environ.get("DYNAMIC_JWKS_ENDPOINT", "")
 DYNAMIC_ENV_ID = os.environ.get("DYNAMIC_ENV_ID", "")
 
+
+def _allow_unverified_jwt() -> bool:
+    """Local/tests only — never enable in production."""
+    return os.environ.get("BOUNTYNET_ALLOW_UNVERIFIED_JWT", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
 # Lazy-loaded JWKS client
 _jwks_client = None
 
@@ -39,8 +48,10 @@ def verify_dynamic_jwt(token: str) -> dict | None:
     """
     client = get_jwks_client()
     if not client:
-        # Dev mode — skip verification
-        return {"sub": "dev", "email": "dev@localhost"}
+        if _allow_unverified_jwt():
+            return {"sub": "dev", "email": "dev@localhost"}
+        print("[auth] set DYNAMIC_JWKS_ENDPOINT or BOUNTYNET_ALLOW_UNVERIFIED_JWT=1 (local only)")
+        return None
 
     try:
         import jwt as pyjwt
