@@ -109,6 +109,8 @@ def get_health():
     try:
         block, source = current_block()
         agents = get_next_agent_id() - 1
+        from gateway.store import db_path
+
         return jsonify({
             "status": "ok",
             "arc_block": block,
@@ -116,6 +118,7 @@ def get_health():
             "registered_agents": agents,
             "escrow": ESCROW,
             "identity": IDENTITY,
+            "storage_db": db_path(),
         })
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500

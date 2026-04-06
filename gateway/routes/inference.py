@@ -19,52 +19,42 @@ Endpoints:
   GET  /credits/<agent_id>
 """
 import os
-import json
+import time as time_module
 from flask import Blueprint, request, jsonify
 import litellm
-from gateway.chain import get_bounty
+from gateway import store
 
 inference_bp = Blueprint("inference", __name__)
 
-# Platform fallback keys
 PLATFORM_KEYS = {
     "anthropic": os.environ.get("ANTHROPIC_API_KEY", ""),
     "openai": os.environ.get("OPENAI_API_KEY", ""),
 }
 
-# Key pools
-# context_hash → { anthropic_key, openai_key, budget_tokens, used_tokens }
-staker_budgets: dict = {}
-# agent_id → { anthropic_key, openai_key }
-solver_keys: dict = {}
-# agent_id → { total, used }
-credits: dict = {}
-# Session tracking: list of inference calls grouped by context
-# Each: { agent_id, context_hash, model, tokens_in, tokens_out, key_source, timestamp, tool }
-inference_log: list = []
+_INFERENCE_LOG_CAP = 2000
 
-
-# ── Key deposit ─────────────────────────────────────────────────
 
 @inference_bp.route("/budget/deposit", methods=["POST"])
 def deposit():
     body = request.json or {}
     ctx = body.get("context_hash")
     if ctx:
-        staker_budgets[ctx] = {
-            "anthropic_key": body.get("anthropic_key", ""),
-            "openai_key": body.get("openai_key", ""),
-            "budget_tokens": body.get("budget_tokens", 100_000),
-            "used_tokens": 0,
-        }
+        store.staker_budget_put(
+            ctx,
+            body.get("anthropic_key", ""),
+            body.get("openai_key", ""),
+            body.get("budget_tokens", 100_000),
+            0,
+        )
         return jsonify({"status": "deposited", "type": "staker", "context_hash": ctx})
 
     agent_id = body.get("agent_id")
     if agent_id:
-        solver_keys[int(agent_id)] = {
-            "anthropic_key": body.get("anthropic_key", ""),
-            "openai_key": body.get("openai_key", ""),
-        }
+        store.solver_keys_put(
+            int(agent_id),
+            body.get("anthropic_key", ""),
+            body.get("openai_key", ""),
+        )
         return jsonify({"status": "deposited", "type": "solver", "agent_id": agent_id})
 
     return jsonify({"error": "context_hash or agent_id required"}), 400
@@ -72,36 +62,31 @@ def deposit():
 
 @inference_bp.route("/budget/<context_hash>")
 def check_budget(context_hash):
-    b = staker_budgets.get(context_hash)
+    b = store.staker_budget_get(context_hash)
     if not b:
         return jsonify({"error": "no budget"}), 404
-    return jsonify({"budget": b["budget_tokens"], "used": b["used_tokens"], "remaining": b["budget_tokens"] - b["used_tokens"]})
+    return jsonify({
+        "budget": b["budget_tokens"],
+        "used": b["used_tokens"],
+        "remaining": b["budget_tokens"] - b["used_tokens"],
+    })
 
 
 @inference_bp.route("/credits/<int:agent_id>")
 def agent_credits(agent_id):
-    c = credits.get(agent_id, {"total": 0, "used": 0})
+    c = store.credits_get(agent_id)
     return jsonify({"agent_id": agent_id, **c, "remaining": c["total"] - c["used"]})
 
 
-# ── Key resolution ──────────────────────────────────────────────
-
 def resolve_api_key(agent_id: int, ctx_hash: str, provider: str) -> tuple[str, str]:
-    """
-    Returns (api_key, source).
-    Priority: staker's key > solver's key > platform key.
-    """
-    # Staker's key for this bounty
-    budget = staker_budgets.get(ctx_hash)
+    budget = store.staker_budget_get(ctx_hash)
     if budget and budget.get(f"{provider}_key"):
         return budget[f"{provider}_key"], "staker"
 
-    # Solver's deposited key
-    sk = solver_keys.get(agent_id)
+    sk = store.solver_keys_get(agent_id)
     if sk and sk.get(f"{provider}_key"):
         return sk[f"{provider}_key"], "solver"
 
-    # Platform fallback
     return PLATFORM_KEYS.get(provider, ""), "platform"
 
 
@@ -112,18 +97,21 @@ def detect_provider(model: str) -> str:
 
 
 def meter(agent_id, ctx_hash, input_t, output_t, model="", key_source=""):
-    import time as _time
     from gateway.events import emit
+
     total = input_t + output_t
-    budget = staker_budgets.get(ctx_hash)
-    if budget:
-        budget["used_tokens"] += total
-    if agent_id in credits:
-        credits[agent_id]["used"] += total
+    if store.staker_budget_get(ctx_hash):
+        store.staker_budget_add_used(ctx_hash, total)
+    cr = store.credits_get(agent_id)
+    if cr["total"] > 0 or cr["used"] > 0:
+        store.credits_add_used(agent_id, total)
+
     if total > 0:
-        remaining = budget["budget_tokens"] - budget["used_tokens"] if budget else 0
-        # Log for sessions view
-        inference_log.append({
+        budget = store.staker_budget_get(ctx_hash)
+        remaining = (
+            budget["budget_tokens"] - budget["used_tokens"] if budget else 0
+        )
+        store.inference_append({
             "agent_id": agent_id,
             "context_hash": ctx_hash,
             "model": model,
@@ -131,17 +119,18 @@ def meter(agent_id, ctx_hash, input_t, output_t, model="", key_source=""):
             "tokens_out": output_t,
             "tokens_total": total,
             "key_source": key_source,
-            "timestamp": _time.time(),
+            "timestamp": time_module.time(),
         })
-        # Keep last 500
-        if len(inference_log) > 500:
-            del inference_log[:len(inference_log) - 500]
-        emit("inference", f"Agent #{agent_id}: {total:,} tokens used ({remaining:,} remaining)",
-             context_hash=ctx_hash, agent_id=agent_id, data={"tokens": total, "remaining": remaining})
+        store.inference_prune(_INFERENCE_LOG_CAP)
+        emit(
+            "inference",
+            f"Agent #{agent_id}: {total:,} tokens used ({remaining:,} remaining)",
+            context_hash=ctx_hash,
+            agent_id=agent_id,
+            data={"tokens": total, "remaining": remaining},
+        )
     return total
 
-
-# ── Auth ────────────────────────────────────────────────────────
 
 def parse_token(auth):
     for pfx in ["Bearer bnet_", "bnet_"]:
@@ -153,8 +142,6 @@ def parse_token(auth):
                 pass
     return None
 
-
-# ── Unified completion endpoint ─────────────────────────────────
 
 def do_completion(messages, model, agent_id, ctx_hash):
     provider = detect_provider(model)
@@ -171,7 +158,14 @@ def do_completion(messages, model, agent_id, ctx_hash):
         )
 
         usage = response.usage
-        cost = meter(agent_id, ctx_hash, usage.prompt_tokens or 0, usage.completion_tokens or 0, model=model, key_source=source)
+        cost = meter(
+            agent_id,
+            ctx_hash,
+            usage.prompt_tokens or 0,
+            usage.completion_tokens or 0,
+            model=model,
+            key_source=source,
+        )
 
         result = response.model_dump()
         result["_bountynet"] = {
@@ -184,8 +178,6 @@ def do_completion(messages, model, agent_id, ctx_hash):
     except Exception as e:
         return {"error": str(e)}, 502
 
-
-# ── OpenAI-compatible ───────────────────────────────────────────
 
 @inference_bp.route("/v1/chat/completions", methods=["POST"])
 def chat_completions():
@@ -205,8 +197,6 @@ def chat_completions():
     return jsonify(result), status
 
 
-# ── Anthropic-compatible ────────────────────────────────────────
-
 @inference_bp.route("/v1/messages", methods=["POST"])
 def anthropic_messages():
     auth = request.headers.get("Authorization", "") or request.headers.get("x-api-key", "")
@@ -217,7 +207,6 @@ def anthropic_messages():
     agent_id, ctx_hash = bnet
     body = request.json
 
-    # Convert Anthropic format to messages
     messages = body.get("messages", [])
     system = body.get("system", "")
     if system:
@@ -231,7 +220,6 @@ def anthropic_messages():
     )
 
     if status == 200:
-        # Convert back to Anthropic format
         choice = result.get("choices", [{}])[0]
         return jsonify({
             "id": result.get("id"),
@@ -250,8 +238,6 @@ def anthropic_messages():
     return jsonify(result), status
 
 
-# ── Sessions view (Stripe-style threads) ───────────────────────
-
 @inference_bp.route("/sessions")
 def sessions():
     """
@@ -259,13 +245,13 @@ def sessions():
     Each session = one bounty claim = one coding thread.
     Stripe-style: newest first, expandable rows.
     """
-    from gateway.routes.bounties import apikey_bounties
     from gateway.routes.resources import tokens_to_eurc
 
     agent_filter = request.args.get("agent_id")
     limit = int(request.args.get("limit", 20))
 
-    # Group by context_hash
+    inference_log = store.inference_recent(800)
+
     grouped: dict = {}
     for call in inference_log:
         ctx = call.get("context_hash", "none")
@@ -294,9 +280,8 @@ def sessions():
         s["model"] = call.get("model", s["model"])
         s["key_source"] = call.get("key_source", s["key_source"])
 
-    # Enrich with bounty metadata
     for ctx, s in grouped.items():
-        bounty = apikey_bounties.get(ctx, {})
+        bounty = store.apikey_bounty_get(ctx) or {}
         s["repo"] = bounty.get("repo", "")
         s["check_name"] = bounty.get("check_name", "")
         s["budget_tokens"] = bounty.get("budget_tokens", 0)

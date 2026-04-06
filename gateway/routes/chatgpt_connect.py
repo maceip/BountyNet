@@ -22,17 +22,17 @@ from __future__ import annotations
 
 import os
 import secrets
-import time
 from flask import Blueprint, request, jsonify, Response
 
-from gateway.routes.inference import staker_budgets
+from gateway import store
 
 chatgpt_bp = Blueprint("chatgpt", __name__)
 
-# link_id → { api_key, budget_tokens, budget_used, created_at, label, openai_sub }
-chatgpt_links: dict[str, dict] = {}
-
-DEFAULT_SCOPES = [s.strip() for s in os.environ.get("CHATGPT_OAUTH_SCOPES", "bountynet.read,bountynet.write").split(",") if s.strip()]
+DEFAULT_SCOPES = [
+    s.strip()
+    for s in os.environ.get("CHATGPT_OAUTH_SCOPES", "bountynet.read,bountynet.write").split(",")
+    if s.strip()
+]
 RESOURCE_DOCS = os.environ.get("CHATGPT_RESOURCE_DOCS_URL", "").strip()
 
 
@@ -73,7 +73,7 @@ def chatgpt_health():
         "service": "bountynet-chatgpt-gateway",
         "mcp_resource_configured": bool(_resource_base()),
         "oauth_issuers_configured": bool(_issuers()),
-        "active_links": len(chatgpt_links),
+        "active_links": store.chatgpt_link_count(),
     })
 
 
@@ -89,14 +89,7 @@ def create_onboarding_link():
     body = request.json or {}
     label = (body.get("label") or "").strip() or "chatgpt-connector"
     link_id = secrets.token_urlsafe(24)
-    chatgpt_links[link_id] = {
-        "label": label,
-        "api_key": "",
-        "budget_tokens": 100_000,
-        "budget_used": 0,
-        "created_at": int(time.time()),
-        "openai_sub": "",
-    }
+    store.chatgpt_link_create(link_id, label)
     return jsonify({
         "link_id": link_id,
         "setup_path": f"/chatgpt-setup?link={link_id}",
@@ -107,7 +100,7 @@ def create_onboarding_link():
 @chatgpt_bp.route("/chatgpt/link/<link_id>", methods=["GET"])
 def get_link(link_id: str):
     """Read link status for the setup page (no secrets)."""
-    row = chatgpt_links.get(link_id)
+    row = store.chatgpt_link_get(link_id)
     if not row:
         return jsonify({"error": "unknown link"}), 404
     return jsonify({
@@ -134,28 +127,25 @@ def setup():
     """
     body = request.json or {}
     link_id = body.get("link_id")
-    if not link_id or link_id not in chatgpt_links:
+    row = store.chatgpt_link_get(link_id) if link_id else None
+    if not link_id or not row:
         return jsonify({"error": "valid link_id required; POST /chatgpt/link first"}), 400
 
     api_key = body.get("api_key", "")
     budget_tokens = int(body.get("budget_tokens", 100_000))
     openai_sub = (body.get("openai_sub") or "").strip()
 
-    row = chatgpt_links[link_id]
-    row["api_key"] = api_key
-    row["budget_tokens"] = budget_tokens
-    if openai_sub:
-        row["openai_sub"] = openai_sub
+    store.chatgpt_link_update_keys(link_id, api_key, budget_tokens, openai_sub)
 
-    # Register a synthetic context budget pool key for ChatGPT-origin bounties (optional integration)
     if api_key:
         ctx_hex = f"0xchatgpt_{link_id[:16]}"
-        staker_budgets[ctx_hex] = {
-            "anthropic_key": api_key if api_key.startswith("sk-ant") else "",
-            "openai_key": api_key if api_key.startswith("sk-") and not api_key.startswith("sk-ant") else "",
-            "budget_tokens": budget_tokens,
-            "used_tokens": 0,
-        }
+        store.staker_budget_put(
+            ctx_hex,
+            api_key if api_key.startswith("sk-ant") else "",
+            api_key if api_key.startswith("sk-") and not api_key.startswith("sk-ant") else "",
+            budget_tokens,
+            0,
+        )
 
     return jsonify({
         "status": "configured",

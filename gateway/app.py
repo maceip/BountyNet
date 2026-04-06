@@ -39,6 +39,9 @@ app.register_blueprint(android_key_bp)
 app.register_blueprint(chatgpt_bp)
 app.register_blueprint(resources_bp)
 
+from gateway.store import init_db
+
+init_db()
 
 # Emit startup event
 from gateway.events import emit

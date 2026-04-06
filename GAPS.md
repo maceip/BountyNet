@@ -1,32 +1,23 @@
 # BountyNet — remaining gaps
 
-What **shipped** is described in [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`API.md`](API.md). This file only lists **verified** limitations and intentional follow-ups (no historical checklist).
+What **shipped** is described in [`ARCHITECTURE.md`](ARCHITECTURE.md), [`API.md`](API.md), and [`SOLVER_INTEGRATION.md`](SOLVER_INTEGRATION.md).
 
-## Product / UX
+## Addressed in-tree (production-oriented)
 
-- [ ] **Rich web pages** beyond the current Vite shell: dedicated stake, solve, bounty detail, agent profile, settings, explore (landing + setup + feed exist; see `web/src/App.tsx`).
-- [ ] **Default bounty pricing curve** — progressive escalation / staker-tunable tiers (today: fixed defaults + manual budget).
-- [ ] **Mic + auto-scroll** agent UX on the web dashboard (if still desired).
+- **Gateway persistence** — SQLite (`gateway/store.py`): installations, budgets, credits, API-key bounties, ChatGPT links, inference session history, CI failure streaks. Configure `BOUNTYNET_DB_PATH` or `BOUNTYNET_DATA_DIR`.
+- **`bountynet.yml` on install** — `.github/bountynet.yml` created on default branch when missing (`gateway/github/api.py` + install webhook).
+- **Progressive bounty budgets** — repeated failures for the same repo+check raise the effective inference budget using configured multipliers until CI goes green (streak reset on success without an open solver PR, or on resolution path as implemented).
+- **Richer web console** — React Router routes: Overview, Bounties (+ detail), Gateway, Resources, Stake, Solve, Explore, Agent (credits + EURC↔credits copy), Settings (Circle env). Live **Events** feed with auto-scroll + optional mic (where the browser supports Web Speech).
+- **Bounty detail for API-key bounties** — `GET /bounties/<context_hash>` returns merged gateway rows, not only on-chain escrow.
+- **Custom solver doc** — see [`SOLVER_INTEGRATION.md`](SOLVER_INTEGRATION.md).
+- **`.be-agent.toml` example** — [`examples/.be-agent.toml`](examples/.be-agent.toml).
+- **Operator cron stub** — [`scripts/bounty_escalation_cron.sh`](scripts/bounty_escalation_cron.sh) for feeding external autoscalers.
 
-## GitHub / install
+## Still deferred (larger product scope)
 
-- [ ] **`bountynet.yml` auto-injection** on GitHub App install (not wired).
-
-## Gateway persistence
-
-- [ ] **Ephemeral state** — installations, API-key budgets, and credits are in-memory; **lost on gateway process restart** until backed by SQLite/Postgres (see Deferred).
-
-## Integrations & docs
-
-- [ ] **Circle paymaster E2E** — frontend passkey flow needs a Circle client key in env.
-- [ ] **Custom solver integration** — third-party doc beyond [`API.md`](API.md) (claim, inference token, submit-pr contract).
-
-## Submission / ops
-
-- [ ] **Demo video + final submission assets** (see [`SUBMISSION.md`](SUBMISSION.md), [`DEMO_VIDEO_BROLL.md`](DEMO_VIDEO_BROLL.md)).
-
----
-
-## Deferred (not blocking current repo)
-
-- [ ] Fiat onramp; Resource Claim NFT; Flare production enclave runner; principal→agent bands; EIP-712 proof-of-intent; `.be-agent.toml` canonical context; EURC↔credits display in UI; Silverback cron for auto-escalation; **persistent DB** for installs/budgets/credits.
+- [ ] **Fiat onramp** for stakers.
+- [ ] **Resource Claim NFT** productization (`ResourceClaim` placeholder in contracts).
+- [ ] **Flare production enclave** runner hardening.
+- [ ] **Principal→agent risk bands** and **EIP-712 proof-of-intent** (governance / spec).
+- [ ] **Full Circle Modular Wallets E2E in `web/`** — Settings documents `VITE_CIRCLE_CLIENT_KEY`; full passkey onboarding requires wiring `@circle-fin/modular-wallets-core` + gateway `POST /identity/{id}/wallet` in a follow-on PR.
+- [ ] **Demo video + final submission assets** — operator-produced; see [`SUBMISSION.md`](SUBMISSION.md) / [`DEMO_VIDEO_BROLL.md`](DEMO_VIDEO_BROLL.md).

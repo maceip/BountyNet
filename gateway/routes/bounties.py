@@ -11,12 +11,9 @@ from eth_utils import keccak
 from eth_abi import encode
 from gateway.chain import w3, ESCROW, get_bounty, sig, send_tx
 from gateway.events import emit
+from gateway import store
 
 bounties_bp = Blueprint("bounties", __name__)
-
-# In-memory bounty store for API-key-mode bounties (not on-chain)
-# context_hash_hex → { repo, commit, check_name, budget_tokens, budget_used, claimable, solver_agent_id, created_at }
-apikey_bounties: dict = {}
 
 
 def bounty_feed_snapshot() -> dict:
@@ -51,13 +48,11 @@ def bounty_feed_snapshot() -> dict:
                         "amount_eurc": f"{bounty['amount'] / 1e6:.2f}",
                         "claimable": bounty["solver_agent_id"] == 0,
                     })
-        except Exception as e:
-            # Don't fail — still return API-key bounties
+        except Exception:
             pass
 
     try:
-        # Merge in API-key-mode bounties (not on-chain)
-        for ctx_hex, ab in apikey_bounties.items():
+        for ctx_hex, ab in store.apikey_bounties_all().items():
             if not ab.get("resolved"):
                 bounties.append({
                     "context_hash": ctx_hex,
@@ -88,6 +83,20 @@ def list_bounties():
 
 @bounties_bp.route("/bounties/<context_hash>")
 def bounty_detail(context_hash: str):
+    ab = store.apikey_bounty_get(context_hash)
+    if ab:
+        return jsonify({
+            "context_hash": context_hash,
+            "check_name": ab.get("check_name", "CI"),
+            "repo": ab.get("repo", ""),
+            "commit": ab.get("commit", ""),
+            "budget_tokens": ab.get("budget_tokens", 0),
+            "budget_mode": "api_key",
+            "solver_agent_id": ab.get("solver_agent_id", 0),
+            "claimable": ab.get("solver_agent_id", 0) == 0,
+            "resolved": ab.get("resolved", False),
+        })
+
     ctx = bytes.fromhex(context_hash[2:] if context_hash.startswith("0x") else context_hash)
     bounty = get_bounty(ctx)
     if not bounty:
@@ -127,31 +136,33 @@ def create_bounty():
     budget_mode = body.get("budget_mode", "api_key")
 
     if budget_mode == "api_key":
-        # Store API key in inference budget pool
-        from gateway.routes.inference import staker_budgets
         api_key = body.get("anthropic_key", "") or body.get("openai_key", "")
         budget_tokens = body.get("budget_tokens", 100_000)
 
-        staker_budgets[context_hash_hex] = {
-            "anthropic_key": body.get("anthropic_key", ""),
-            "openai_key": body.get("openai_key", ""),
-            "budget_tokens": budget_tokens,
-            "used_tokens": 0,
-        }
+        store.staker_budget_put(
+            context_hash_hex,
+            body.get("anthropic_key", ""),
+            body.get("openai_key", ""),
+            budget_tokens,
+            0,
+        )
 
-        # Store in bounty feed so solvers can see it
         import time
-        apikey_bounties[context_hash_hex] = {
-            "repo": repo,
-            "commit": commit[:8],
-            "check_name": check_name,
-            "budget_tokens": budget_tokens,
-            "budget_used": 0,
-            "solver_agent_id": 0,
-            "resolved": False,
-            "owner": body.get("owner", ""),
-            "created_at": int(time.time()),
-        }
+
+        store.apikey_bounty_upsert(
+            context_hash_hex,
+            {
+                "repo": repo,
+                "commit": commit[:8],
+                "check_name": check_name,
+                "budget_tokens": budget_tokens,
+                "budget_used": 0,
+                "solver_agent_id": 0,
+                "resolved": False,
+                "owner": body.get("owner", ""),
+                "created_at": int(time.time()),
+            },
+        )
 
         emit("bounty", f"Bounty created for {repo}:{check_name} ({budget_tokens:,} tokens)",
              repo=repo, context_hash=context_hash_hex, data={"mode": "api_key", "budget": budget_tokens})
@@ -207,7 +218,6 @@ def claim_bounty(context_hash: str):
     if not agent_id:
         return jsonify({"error": "agent_id required"}), 400
 
-    # Validate agent_id is a positive integer
     try:
         agent_id = int(agent_id)
         if agent_id <= 0:
@@ -215,22 +225,19 @@ def claim_bounty(context_hash: str):
     except (ValueError, TypeError):
         return jsonify({"error": "invalid agent_id"}), 400
 
-    # Check API-key-mode bounties first
-    ab = apikey_bounties.get(context_hash)
+    ab = store.apikey_bounty_get(context_hash)
     if ab:
         if ab.get("solver_agent_id", 0) != 0:
             return jsonify({"error": "already claimed"}), 409
         if ab.get("resolved"):
             return jsonify({"error": "bounty is closed"}), 410
 
-        ab["solver_agent_id"] = agent_id
+        store.apikey_bounty_set_solver(context_hash, agent_id)
         bnet_token = f"bnet_{agent_id}:{context_hash}"
 
-        from gateway.routes.inference import credits
         budget = ab.get("budget_tokens", 100_000)
         credit_amount = int(budget * 0.7)
-        credits[int(agent_id)] = credits.get(int(agent_id), {"total": 0, "used": 0})
-        credits[int(agent_id)]["total"] += credit_amount
+        store.credits_add_total(agent_id, credit_amount)
 
         emit("bounty", f"Agent #{agent_id} claimed bounty ({budget:,} token budget)",
              context_hash=context_hash, agent_id=int(agent_id))
@@ -245,7 +252,6 @@ def claim_bounty(context_hash: str):
             "budget_mode": "api_key",
         })
 
-    # On-chain EURC bounty
     if not ESCROW:
         return jsonify({"error": "bounty not found"}), 404
 
@@ -271,10 +277,8 @@ def claim_bounty(context_hash: str):
 
     bnet_token = f"bnet_{agent_id}:{context_hash}"
 
-    from gateway.routes.inference import credits
     credit_amount = int(bounty["amount"] * 0.7)
-    credits[int(agent_id)] = credits.get(int(agent_id), {"total": 0, "used": 0})
-    credits[int(agent_id)]["total"] += credit_amount
+    store.credits_add_total(agent_id, credit_amount)
 
     return jsonify({
         "status": "claimed",

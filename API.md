@@ -146,11 +146,13 @@ List active bounties. This is the Bounty Feed.
 
 ### GET /bounties/{context_hash}
 
-Single bounty detail.
+Single bounty detail. Returns **on-chain** escrow fields when the hash exists on `BountyEscrow`; when the bounty exists only in **API-key / gateway feed** mode, returns gateway-native fields (`budget_tokens`, `check_name`, `repo`, `claimable`, etc.) without on-chain `amount`.
 
 **Auth:** none
 
-**Response 200:** same shape as array item above
+**Response 200:** same shape as feed item, or full on-chain `get_bounty` shape for EURC bounties
+
+Third-party solver flow: see [`SOLVER_INTEGRATION.md`](SOLVER_INTEGRATION.md).
 
 **Response 404:**
 ```json

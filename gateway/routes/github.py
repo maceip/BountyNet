@@ -7,9 +7,8 @@ Routes here; shared GitHub App auth + REST helpers in `gateway.github`:
   POST /github/setup      — Joe configures repos after app install
   GET  /github/repos/<installation_id> — list repos for an installation
 
-In-memory stores (dev mode — sqlite in prod):
-  installations: repo_full_name → { installation_id, owner, api_key, budget_tokens }
-  bounty_prs:    context_hash → { pr_number, repo, solver_agent_id }
+Persistent stores (SQLite via gateway.store):
+  installations, bounty_prs, install_repos
 """
 import os
 import time
@@ -24,23 +23,14 @@ from gateway.github.api import (
     gh_commit_files,
     gh_create_branch,
     gh_create_pr,
+    gh_ensure_bountynet_yml,
     gh_list_repos,
     gh_post_comment,
 )
 from gateway.github.app_auth import get_installation_token, verify_webhook
+from gateway import store
 
 github_bp = Blueprint("github", __name__)
-
-# ── Storage (in-memory, dev mode) ──────────────────────────────
-
-# repo → { installation_id, owner, api_key, budget_tokens, budget_used }
-installations: dict = {}
-
-# context_hash → { pr_number, repo, solver_agent_id, branch }
-bounty_prs: dict = {}
-
-# installation_id → [repo_full_name, ...]
-install_repos: dict = {}
 
 
 # ── On-chain helpers ───────────────────────────────────────────
@@ -124,17 +114,21 @@ def handle_installation(payload):
     github_id = account["id"]
     repos = [r["full_name"] for r in payload.get("repositories", [])]
 
-    # Store installation → repo mapping
-    install_repos[installation_id] = repos
+    store.install_repos_set(installation_id, repos)
+    token = get_installation_token(installation_id)
+    yml_results = []
     for repo in repos:
-        installations[repo] = {
-            "installation_id": installation_id,
-            "owner": login,
-            "github_id": github_id,
-            "api_key": "",
-            "budget_tokens": 100_000,
-            "budget_used": 0,
-        }
+        store.installation_put(
+            repo,
+            installation_id,
+            owner=login,
+            github_id=github_id,
+            api_key="",
+            budget_tokens=100_000,
+            budget_used=0,
+        )
+        if token:
+            yml_results.append({"repo": repo, **gh_ensure_bountynet_yml(token, repo)})
 
     # Create Dynamic identity for the staker
     try:
@@ -153,6 +147,7 @@ def handle_installation(payload):
         "repos": repos,
         "installation_id": installation_id,
         "dynamic_user_id": dynamic_user_id,
+        "bountynet_yml": yml_results,
     })
 
 
@@ -180,35 +175,38 @@ def _on_ci_failure(installation_id, repo, sha, name, check):
     context_hash = keccak(f"{repo}:{sha[:8]}:{name}:failure".encode())
     context_hash_hex = "0x" + context_hash.hex()
 
-    # Get installation config (may have API key budget from setup)
-    config = installations.get(repo, {})
-    budget_tokens = config.get("budget_tokens", 100_000)
+    streak = store.bump_failure_streak(repo, name)
+    config = store.installation_get(repo) or {}
+    base_budget = int(config.get("budget_tokens", 100_000))
+    mult = store.streak_multiplier(streak)
+    budget_tokens = int(base_budget * mult)
 
-    # If staker deposited an API key, register it in the inference budget pool
     api_key = config.get("api_key", "")
     if api_key:
-        from gateway.routes.inference import staker_budgets
-        staker_budgets[context_hash_hex] = {
-            "anthropic_key": api_key if api_key.startswith("sk-ant") else "",
-            "openai_key": api_key if api_key.startswith("sk-") and not api_key.startswith("sk-ant") else "",
-            "budget_tokens": budget_tokens,
-            "used_tokens": 0,
-        }
+        store.staker_budget_put(
+            context_hash_hex,
+            api_key if api_key.startswith("sk-ant") else "",
+            api_key if api_key.startswith("sk-") and not api_key.startswith("sk-ant") else "",
+            budget_tokens,
+            0,
+        )
 
-    # Register in bounty feed so solvers can discover it
     import time
-    from gateway.routes.bounties import apikey_bounties
-    apikey_bounties[context_hash_hex] = {
-        "repo": repo,
-        "commit": sha[:8],
-        "check_name": name,
-        "budget_tokens": budget_tokens,
-        "budget_used": 0,
-        "solver_agent_id": 0,
-        "resolved": False,
-        "owner": config.get("owner", ""),
-        "created_at": int(time.time()),
-    }
+
+    store.apikey_bounty_upsert(
+        context_hash_hex,
+        {
+            "repo": repo,
+            "commit": sha[:8],
+            "check_name": name,
+            "budget_tokens": budget_tokens,
+            "budget_used": 0,
+            "solver_agent_id": 0,
+            "resolved": False,
+            "owner": config.get("owner", ""),
+            "created_at": int(time.time()),
+        },
+    )
 
     # API-key-funded bounties stay in the gateway feed only; EURC path uses on-chain escrow.
     tx_result = None
@@ -250,17 +248,16 @@ def _on_ci_success(installation_id, repo, sha, name, check):
     """CI passed → check if solver PR → validate + resolve."""
     sha_short = sha[:8]
 
-    # Check if this CI run is for a BountyNet solver PR
-    matching_bounty = None
-    for ctx_hash, pr_info in bounty_prs.items():
-        if pr_info["repo"] == repo:
-            matching_bounty = (ctx_hash, pr_info)
-            break
+    rows = store.bounty_prs_for_repo(repo)
+    matching_bounty = rows[0] if rows else None
 
     if not matching_bounty:
+        store.reset_failure_streak(repo, name)
         return jsonify({"status": "ci_green_no_bounty", "repo": repo, "sha": sha_short})
 
     ctx_hash, pr_info = matching_bounty
+
+    store.reset_failure_streak(repo, name)
 
     # Submit on-chain validation
     val_result = submit_validation(repo, sha_short, name)
@@ -344,19 +341,14 @@ def setup():
 
     # If no repos specified, use all repos from the installation
     if not repos:
-        repos = install_repos.get(installation_id, [])
+        repos = store.install_repos_get(installation_id)
         if not repos:
             repos = gh_list_repos(installation_id)
-            install_repos[installation_id] = repos
+            store.install_repos_set(installation_id, repos)
 
+    owner = body.get("owner", "")
     for repo in repos:
-        installations[repo] = {
-            "installation_id": installation_id,
-            "owner": body.get("owner", ""),
-            "api_key": api_key,
-            "budget_tokens": budget_tokens,
-            "budget_used": 0,
-        }
+        store.installation_merge_setup(repo, installation_id, owner, api_key, budget_tokens)
 
     return jsonify({
         "status": "configured",
@@ -443,13 +435,13 @@ def test_key():
 @github_bp.route("/github/repos/<int:installation_id>")
 def list_installation_repos(installation_id):
     """List repos for an installation (called by setup page)."""
-    cached = install_repos.get(installation_id)
+    cached = store.install_repos_get(installation_id)
     if cached:
         return jsonify({"repos": cached})
 
     repos = gh_list_repos(installation_id)
     if repos:
-        install_repos[installation_id] = repos
+        store.install_repos_set(installation_id, repos)
     return jsonify({"repos": repos})
 
 
@@ -469,7 +461,7 @@ def scan_repos(installation_id):
     If omitted, scans all repos in the installation.
     """
     body = request.json or {}
-    repos = body.get("repos") or install_repos.get(installation_id) or gh_list_repos(installation_id)
+    repos = body.get("repos") or store.install_repos_get(installation_id) or gh_list_repos(installation_id)
 
     token = get_installation_token(installation_id)
     if not token:
@@ -702,7 +694,7 @@ def submit_solver_pr():
         return jsonify({"error": "repo and files required"}), 400
 
     # Find installation_id for this repo
-    config = installations.get(repo)
+    config = store.installation_get(repo)
     if not config:
         return jsonify({"error": f"no installation for {repo}"}), 404
 
@@ -747,14 +739,14 @@ def submit_solver_pr():
         body=pr_body,
     )
 
-    # Track this PR → bounty linkage
     if context_hash:
-        bounty_prs[context_hash] = {
-            "pr_number": pr.get("number"),
-            "repo": repo,
-            "solver_agent_id": agent_id,
-            "branch": branch,
-        }
+        store.bounty_pr_put(
+            context_hash,
+            pr.get("number"),
+            repo,
+            int(agent_id or 0),
+            branch,
+        )
 
     emit("pr", f"Solver PR #{pr.get('number')} created on {repo} ({branch})",
          repo=repo, context_hash=context_hash, agent_id=agent_id,

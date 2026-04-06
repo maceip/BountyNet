@@ -97,3 +97,9 @@ For the full route list, see [`API.md`](API.md) and `user_journeys.md`.
 | **`sim/malicious.py`** | Adversarial scenarios against the gateway. |
 
 All sims are **optional tooling**; production behavior is defined by contracts + gateway + CLI above.
+
+---
+
+## Gateway persistence (`gateway/store.py`)
+
+GitHub installations, per-context staker budgets, solver key deposits, solver credits, API-key bounty rows, ChatGPT connector links, inference history (for `/sessions`), and CI failure streaks (for progressive bounty budgets) are stored in **SQLite** (WAL). Configure `BOUNTYNET_DB_PATH` or `BOUNTYNET_DATA_DIR` (default file: `~/.bountynet/gateway.db`).

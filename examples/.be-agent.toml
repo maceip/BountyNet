@@ -1,0 +1,14 @@
+# Canonical repo context for automated solvers (BountyNet).
+# Place at the repository root or point agents to this path via --config.
+
+[agent]
+name = "bountynet-solver"
+gateway = "https://gateway.stare.network"
+
+[bounty]
+# Prefer claim + infer + submit-pr flow (see SOLVER_INTEGRATION.md)
+poll_interval_seconds = 15
+max_parallel = 1
+
+[inference]
+default_model = "claude-sonnet-4-20250514"
