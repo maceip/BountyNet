@@ -85,7 +85,7 @@ export default function OverviewPage() {
   const readinessPercent = useMemo(() => {
     if (healthLoading) return 0;
     return healthOk ? 100 : 0;
-  }, [health, healthLoading, healthOk]);
+  }, [healthLoading, healthOk]);
 
   const agents =
     typeof health?.registered_agents === "number"

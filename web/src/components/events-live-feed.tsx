@@ -38,9 +38,12 @@ export function EventsLiveFeed() {
   }, [gatewayBase]);
 
   useEffect(() => {
-    void fetchEvents();
+    const kick = window.setTimeout(() => void fetchEvents(), 0);
     const t = window.setInterval(() => void fetchEvents(), 12_000);
-    return () => window.clearInterval(t);
+    return () => {
+      window.clearTimeout(kick);
+      window.clearInterval(t);
+    };
   }, [fetchEvents]);
 
   useEffect(() => {
@@ -76,7 +79,7 @@ export function EventsLiveFeed() {
       r.start();
       recRef.current = r;
     } catch {
-      setMicOn(false);
+      window.setTimeout(() => setMicOn(false), 0);
     }
     return () => {
       try {

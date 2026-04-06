@@ -1,5 +1,5 @@
 import { UserRoundIcon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,18 +19,15 @@ const LS_KEY = "bountynet.agent_id";
 
 export default function AgentPage() {
   const { gatewayBase } = useGateway();
-  const [agentId, setAgentId] = useState("");
+  const [agentId, setAgentId] = useState(() => {
+    try {
+      return localStorage.getItem(LS_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  });
   const [credits, setCredits] = useState<Record<string, unknown> | null>(null);
   const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    try {
-      const v = localStorage.getItem(LS_KEY);
-      if (v) setAgentId(v);
-    } catch {
-      /* ignore */
-    }
-  }, []);
 
   const persistId = (id: string) => {
     setAgentId(id);

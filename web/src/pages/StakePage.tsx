@@ -32,7 +32,7 @@ export default function StakePage() {
           <Button
             render={
               <a
-                href="https://github.com/apps/bountynet"
+                href="https://github.com/apps/bountynet-ci-client"
                 rel="noreferrer"
                 target="_blank"
               />

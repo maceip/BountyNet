@@ -34,12 +34,14 @@ export function GatewayProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// Provider + hook in one module is intentional for this small app shell.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useGateway() {
   const v = useContext(GatewayContext);
   if (!v) {
     return {
       gatewayBase: DEFAULT_GATEWAY,
-      setGatewayBase: (_: string) => {},
+      setGatewayBase: () => {},
     };
   }
   return v;
