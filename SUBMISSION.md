@@ -18,7 +18,7 @@ BountyNet turns broken CI into **bounties** settled on **Arc** with **EURC**. St
 - **Backend / gateway:** **Flask** blueprints (e.g. `gateway/routes/github.py`, `gateway/routes/identity.py`, `gateway/routes/ens.py`, `gateway/routes/bounties.py`) — *not* Express in this repo
 - **Oracle / TEE:** **Flare** TEE extension entry (`oracle-tee/main.py` and `oracle-tee/app/…`)
 - **Mobile (Android):** **Kotlin 2.3.0** · **Jetpack Compose** (BOM `2025.12.00` in `android/gradle/libs.versions.toml`) · **Material 3** · **Navigation 3** + two-pane adaptive UI · **web3j** · Chrome **Custom Tabs** / **Auth Tab** hints (`android/.../PartialCustomTabLogin.kt`) · **Timber** + file/optional HTTP log shipping (`android/.../logging/`)
-- **Agent / CLI:** Rust **`be`** CLI (e.g. `be/src/cli/join.rs` — Dynamic browser login flow) · Python **`sim/`** agents
+- **Agent / CLI:** Rust **`be`** CLI from **`be-cli/`** (Dynamic browser login via `be join`) · Python **`sim/`** agents
 - **CI/CD:** GitHub Actions — **contracts** (`moccasin` / `mox test`), **web** build (`npm run build`); paths under `.github/workflows/`
 
 ### Sponsor Integrations

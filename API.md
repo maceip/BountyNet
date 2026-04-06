@@ -157,7 +157,7 @@ Single bounty detail.
 
 ### POST /bounties/create
 
-Create a bounty. Called by GitHub App webhook (auto) or `be bounty create` (manual).
+Create a bounty. Called by GitHub App webhook (auto) or `be bounties create` (manual).
 
 **Auth:** Dynamic JWT or GitHub webhook signature
 

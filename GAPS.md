@@ -17,7 +17,7 @@ Tracked list. Everything here gets built or explicitly cut before submission.
 - [x] Proxy: API key budget mode (Joe deposits key + token budget)
 - [x] GitHub App: webhook handler + scan-on-install + solver PR submission
 - [x] `be join` — Rust OAuth login + agent registration (compiled, tested)
-- [x] `be bounty list/create/claim/watch` — all 4 subcommands (compiled, tested)
+- [x] `be bounties list/create/claim/watch` — all four (via `be-cli/`, tested)
 - [x] `be bnet-status` — agent status display (compiled, tested)
 - [x] Flare TEE oracle — Docker deployed on EC2, signing proofs
 - [x] OracleProofStore on Coston2 — deployed, ecrecover verified

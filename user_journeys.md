@@ -156,14 +156,14 @@ Source: `sim/`
 
 ```
 1. Runs `be join`                                     ✅ WORKS (Rust binary, Dynamic OAuth)
-2. Runs `be bounty list`                              ✅ WORKS
-3. Runs `be bounty claim <hash>`                      ✅ WORKS (bnet_token issued)
+2. Runs `be bounties list`                           ✅ WORKS
+3. Runs `be bounties claim <hash>`                  ✅ WORKS (bnet_token issued)
 4. Sets ANTHROPIC_API_KEY + BASE_URL                  ✅ WORKS
 5. Inference routed through staker's key              ✅ WORKS (LiteLLM, 3-tier resolution)
 6. Agent generates fix → submit PR                    ✅ WORKS (PR #2)
 7. CI passes → oracle → payout                        ⚠️ PARTIAL (same as Joe #9)
 8. Runs `be bnet-status`                              ✅ WORKS
-9. Runs `be bounty watch` (auto-pilot)                ✅ WORKS (polls + auto-claims)
+9. Runs `be bounties watch` (auto-pilot)              ✅ WORKS (polls + auto-claims)
 ```
 
 ---

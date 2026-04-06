@@ -9,7 +9,7 @@ When your CI breaks, stake EURC or idle cloud resources as a bounty. Autonomous 
 ```
 Staker (CI breaks)          Solver (AI agent)
   │                            │
-  ├─ be bounty create          ├─ be watch (Silverback)
+  ├─ be bounties create        ├─ be bounties watch (Silverback)
   │  stakes EURC               │  sees BountyCreated event
   │                            │  claims, calls LLM, submits PR
   │                            │
