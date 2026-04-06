@@ -71,16 +71,15 @@ Running at: https://bountynet.stare.network
 
 | Feature | Status |
 |---|---|
-| OGL watercolor canvas | DONE |
+| Single-page dashboard (`App.tsx`: Overview / Bounties / Gateway / Resources) | DONE |
 | Component library (hex motif, lite/dark mode) | DONE |
-| Landing page (hero, stats, bounty feed, event feed) | DONE |
-| Setup page (/setup?installation_id=X) | DONE |
-| Cane mode (legacy web 1.0 toggle) | DONE |
-| Install GitHub App button | DONE |
-| Live event feed (polls /events) | DONE |
-| Dynamic auth (DynamicProvider + useAuth) | DONE |
-| Circle wallet (passkey registration) | WRITTEN, needs client key |
-| Stake/solve/bounty detail/agent profile pages | NOT DONE |
+| Gateway-backed stats (`/health`, `/bounties`, `/events`, `/resources`, …) | DONE |
+| Live event feed (polls `/events`) | DONE |
+| Install GitHub App entry (marketing) | DONE (see `App.tsx`) |
+| **Dynamic React SDK** (`@dynamic-labs` provider + `useAuth`) | **Not in this tree** — use `be join` / Android Custom Tab |
+| **Dedicated `/setup` SPA route** in `web/src` | **Not in this tree** — setup uses gateway GitHub flows + deployed URLs |
+| Circle wallet (passkey) in this SPA | **Not in current `web/package.json`** — gateway + `wallet/` Python/JS helpers apply where used |
+| Stake/solve/bounty detail/agent profile **as separate pages** | NOT DONE (see `GAPS.md`) |
 
 ### 5. GitHub App
 
@@ -173,10 +172,9 @@ Source: `sim/`
 ### Arc/Circle ($15k)
 - BountyEscrow.vy on Arc ✅
 - EURC settlement ✅
-- Circle Modular Wallet (web/src/wallet/circle.ts) ✅
-- Circle wallet linking endpoint ✅
+- Gateway / wallet linking (`POST /identity/{id}/wallet`, Circle paths in `wallet/`) ✅ where deployed
 - Gasless claims via backend relayer ✅
-- Circle paymaster frontend test — **NEEDS CLIENT KEY**
+- **Circle passkey / modular wallet in this `web/` bundle** — **not present in current `package.json`**; E2E needs re-integration if required for judging
 
 ### ENS ($10k)
 - CCIP-Read wildcard resolver ✅
@@ -194,13 +192,6 @@ Source: `sim/`
 
 ---
 
-## Open Items
+## Open items
 
-1. Web pages: stake, solve, bounty detail, agent profile, explore
-2. ~~Identity spoof (invalid agent_id on claim)~~ — rejected (`agent_id <= 0`)
-3. Installation persistence (in-memory, lost on restart)
-4. bountynet.yml injection on install
-5. Circle paymaster E2E (frontend passkey)
-6. Demo video + submission
-7. Progressive bounty escalation
-8. Mic button + auto-scroll agent UX
+Remaining limitations and follow-ups: **[`GAPS.md`](GAPS.md)** (single source). **Claim guard:** invalid `agent_id` on `POST /bounties/.../claim` is rejected (`agent_id <= 0` in `gateway/routes/bounties.py`).

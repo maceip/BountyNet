@@ -34,7 +34,7 @@ Record at **1920×1080** (or 4K if you downscale), **60 fps** if possible. **Hid
 | S2 | Dynamic login start | Same → click Sign in / widget | Start recording *before* click; 2–3s dwell |
 | S3 | Post-login dashboard | After auth | Network card, Arc block, escrow labels (`App.tsx` stats from `/health`) |
 | S4 | Bounty list / feed | Dashboard bounties card | Even if empty: show “no bounties” OR seed one test bounty |
-| S5 | Android auth page | https://bountynet.stare.network/android-auth | For B-roll of “same login as web” |
+| S5 | Android sign-in sheet | **SIGN IN** in app → Custom Tab (`WEB_AUTH_URL` in `android/app/build.gradle.kts`, often `…/android-auth` on prod) | Shows mobile auth path without needing a separate page |
 | S6 | ENS / agent line | Dashboard “Agent” card with ENS | If logged in; `agent-N.maceip.eth` visible |
 | S7 | GitHub (optional) | Repo with BountyNet / install page | Blur org secrets if any; show **public** context only |
 | S8 | Arc explorer (optional B-roll) | https://testnet.arcscan.app | Search contract addresses from `contracts/deployments.json` if you show txs |
@@ -94,7 +94,7 @@ Record at **1920×1080** (or 4K if you downscale), **60 fps** if possible. **Hid
 - `contracts/src/BountyEscrow.vy` — function names / EURC comment (5s)
 - `gateway/routes/ens.py` — `PARENT = "maceip.eth"` or CCIP comment (5s)
 - `oracle-tee/main.py` — module docstring “Flare TEE” (5s)
-- `web/src/wallet/circle.ts` — `arcTestnet` chain def (5s)
+- `android/.../ArcClient.kt` or `gateway/chain.py` — Arc / RPC comment (5s)
 
 Don’t linger; judges care about **product**, not LOC.
 
@@ -103,7 +103,7 @@ Don’t linger; judges care about **product**, not LOC.
 ## 6. Accounts, keys & safety (before hitting Record)
 
 - [ ] **Dynamic** test user: GitHub + email login both work on **bountynet.stare.network**
-- [ ] **Dynamic** `/android-auth` redirect → `bountynet://auth/callback` with **staging JWT** OK on device
+- [ ] **Dynamic** — device **SIGN IN** → Custom Tab URL (`WEB_AUTH_URL`) → `bountynet://auth/callback` returns JWT in app
 - [ ] **Gateway** `https://gateway.stare.network/health` returns **ok** during shoot window
 - [ ] **No API keys / `.env` values** visible in OBS or screen share
 - [ ] **Wallet** balances / txs you show are **testnet**-appropriate; blur if needed
@@ -149,8 +149,8 @@ Label honestly in edit: *“Recorded [date]”* if not live.
 | What | Where |
 |------|--------|
 | Live app | https://bountynet.stare.network |
-| Android auth path | https://bountynet.stare.network/android-auth |
-| Default gateway API | `VITE_GATEWAY_URL` → https://gateway.stare.network (`web/src/auth/useAuth.ts`) |
+| Android auth URL (default BuildConfig) | https://bountynet.stare.network/android-auth |
+| Default gateway API | `VITE_GATEWAY_URL` → https://gateway.stare.network (`web/src/App.tsx`) |
 | Arc RPC (B-roll text) | https://rpc.testnet.arc.network |
 | Repo root | This monorepo |
 

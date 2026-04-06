@@ -13,29 +13,29 @@ BountyNet turns broken CI into **bounties** settled on **Arc** with **EURC**. St
 
 ### Tech Stack (as in this repo)
 - **Smart contracts:** **Vyper** (`contracts/src/*.vy`) · **Moccasin** (`contracts/moccasin.toml`, `mox test` in CI) · **Solidity** ENS resolver (`contracts/src/ens/BountyNetResolver.sol`)
-- **Chain:** **Arc Testnet** (e.g. RPC `https://rpc.testnet.arc.network` in `android/app/.../ArcClient.kt`, `web/src/wallet/circle.ts`)
-- **Frontend:** **Vite** + **React 19** + **TypeScript** · **@dynamic-labs/sdk-react-core** + **@dynamic-labs/ethereum** · **wagmi** + **viem** + **RainbowKit** · **OGL** WebGL · **@circle-fin/modular-wallets-core** (see `web/package.json`, `web/src/wallet/circle.ts`)
+- **Chain:** **Arc Testnet** (e.g. RPC `https://rpc.testnet.arc.network` in `android/app/.../ArcClient.kt`; gateway `gateway/chain.py`)
+- **Frontend:** **Vite** + **React 19** + **TypeScript** + **Tailwind** + **Base UI** (`web/package.json`) — dashboard calls the **gateway REST** API; no Dynamic/wagmi/Circle packages in this `web/` lockfile today
 - **Backend / gateway:** **Flask** blueprints (e.g. `gateway/routes/github.py`, `gateway/routes/identity.py`, `gateway/routes/ens.py`, `gateway/routes/bounties.py`) — *not* Express in this repo
 - **Oracle / TEE:** **Flare** TEE extension entry (`oracle-tee/main.py` and `oracle-tee/app/…`)
 - **Mobile (Android):** **Kotlin 2.3.0** · **Jetpack Compose** (BOM `2025.12.00` in `android/gradle/libs.versions.toml`) · **Material 3** · **Navigation 3** + two-pane adaptive UI · **web3j** · Chrome **Custom Tabs** / **Auth Tab** hints (`android/.../PartialCustomTabLogin.kt`) · **Timber** + file/optional HTTP log shipping (`android/.../logging/`)
 - **Agent / CLI:** Rust **`be`** CLI from **`be-cli/`** (Dynamic browser login via `be join`) · Python **`sim/`** agents
-- **CI/CD:** GitHub Actions — **contracts** (`moccasin` / `mox test`), **web** build (`npm run build`); paths under `.github/workflows/`
+- **CI/CD:** GitHub Actions — single [`.github/workflows/ci.yml`](.github/workflows/ci.yml): **gateway** (pytest), **be-cli** (fmt, clippy, test, release build), **web** (`npm ci` / `npm run build`), **contracts** (`mox test`). **Android** CI is deferred (see workflow comment).
 
 ### Sponsor Integrations
 
 #### Arc + Circle — settlement on Arc Testnet, EURC / smart accounts
-- **What we used:** Arc RPC + testnet chain definitions; **Circle Modular Wallets** (`@circle-fin/modular-wallets-core`); **Vyper** escrow / identity / validation contracts; **web3j** toward Arc from Android.
-- **Where in the code:** `contracts/src/BountyEscrow.vy`, `contracts/src/MockEURC.vy`, `contracts/src/IdentityRegistry.vy`, `contracts/src/ValidationRegistry.vy` · `web/src/wallet/circle.ts` · `web/src/App.tsx` (Arc / EURC UI) · `android/.../web3/ArcClient.kt` · `gateway/chain.py` (and routes that call `send_tx` / escrow)
+- **What we used:** Arc RPC + testnet chain definitions; **Vyper** escrow / identity / validation contracts; **web3j** toward Arc from Android; **gateway** relayer paths for EURC/escrow txs.
+- **Where in the code:** `contracts/src/BountyEscrow.vy`, `contracts/src/MockEURC.vy`, `contracts/src/IdentityRegistry.vy`, `contracts/src/ValidationRegistry.vy` · `web/src/App.tsx` (gateway-backed dashboard) · `android/.../web3/ArcClient.kt` · `gateway/chain.py` (and routes that call `send_tx` / escrow). **Circle smart-wallet UX** may live in other branches or future `web/` deps — not in current `package.json`.
 - **How it works:** Bounties and payouts are modeled against **EURC** and Arc contracts; the web stack can build **Circle smart accounts** on **Arc Testnet**; the gateway submits transactions to chain helpers.
 
 #### Dynamic — auth, embedded wallets, JWT to gateway
-- **What we used:** **Dynamic Labs JS SDK** (`@dynamic-labs/sdk-react-core`, `@dynamic-labs/ethereum`); **Node** bridge for server-side Dynamic calls (`wallet/dynamic_bridge.mjs` invoked from `gateway/routes/identity.py`); **mobile** sign-in via **`/android-auth`** (served from **`web/`** when that route ships) and `bountynet://auth/callback` (see `android/` `MainActivity` + Custom Tabs).
-- **Where in the code:** `web/src/auth/DynamicProvider.tsx`, `web/src/auth/useAuth.ts`, `web/src/App.tsx` · `gateway/routes/identity.py`, `gateway/routes/github.py` (Dynamic user creation for stakers) · `wallet/dynamic_bridge.mjs` · `android/.../MainNav.kt`, `MainActivity.kt`, `AndroidManifest.xml` (deep link)
-- **How it works:** Users sign in with Dynamic; the app gets a **JWT** and calls **`GATEWAY`** (`VITE_GATEWAY_URL`, default `https://gateway.stare.network` in `useAuth.ts`); Android can complete the same flow and store the JWT locally.
+- **What we used:** **Dynamic** for human login; **Node** bridge **`wallet/dynamic_bridge.mjs`** (from `gateway/routes/identity.py`) for server-side user/wallet calls; **`be join`** opens the gateway’s Dynamic redirect and completes onboarding; **Android** uses a **Chrome Custom Tab** to **`WEB_AUTH_URL`** (`android/app/build.gradle.kts` — default `https://bountynet.stare.network/android-auth`) with **`bountynet://auth/callback`** (`MainActivity`, `AndroidManifest.xml`).
+- **Where in the code:** `be-cli/src/commands/join.rs` · `gateway/routes/identity.py`, `gateway/routes/github.py` · `wallet/dynamic_bridge.mjs` · `web/src/App.tsx` (calls gateway with `VITE_GATEWAY_URL`) · `android/.../PartialCustomTabLogin.kt`, `MainNav.kt`, `MainActivity.kt`
+- **How it works:** Gateway validates Dynamic JWTs (JWKS) in production; CLI and Android persist session material locally after the browser completes the Dynamic flow.
 
 #### ENS — CCIP-Read wildcard for agents
 - **What we used:** Off-chain resolution for **`*.maceip.eth`** and chain-specific `coinType` (incl. Arc and Flare Coston2) per `gateway/routes/ens.py`.
-- **Where in the code:** `gateway/routes/ens.py` · on-chain piece `contracts/src/ens/BountyNetResolver.sol` · UI shows `auth.ensName` from `useAuth` in `web/src/App.tsx`
+- **Where in the code:** `gateway/routes/ens.py` · `contracts/src/ens/BountyNetResolver.sol` · ENS-ready labels anywhere the app surfaces agent id / gateway data (`web/src/App.tsx`, etc.)
 - **How it works:** Resolver / gateway answers ENS **CCIP-Read** style lookups so **`agent-{id}.maceip.eth`** maps to registry-backed wallets across chains.
 
 #### Flare — TEE CI oracle
