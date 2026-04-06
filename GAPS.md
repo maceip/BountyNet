@@ -13,6 +13,10 @@ What **shipped** is described in [`ARCHITECTURE.md`](ARCHITECTURE.md), [`API.md`
 - **`.be-agent.toml` example** — [`examples/.be-agent.toml`](examples/.be-agent.toml).
 - **Operator cron stub** — [`scripts/bounty_escalation_cron.sh`](scripts/bounty_escalation_cron.sh) for feeding external autoscalers.
 
+## Android-specific (deferred)
+
+Gap tracking and in-tree “close the GAPS” work applies to **gateway, web console, CLI, and docs**. Anything **Android-specific** is **deferred**: Jetpack/Compose UI, Chrome Custom Tab / `WEB_AUTH_URL` flows, deep-link callback polish, foldable/adaptive UX, `ArcClient.kt` + device wallet paths, Play signing/release, and hardening or productizing **`gateway/routes/android_key_attestation.py`** beyond what ships today. The `android/` tree remains optional; CI for it stays deferred per [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
 ## Still deferred (larger product scope)
 
 - [ ] **Fiat onramp** for stakers.
