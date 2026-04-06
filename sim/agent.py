@@ -22,6 +22,7 @@ Usage:
 """
 import os
 import sys
+import re
 import base64
 import json
 import time
@@ -202,40 +203,18 @@ def find_source_files(repo_path: str) -> list[Path]:
 
 # ── Fix Strategies ────────────────────────────────────────────
 
-def fix_honest(repo: str, repo_path: str, ci_error: str, bnet_token: str, gateway: str) -> list[dict] | None:
-    """Call LLM to generate a real fix (Cursor first, then Anthropic)."""
-    context = read_context(repo_path)
-    cursor_files = generate_fix_cursor(repo, ci_error, context)
-    if cursor_files:
-        return cursor_files
-
-    api_key = bnet_token or os.environ.get("ANTHROPIC_API_KEY", "")
-    base_url = f"{gateway}/v1" if bnet_token else "https://api.anthropic.com/v1"
-
-    if not api_key:
-        log.warning("no API key, falling back to hallucinate")
-        return None
-
-    prompt = f"""Fix this CI failure. Repository: {repo}
-Error: {ci_error}
-Context:
-{context[:4000]}
-
-Return ONLY a JSON array: [{{"path": "file/path", "content": "full content"}}]"""
-
+def _anthropic_file_changes(prompt: str, base_url: str, headers: dict) -> list[dict] | None:
     try:
-        headers = {"Content-Type": "application/json"}
-        if bnet_token:
-            headers["Authorization"] = f"Bearer {bnet_token}"
-        else:
-            headers["x-api-key"] = api_key
-            headers["anthropic-version"] = "2023-06-01"
-
-        r = requests.post(f"{base_url}/messages", headers=headers, json={
-            "model": "claude-sonnet-4-20250514", "max_tokens": 4096,
-            "messages": [{"role": "user", "content": prompt}],
-        }, timeout=120)
-
+        r = requests.post(
+            f"{base_url}/messages",
+            headers=headers,
+            json={
+                "model": "claude-sonnet-4-20250514",
+                "max_tokens": 4096,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+            timeout=120,
+        )
         data = r.json()
         content = ""
         if "content" in data:
@@ -245,17 +224,72 @@ Return ONLY a JSON array: [{{"path": "file/path", "content": "full content"}}]""
         elif "choices" in data:
             content = data["choices"][0].get("message", {}).get("content", "")
 
-        if content:
-            import re
-            m = re.search(r'\[.*\]', content, re.DOTALL)
-            if m:
-                files = json.loads(m.group())
-                if isinstance(files, list) and files:
-                    return files
+        if not content:
+            return None
+        m = re.search(r"\[.*\]", content, re.DOTALL)
+        if not m:
+            return None
+        files = json.loads(m.group())
+        if isinstance(files, list) and files:
+            return files
     except Exception as e:
         log.error("LLM: %s", e)
-
     return None
+
+
+def fix_honest(repo: str, repo_path: str, ci_error: str, bnet_token: str, gateway: str) -> list[dict] | None:
+    """Call LLM to generate a real fix (Cursor first, then Anthropic)."""
+    context = read_context(repo_path)
+    cursor_files = generate_fix_cursor(repo, ci_error, context)
+    if cursor_files:
+        return cursor_files
+
+    prompt = f"""Fix this CI failure. Repository: {repo}
+Error: {ci_error}
+Context:
+{context[:4000]}
+
+Return ONLY a JSON array: [{{"path": "file/path", "content": "full content"}}]"""
+
+    if bnet_token:
+        files = _anthropic_file_changes(
+            prompt,
+            f"{gateway}/v1",
+            {"Content-Type": "application/json", "Authorization": f"Bearer {bnet_token}"},
+        )
+        if files:
+            return files
+        direct = os.environ.get("ANTHROPIC_API_KEY", "")
+        if direct:
+            log.info("retrying Anthropic with direct API key")
+            files = _anthropic_file_changes(
+                prompt,
+                "https://api.anthropic.com/v1",
+                {
+                    "Content-Type": "application/json",
+                    "x-api-key": direct,
+                    "anthropic-version": "2023-06-01",
+                },
+            )
+            if files:
+                return files
+        log.warning("no usable Anthropic response, falling back to hallucinate")
+        return None
+
+    direct = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not direct:
+        log.warning("no API key, falling back to hallucinate")
+        return None
+
+    return _anthropic_file_changes(
+        prompt,
+        "https://api.anthropic.com/v1",
+        {
+            "Content-Type": "application/json",
+            "x-api-key": direct,
+            "anthropic-version": "2023-06-01",
+        },
+    )
 
 
 def fix_hallucinate(repo_path: str) -> list[dict]:
