@@ -1,5 +1,5 @@
 """
-Malicious Vishy — adversarial solver that tries to cheat BountyNet.
+Adversarial solver sim — exercises abuse scenarios against the gateway and feed.
 
 Tests that the system correctly rejects or handles:
   1. Double-claim: claim a bounty already claimed by someone else
@@ -331,7 +331,7 @@ ALL_ATTACKS = {
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Malicious Vishy — adversarial testing")
+    parser = argparse.ArgumentParser(description="Adversarial solver sim — gateway abuse tests")
     parser.add_argument("--gateway", default=GATEWAY)
     parser.add_argument("--attack", default="all", help="Attack name or 'all'")
     parser.add_argument("--json", action="store_true", help="JSON output")

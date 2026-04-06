@@ -1,31 +1,29 @@
 """
-SimVishy — human-like solver that interacts through the web app.
+`sim_solver.py` — browser automation for the **solver** persona (solver journey via the web app).
 
-Uses browser-use to automate the BountyNet webapp:
-  1. Navigate to bountynet.stare.network
+Uses browser-use to exercise the BountyNet webapp end-to-end:
+  1. Open the landing page
   2. Log in via Dynamic (email or GitHub)
-  3. View dashboard — check agent status, balances
-  4. Browse bounty feed — find claimable bounties
-  5. Claim a bounty through the UI
-  6. Check agent status after claim
-  7. View bounty resolution (if CI passes)
+  3. Dashboard — agent status, balances
+  4. Bounty feed — claimable work
+  5. Claim through the UI
+  6. Post-claim state
+  7. Resolution when CI passes
 
-This exercises the FULL frontend → gateway → chain pipeline.
-The agent sim (sim/agent.py) exercises the CLI/API path.
-Together they cover both user personas.
+This complements `sim/agent.py` (direct API/CLI path).
 
 Usage:
-  uv run python sim/sim_vishy.py
-  uv run python sim/sim_vishy.py --email vishy@test.com
-  uv run python sim/sim_vishy.py --headless  # no browser window
+  uv run python sim/sim_solver.py
+  uv run python sim/sim_solver.py --email solver@test.local
+  uv run python sim/sim_solver.py --headless
 """
-import asyncio
 import argparse
+import asyncio
 import logging
 import os
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [sim-vishy] %(message)s")
-log = logging.getLogger("sim-vishy")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [sim-solver] %(message)s")
+log = logging.getLogger("sim-solver")
 
 SITE = os.environ.get("BOUNTYNET_URL", "https://bountynet.stare.network")
 GATEWAY = os.environ.get("BOUNTYNET_GATEWAY", "https://gateway.stare.network")
@@ -38,7 +36,7 @@ def _setup_url() -> str:
     return f"{SITE}/setup"
 
 
-async def run_vishy(email: str = "", headless: bool = False, task: str = "explore"):
+async def run_solver(email: str = "", headless: bool = False, task: str = "explore"):
     from browser_use import Agent
     from browser_use.llm import ChatAnthropic
 
@@ -47,8 +45,8 @@ async def run_vishy(email: str = "", headless: bool = False, task: str = "explor
         api_key=os.environ.get("ANTHROPIC_API_KEY", ""),
     )
 
-    instructions = f"""You are Vishy, a solver on the BountyNet network.
-You are testing the BountyNet web application at {SITE}.
+    instructions = f"""You are a BountyNet solver testing the web application at {SITE}.
+Solvers claim CI-fix bounties, run inference through the gateway, and ship patches.
 
 Your task: {_get_task_prompt(task, email)}
 
@@ -57,7 +55,7 @@ Important:
 - Take screenshots at key moments
 - Report what you see at each step
 - If something is broken or missing, note it clearly
-- You are testing the UI, not the API
+- You are exercising the UI, not raw API calls
 """
 
     agent = Agent(
@@ -69,7 +67,7 @@ Important:
     )
 
     result = await agent.run()
-    log.info("sim-vishy completed: %s", result)
+    log.info("sim-solver completed: %s", result)
     return result
 
 
@@ -87,7 +85,7 @@ def _get_task_prompt(task: str, email: str) -> str:
         "login": f"""
 1. Go to {SITE}
 2. Click the Dynamic login widget (top right)
-3. Try to sign in with email: {email or 'test@bountynet.dev'}
+3. Try to sign in with email: {email or 'solver@test.local'}
 4. If login succeeds — note what changes on the page
 5. Check if you see: agent ID, wallet address, ENS name
 6. Check if "Quick Actions" appear (Create Bounty, Watch for Bounties)
@@ -111,7 +109,7 @@ def _get_task_prompt(task: str, email: str) -> str:
 """,
         "full_flow": f"""
 1. Go to {SITE}
-2. Click Dynamic login — sign in with email {email or 'test@bountynet.dev'}
+2. Click Dynamic login — sign in with email {email or 'solver@test.local'}
 3. Wait for login to complete
 4. Check dashboard — agent ID, wallet, balances
 5. Look for bounties — are any claimable?
@@ -126,15 +124,15 @@ def _get_task_prompt(task: str, email: str) -> str:
 
 
 def main():
-    p = argparse.ArgumentParser(description="SimVishy — browser-automated solver")
+    p = argparse.ArgumentParser(description="Browser sim — solver journey (browser-use)")
     p.add_argument("--email", default="", help="Email for Dynamic login")
     p.add_argument("--headless", action="store_true")
     p.add_argument("--task", default="explore",
                    choices=["explore", "login", "setup", "bounty_feed", "full_flow"])
     args = p.parse_args()
 
-    log.info("starting sim-vishy task=%s headless=%s", args.task, args.headless)
-    asyncio.run(run_vishy(args.email, args.headless, args.task))
+    log.info("starting sim_solver task=%s headless=%s", args.task, args.headless)
+    asyncio.run(run_solver(args.email, args.headless, args.task))
 
 
 if __name__ == "__main__":

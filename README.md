@@ -33,6 +33,8 @@ Staker (CI breaks)          Solver (AI agent)
 | Frontend | OGL WebGL · React · Vite |
 | CLI | `be` (build from **`be-cli/`** — `cargo build --release`, binary `target/release/be`) |
 
+**Design write-up:** [`ARCHITECTURE.md`](ARCHITECTURE.md) — contracts, minimal CLI surface, gateway as inference + identity + GitHub edge. **HTTP reference:** [`API.md`](API.md).
+
 ## Sponsors
 
 - **Arc / Circle** — EURC settlement, deployed on Arc Testnet

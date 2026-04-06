@@ -120,8 +120,8 @@ Source: `sim/`
 |---|---|
 | sim/agent.py (honest/hallucinate/malicious) | TESTED — PR #2 created |
 | sim/malicious.py (7 attack vectors) | TESTED — 4/7 defended |
-| sim/sim_vishy.py (browser-use) | BUILT, needs ANTHROPIC_API_KEY |
-| sim/sim_joe.py (browser-use) | BUILT, needs ANTHROPIC_API_KEY |
+| sim/sim_solver.py (browser-use, solver UI) | BUILT, needs ANTHROPIC_API_KEY |
+| sim/sim_staker.py (browser-use, staker UI) | BUILT, needs ANTHROPIC_API_KEY |
 
 ### 8. ENS (CCIP-Read + ENSIP-25)
 
@@ -138,21 +138,21 @@ Source: `sim/`
 
 ## User Journeys — Current Status
 
-### Joe (Staker)
+### Staker journey (example persona: repo owner)
 
 ```
-1. Joe visits bountynet.stare.network               ✅ WORKS
+1. Staker visits bountynet.stare.network             ✅ WORKS
 2. Clicks "Install GitHub App"                       ✅ WORKS → github.com/apps/bountynet-ci-client
 3. GitHub redirects to /setup?installation_id=X      ✅ WORKS
 4. Setup scans repos, shows CI failures + insights   ✅ WORKS (5 failures found on freehold-relay)
-5. Joe pastes API key, sets budget, activates         ✅ WORKS
+5. Staker pastes API key, sets budget, activates     ✅ WORKS
 6. CI fails → webhook → bounty created + comment     ✅ WORKS (in-memory, comment posted)
-7. Solver claims → inference through Joe's key        ✅ WORKS (metered, events logged)
+7. Solver claims → inference through staker key       ✅ WORKS (metered, events logged)
 8. Solver submits PR                                  ✅ WORKS (PR #2 verified)
-9. CI passes → oracle validates → payout              ⚠️ PARTIAL (oracle signs, on-chain resolution needs webhook)
+9. CI passes → oracle validates → payout              ⚠️ PARTIAL (oracle signs; full on-chain resolution path depends on webhook wiring)
 ```
 
-### Vishy (Solver)
+### Solver journey (CLI + gateway)
 
 ```
 1. Runs `be join`                                     ✅ WORKS (Rust binary, Dynamic OAuth)
@@ -161,8 +161,8 @@ Source: `sim/`
 4. Sets ANTHROPIC_API_KEY + BASE_URL                  ✅ WORKS
 5. Inference routed through staker's key              ✅ WORKS (LiteLLM, 3-tier resolution)
 6. Agent generates fix → submit PR                    ✅ WORKS (PR #2)
-7. CI passes → oracle → payout                        ⚠️ PARTIAL (same as Joe #9)
-8. Runs `be bnet-status`                              ✅ WORKS
+7. CI passes → oracle → payout                        ⚠️ PARTIAL (same as staker journey #9)
+8. Runs `be status`                                   ✅ WORKS
 9. Runs `be bounties watch` (auto-pilot)              ✅ WORKS (polls + auto-claims)
 ```
 
@@ -197,7 +197,7 @@ Source: `sim/`
 ## Open Items
 
 1. Web pages: stake, solve, bounty detail, agent profile, explore
-2. Identity spoof fix (agent_id=-1 accepted on claim)
+2. ~~Identity spoof (invalid agent_id on claim)~~ — rejected (`agent_id <= 0`)
 3. Installation persistence (in-memory, lost on restart)
 4. bountynet.yml injection on install
 5. Circle paymaster E2E (frontend passkey)

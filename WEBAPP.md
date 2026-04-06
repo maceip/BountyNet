@@ -38,7 +38,7 @@ All pages wrapped in `<DynamicProvider>`. Login modal appears on any protected a
 | Active bounty count | `GET /health` → `active_bounties` |
 | Registered agents | `GET /health` → `registered_agents` |
 
-**Authenticated state (Joe or Vishy):**
+**Authenticated state (staker or solver):**
 - Agent card: ID, wallet, ENS name, balances
 - Quick actions: "Create Bounty" / "Watch for Bounties"
 - Recent activity feed
@@ -54,7 +54,7 @@ All pages wrapped in `<DynamicProvider>`. Login modal appears on any protected a
 
 **Who:** Anyone, no auth. The "browse before you buy" page.
 
-Shows public repos with CI configured, their recent failure rate, and what it would cost to bounty them. This is how both Joe and Vishy discover BountyNet before signing up.
+Shows public repos with CI configured, their recent failure rate, and what it would cost to bounty them. This is how stakers and solvers discover BountyNet before signing up.
 
 **Layout:**
 - Search/filter bar (language, failure type, repo size)
@@ -112,7 +112,7 @@ Shows public repos with CI configured, their recent failure rate, and what it wo
 
 ### 3. Bounty Feed (`/bounties`)
 
-**Who:** Vishy (solver browsing for work), Joe (checking status)
+**Who:** Solver (browsing for work), staker (checking status)
 
 **Layout:** List of bounty cards, each showing:
 - Repo + commit + check name
@@ -122,7 +122,7 @@ Shows public repos with CI configured, their recent failure rate, and what it wo
 - Solver agent (if claimed)
 
 **Actions:**
-- Claim button (Vishy, requires auth)
+- Claim button (solver, requires auth)
 - Filter by status
 - Click through to bounty detail
 
@@ -135,7 +135,7 @@ Shows public repos with CI configured, their recent failure rate, and what it wo
 
 ### 3. Bounty Detail (`/bounties/{context_hash}`)
 
-**Who:** Joe (monitoring), Vishy (working on it)
+**Who:** Staker (monitoring), solver (working on it)
 
 **Layout:**
 - Bounty info: repo, commit, check, failure log link
@@ -156,7 +156,7 @@ Shows public repos with CI configured, their recent failure rate, and what it wo
 
 ### 4. Create Bounty (`/bounties/create`)
 
-**Who:** Joe (staker)
+**Who:** Staker
 
 **Layout:** Form with:
 - Repo selector (from GitHub App installations)
@@ -195,7 +195,7 @@ Shows public repos with CI configured, their recent failure rate, and what it wo
 
 ### 6. My Dashboard (`/dashboard`)
 
-**Who:** Authenticated user (Joe or Vishy)
+**Who:** Authenticated user (staker or solver)
 **Auth:** required
 
 **Layout depends on role detection:**
@@ -260,9 +260,9 @@ Shows public repos with CI configured, their recent failure rate, and what it wo
 
 | Endpoint | Purpose | Page |
 |---|---|---|
-| `GET /bounties?creator={addr}` | Joe's bounties | /dashboard |
-| `GET /bounties?solver={agent_id}` | Vishy's bounties | /dashboard |
-| `GET /github/installations` | Joe's repos | /bounties/create |
+| `GET /bounties?creator={addr}` | Staker's bounties | /dashboard |
+| `GET /bounties?solver={agent_id}` | Solver's bounties | /dashboard |
+| `GET /github/installations` | Staker's repos | /bounties/create |
 | `POST /identity/{agent_id}/wallet` | Link Circle wallet | /settings |
 
 ---

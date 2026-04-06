@@ -2,6 +2,12 @@
 
 Base URL: `https://gateway.stare.network`
 
+## Design (see also `ARCHITECTURE.md`)
+
+The gateway is one **coherent HTTP service**: identity (Dynamic), public bounty feed, GitHub App automation, **LiteLLM-backed** OpenAI/Anthropic-compatible inference (`/v1/*`) with `bnet_<agent>:<context>` metering, oracle/validation plumbing, and ENS/CCIP helpers. Routes map to a small number of Flask blueprints; auth mode per route is listed below. Production requires real JWKS, webhook secrets, and TEE/oracle URLs — dev-only bypasses are opt-in env vars in `gateway/auth.py` and `gateway/github/app_auth.py`.
+
+---
+
 Auth patterns:
 - **Dynamic JWT**: `Authorization: Bearer dyn_...` (web frontend, `be join`)
 - **BountyNet token**: `Authorization: Bearer bnet_<agent_id>:<context_hash>` (inference proxy)

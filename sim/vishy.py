@@ -1,5 +1,5 @@
 """
-SimBountyNet — Automated Vishy (solver agent).
+SimBountyNet — automated **solver** agent (API/CLI path; browser sim is `sim_solver.py`).
 
 Exercises the full BountyNet pipeline:
   1. Register as agent (or load existing config)
@@ -392,7 +392,7 @@ def main():
     config = load_or_register(args.gateway)
     agent_id = config["agent_id"]
 
-    log.info("SimBountyNet Vishy starting")
+    log.info("SimBountyNet solver agent starting")
     log.info("  agent: #%s", agent_id)
     log.info("  gateway: %s", args.gateway)
     log.info("  repo filter: %s", args.repo or "all")

@@ -1,7 +1,7 @@
 //! `be` — BountyNet CLI (short for **BountyNet**).
 //!
 //! Subcommands match gateway routes in `gateway/routes/identity.py` and
-//! `gateway/routes/bounties.py` only — no extra HTTP surface.
+//! `gateway/routes/bounties.py` only — see `ARCHITECTURE.md` at repo root.
 
 mod commands;
 mod config;

@@ -1,29 +1,28 @@
 """
-SimJoe — automated staker that exercises the Joe journey through the browser.
+`sim_staker.py` — browser automation for the **staker** persona (repo owner / GitHub App onboarding).
 
 Uses browser-use to automate:
   1. Visit bountynet.stare.network
-  2. Click "Install GitHub App" → land on GitHub install page
-  3. Navigate to /setup?installation_id=demo
-  4. Watch the repo scan happen
-  5. Paste an API key, set budget slider
-  6. Click "Activate"
-  7. Verify success screen
-  8. Go back to dashboard, check if bounties appear
-  9. Wait for a solver to submit a PR (poll dashboard)
+  2. "Install GitHub App" → GitHub install page
+  3. `/setup` (optionally `?installation_id=` from BOUNTYNET_INSTALLATION_ID)
+  4. Repo scan
+  5. API key + budget slider
+  6. Activate
+  7. Success screen
+  8. Dashboard / bounty visibility
 
 Usage:
   export ANTHROPIC_API_KEY=sk-ant-...
-  uv run python sim/sim_joe.py --task full_flow
-  uv run python sim/sim_joe.py --task setup_only --headless
+  uv run python sim/sim_staker.py --task full_flow
+  uv run python sim/sim_staker.py --task setup_only --headless
 """
-import asyncio
 import argparse
+import asyncio
 import logging
 import os
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [sim-joe] %(message)s")
-log = logging.getLogger("sim-joe")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [sim-staker] %(message)s")
+log = logging.getLogger("sim-staker")
 
 SITE = os.environ.get("BOUNTYNET_URL", "https://bountynet.stare.network")
 GATEWAY = os.environ.get("BOUNTYNET_GATEWAY", "https://gateway.stare.network")
@@ -36,7 +35,7 @@ def _setup_url() -> str:
     return f"{SITE}/setup"
 
 
-async def run_joe(headless: bool = False, task: str = "full_flow", api_key_to_paste: str = ""):
+async def run_staker(headless: bool = False, task: str = "full_flow", api_key_to_paste: str = ""):
     from browser_use import Agent
     from browser_use.llm import ChatAnthropic
 
@@ -45,16 +44,16 @@ async def run_joe(headless: bool = False, task: str = "full_flow", api_key_to_pa
         api_key=os.environ.get("ANTHROPIC_API_KEY", ""),
     )
 
-    instructions = f"""You are Joe, a developer who owns repos with failing CI.
-You are testing the BountyNet staker onboarding at {SITE}.
-You have never used BountyNet before. You have no crypto knowledge.
+    instructions = f"""You are a developer who owns repos with failing CI — a BountyNet **staker**.
+You are testing staker onboarding at {SITE}.
+You have never used BountyNet before and have no prior crypto context.
 
 Your task: {_get_task_prompt(task, api_key_to_paste)}
 
 Important:
 - You are a staker, not a solver
-- You care about getting your CI fixed, not about earning crypto
-- Note everything you see — judges will review this
+- You care about getting CI fixed, not earning crypto from others' work
+- Note everything you see for review
 - If something is confusing or broken, say so clearly
 - Take your time, read the page before clicking
 """
@@ -63,11 +62,11 @@ Important:
         task=instructions,
         llm=llm,
         browser_config={"headless": headless},
-        generate_gif=f"sim_joe_{task}.gif",
+        generate_gif=f"sim_staker_{task}.gif",
     )
 
     result = await agent.run()
-    log.info("sim-joe completed: %s", _summarize(result))
+    log.info("sim-staker completed: %s", _summarize(result))
     return result
 
 
@@ -75,7 +74,8 @@ def _get_task_prompt(task: str, api_key: str) -> str:
     key = (api_key or os.environ.get("BOUNTYNET_TEST_API_KEY", "")).strip()
     if task in ("setup_only", "full_flow") and not key:
         raise SystemExit(
-            "sim_joe: set --api-key or BOUNTYNET_TEST_API_KEY (no built-in placeholder secrets)."
+            "sim_staker: set --api-key or BOUNTYNET_TEST_API_KEY "
+            "(no built-in placeholder secrets)."
         )
 
     prompts = {
@@ -110,12 +110,12 @@ def _get_task_prompt(task: str, api_key: str) -> str:
 10. Report: setup flow completeness, UX quality, any confusion
 """,
         "full_flow": f"""
-You are Joe, a developer new to BountyNet. Walk through the entire staker experience:
+Walk through the entire staker experience:
 
 1. Go to {SITE}
 2. Read the landing page. Understand what BountyNet does.
 3. Click "Install GitHub App" — note the GitHub page, then go back
-4. Now go to {_setup_url()} (use a real install id in BOUNTYNET_INSTALLATION_ID when exercising scan)
+4. Now go to {_setup_url()} (set BOUNTYNET_INSTALLATION_ID when exercising a real install)
 5. Watch the scan results load
 6. Look at what it found — any CI failures? Any suggestions?
 7. In the API key field, type: {key}
@@ -154,15 +154,15 @@ def _summarize(result) -> str:
 
 
 def main():
-    p = argparse.ArgumentParser(description="SimJoe — browser-automated staker")
+    p = argparse.ArgumentParser(description="Browser sim — staker journey (browser-use)")
     p.add_argument("--headless", action="store_true")
     p.add_argument("--task", default="full_flow",
                    choices=["landing", "install_flow", "setup_only", "full_flow", "check_bounties"])
     p.add_argument("--api-key", default="", help="API key text for the setup flow (or set BOUNTYNET_TEST_API_KEY)")
     args = p.parse_args()
 
-    log.info("starting sim-joe task=%s headless=%s", args.task, args.headless)
-    asyncio.run(run_joe(args.headless, args.task, args.api_key))
+    log.info("starting sim_staker task=%s headless=%s", args.task, args.headless)
+    asyncio.run(run_staker(args.headless, args.task, args.api_key))
 
 
 if __name__ == "__main__":
