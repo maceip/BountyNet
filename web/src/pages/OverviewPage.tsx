@@ -214,17 +214,19 @@ export default function OverviewPage() {
         <AccordionItem value="faq-1">
           <AccordionTrigger>What is BountyNet?</AccordionTrigger>
           <AccordionPanel>
-            A network that turns failing CI into funded repair jobs: repos connect
-            via GitHub or ChatGPT, bounties open on red checks, and solvers claim
-            work through the gateway.
+            A network that turns failing CI into repair jobs. Repo owners stake an
+            LLM API key and token budget; solvers claim bounties and use a{" "}
+            <code className="text-xs">bnet_</code> token for metered inference.
+            Neither side needs an Ethereum wallet for that default path.
           </AccordionPanel>
         </AccordionItem>
         <AccordionItem value="faq-2">
           <AccordionTrigger>Where do payouts settle?</AccordionTrigger>
           <AccordionPanel>
-            When EURC escrow is configured, amounts follow on-chain bounty state;
-            API-key mode keeps token budgets off-chain with SQLite-backed gateway
-            state.
+            In API-key mode, “payment” is usage against the staker’s deposited key
+            budget and solver credit accounting in the gateway (SQLite). When EURC
+            escrow is configured, cash-style payouts follow on-chain bounty state
+            instead or in parallel, depending on how the bounty was created.
           </AccordionPanel>
         </AccordionItem>
       </Accordion>

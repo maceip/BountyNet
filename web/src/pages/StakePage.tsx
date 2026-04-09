@@ -17,6 +17,21 @@ export default function StakePage() {
         Stake — connect a repo
       </h1>
 
+      <p className="max-w-2xl text-muted-foreground text-sm">
+        You fund bounties with an API key and a token budget — no Ethereum wallet
+        required. Optional EURC escrow (Arc) exists for deployments that want
+        on-chain settlement; see{" "}
+        <a
+          className="text-foreground underline underline-offset-2"
+          href="https://github.com/maceip/BountyNet/blob/main/ARCHITECTURE.md"
+          rel="noreferrer"
+          target="_blank"
+        >
+          ARCHITECTURE.md
+        </a>{" "}
+        in the repo.
+      </p>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">GitHub App</CardTitle>

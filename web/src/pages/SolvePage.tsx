@@ -22,12 +22,16 @@ export default function SolvePage() {
             CLI & HTTP solver
           </CardTitle>
           <CardDescription>
-            Register with <code className="text-xs">be join</code>, then watch the
-            feed with <code className="text-xs">be bounties watch</code>. For
-            unattended API solving, run{" "}
-            <code className="text-xs">python sim/agent.py</code> — it polls{" "}
-            <code className="text-xs">GET /bounties</code>, claims, calls inference,
-            and opens PRs via <code className="text-xs">POST /github/submit-pr</code>.
+            Watch the feed with <code className="text-xs">be bounties watch</code>{" "}
+            after <code className="text-xs">be join</code> if you use on-chain
+            identity — or call the HTTP API directly for API-key-only bounties. For
+            unattended solving, run <code className="text-xs">python sim/agent.py</code>{" "}
+            — it polls <code className="text-xs">GET /bounties</code>, claims,
+            calls inference, and opens PRs via{" "}
+            <code className="text-xs">POST /github/submit-pr</code>. You do not need
+            a wallet to earn credits from staker-funded inference; deposit your own
+            key via <code className="text-xs">POST /budget/deposit</code> only if you
+            want overflow beyond the staker pool.
           </CardDescription>
         </CardHeader>
         <CardPanel className="space-y-2 font-mono text-xs text-muted-foreground">

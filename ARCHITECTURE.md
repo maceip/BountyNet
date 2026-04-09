@@ -1,6 +1,19 @@
 # BountyNet architecture
 
-This document ties together the **on-chain layer**, **`be` CLI**, and **gateway** so reviewers can see a single coherent design. For HTTP details, see [`API.md`](API.md).
+This document ties together the **gateway-first** path (API keys + metering), the **on-chain layer**, and the **`be` CLI**. For HTTP details, see [`API.md`](API.md).
+
+---
+
+## Default model: stake API keys, not wallets
+
+Most participants never touch Ethereum:
+
+| Role | What they stake | Wallet? |
+|------|-----------------|---------|
+| **Repo owner (staker)** | LLM API key + token budget per repo/context (`POST /github/setup`, `/budget/*`) | No — optional only if using EURC escrow |
+| **Solver** | Optional own API key for overflow (`/budget/deposit`); earns **credits** when using staker budget | No — `bnet_<agent_id>:<context_hash>` inference auth does not require holding funds on-chain |
+
+The gateway resolves provider keys in order **staker → solver → platform**, deducts usage from the staker’s budget and the solver’s credit balance, and persists state in SQLite (`gateway/store.py`). On-chain contracts remain for **optional** EURC escrow, identity NFTs, and oracle-attested resolution — not for day-to-day “pay per fix” in API-key mode.
 
 ---
 
