@@ -18,7 +18,7 @@ Usage:
   python sim/agent.py                          # honest solver
   python sim/agent.py --hallucinate            # bad solver
   python sim/agent.py --malicious              # adversarial
-  python sim/agent.py --repo maceip/freehold-relay --once
+  python sim/agent.py --repo example/freehold-relay --once
 """
 import os
 import sys
@@ -35,8 +35,16 @@ import shutil
 import random
 from pathlib import Path
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [agent] %(message)s")
-log = logging.getLogger("agent")
+try:
+    from gateway.logutil import configure_logging
+
+    configure_logging("sim-agent")
+except Exception:  # noqa: BLE001 — sim may run with PYTHONPATH unset
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s [bountynet:sim-agent] %(name)s: %(message)s",
+    )
+log = logging.getLogger("sim.agent")
 
 GATEWAY = os.environ.get("BOUNTYNET_GATEWAY", "https://gateway.stare.network")
 AGENT_CONFIG = Path.home() / ".bountynet" / "agent.json"
@@ -49,25 +57,9 @@ def load_or_register(gateway: str, name: str = "") -> dict:
         config = json.loads(AGENT_CONFIG.read_text())
         log.info("agent #%s wallet=%s", config["agent_id"], config["wallet"])
         return config
-
-    resp = requests.post(
-        f"{gateway}/identity/onboard",
-        json={"external_id": f"sim:{name or 'agent'}-{int(time.time())}"},
-        timeout=15,
+    raise RuntimeError(
+        f"missing {AGENT_CONFIG}; run `be join` first to create a real agent session"
     )
-    data = resp.json()
-    config = {
-        "agent_id": data.get("agent_id", 0),
-        "wallet": data.get("wallet", ""),
-        "ens": data.get("ens", ""),
-        "token": data.get("token", ""),
-        "gateway": gateway,
-    }
-    AGENT_CONFIG.parent.mkdir(parents=True, exist_ok=True)
-    AGENT_CONFIG.write_text(json.dumps(config, indent=2))
-    AGENT_CONFIG.chmod(0o600)
-    log.info("registered agent #%s", config["agent_id"])
-    return config
 
 
 # ── Bounty Ops ─────────────────────────────────────────────────

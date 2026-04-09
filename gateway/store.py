@@ -609,6 +609,20 @@ def apikey_bounties_all() -> dict[str, dict[str, Any]]:
             c.close()
 
 
+def apikey_bounty_mark_resolved(context_hash: str) -> None:
+    """Mirror on-chain resolution when the same context exists in apikey_bounties."""
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                "UPDATE apikey_bounties SET resolved = 1 WHERE context_hash = ?",
+                (context_hash,),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
 def apikey_bounty_set_solver(context_hash: str, agent_id: int) -> dict[str, Any] | None:
     """Mark bounty claimed by solver; returns full row dict or None."""
     with _lock:

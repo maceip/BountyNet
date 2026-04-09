@@ -1,5 +1,5 @@
 """
-GitHub App — unified webhook handler + PR submission + setup.
+GitHub App — unified webhook handler + solver PR workflow + setup.
 
 Routes here; shared GitHub App auth + REST helpers in `gateway.github`:
   POST /github/webhook    — receives all GitHub App events
@@ -10,6 +10,7 @@ Routes here; shared GitHub App auth + REST helpers in `gateway.github`:
 Persistent stores (SQLite via gateway.store):
   installations, bounty_prs, install_repos
 """
+import logging
 import os
 import time
 import json
@@ -19,6 +20,7 @@ from eth_utils import keccak
 from eth_abi import encode
 from gateway.chain import send_tx, sig, ESCROW, VALIDATION, w3
 from gateway.events import emit
+from gateway.github.github_env import GITHUB_API_BASE
 from gateway.github.api import (
     gh_commit_files,
     gh_create_branch,
@@ -31,6 +33,7 @@ from gateway.github.app_auth import get_installation_token, verify_webhook
 from gateway import store
 
 github_bp = Blueprint("github", __name__)
+_log = logging.getLogger(__name__)
 
 
 # ── On-chain helpers ───────────────────────────────────────────
@@ -50,14 +53,14 @@ def create_bounty_onchain(context_hash: bytes, amount: int, deadline_blocks: int
     try:
         return send_tx(ESCROW, data)
     except Exception as e:
-        print(f"[github] create_bounty tx failed: {e}")
+        _log.warning("create_bounty tx failed: %s", e)
         return None
 
 
-def submit_validation(repo: str, sha: str, name: str) -> dict | None:
-    """Submit TEE-attested validation to Arc's ValidationRegistry."""
+def submit_validation(repo: str, sha: str, name: str, solver_agent_id: int = 0) -> dict | None:
+    """Submit TEE-attested validation to the configured ValidationRegistry."""
     from gateway.routes.oracle import submit_tee_validation
-    return submit_tee_validation(repo, sha, name)
+    return submit_tee_validation(repo, sha, name, solver_agent_id)
 
 
 def resolve_bounty_onchain(context_hash: bytes, validation_hash: bytes) -> dict | None:
@@ -71,7 +74,7 @@ def resolve_bounty_onchain(context_hash: bytes, validation_hash: bytes) -> dict 
     try:
         return send_tx(ESCROW, data)
     except Exception as e:
-        print(f"[github] resolve_bounty tx failed: {e}")
+        _log.warning("resolve_bounty tx failed: %s", e)
         return None
 
 
@@ -95,12 +98,6 @@ def webhook():
     if handler:
         return handler(payload)
     return jsonify({"status": "ignored", "event": event})
-
-
-# Also register at /github for backwards compat with existing Caddy config
-@github_bp.route("/github", methods=["POST"])
-def webhook_compat():
-    return webhook()
 
 
 def handle_installation(payload):
@@ -208,12 +205,12 @@ def _on_ci_failure(installation_id, repo, sha, name, check):
         },
     )
 
-    # API-key-funded bounties stay in the gateway feed only; EURC path uses on-chain escrow.
+    # API-key-funded bounties stay in the gateway feed only; on-chain mode uses escrow.
     tx_result = None
     if not api_key and ESCROW:
         tx_result = create_bounty_onchain(
             context_hash,
-            amount=5_000_000,  # 5 EURC default
+            amount=5_000_000,  # 5 token units (6 decimals) default
             deadline_blocks=1000,
             uri=f"github:{repo}:{sha[:8]}:{name}",
         )
@@ -260,7 +257,8 @@ def _on_ci_success(installation_id, repo, sha, name, check):
     store.reset_failure_streak(repo, name)
 
     # Submit on-chain validation
-    val_result = submit_validation(repo, sha_short, name)
+    agent_for_val = int(pr_info.get("solver_agent_id") or 0)
+    val_result = submit_validation(repo, sha_short, name, agent_for_val)
 
     # Resolve the bounty (releases payout)
     resolve_result = None
@@ -268,6 +266,8 @@ def _on_ci_success(installation_id, repo, sha, name, check):
         ctx_bytes = bytes.fromhex(ctx_hash[2:])
         val_bytes = bytes.fromhex(val_result["validation_hash"][2:])
         resolve_result = resolve_bounty_onchain(ctx_bytes, val_bytes)
+        if resolve_result and int(resolve_result.get("status", 0)) == 1:
+            store.apikey_bounty_mark_resolved(ctx_hash)
 
     # Post success comment
     token = get_installation_token(installation_id)
@@ -482,7 +482,7 @@ def scan_repos(installation_id):
         # ── 1. Fetch recent CI failures (REAL) ─────────────────
         try:
             runs_resp = requests.get(
-                f"https://api.github.com/repos/{repo}/actions/runs",
+                f"{GITHUB_API_BASE}/repos/{repo}/actions/runs",
                 headers=headers,
                 params={"status": "failure", "per_page": 10},
                 timeout=10,
@@ -513,7 +513,7 @@ def scan_repos(installation_id):
 
             # Check if there are recent successes too
             ok_resp = requests.get(
-                f"https://api.github.com/repos/{repo}/actions/runs",
+                f"{GITHUB_API_BASE}/repos/{repo}/actions/runs",
                 headers=headers,
                 params={"status": "success", "per_page": 1},
                 timeout=10,
@@ -528,7 +528,7 @@ def scan_repos(installation_id):
         # ── 2. Fetch workflow files → pattern-based insights (real YAML content)
         try:
             wf_resp = requests.get(
-                f"https://api.github.com/repos/{repo}/contents/.github/workflows",
+                f"{GITHUB_API_BASE}/repos/{repo}/contents/.github/workflows",
                 headers=headers,
                 timeout=10,
             )
@@ -666,7 +666,7 @@ def _analyze_workflows(repo: str, wf_names: list, wf_files: list, headers: dict)
     return insights
 
 
-# ── Solver PR submission ───────────────────────────────────────
+# ── Solver pull-request helper ─────────────────────────────────
 
 @github_bp.route("/github/submit-pr", methods=["POST"])
 def submit_solver_pr():
@@ -709,7 +709,7 @@ def submit_solver_pr():
 
     # Get base branch SHA
     base_resp = requests.get(
-        f"https://api.github.com/repos/{repo}/git/ref/heads/{base}",
+        f"{GITHUB_API_BASE}/repos/{repo}/git/ref/heads/{base}",
         headers={"Authorization": f"token {token}", "Accept": "application/vnd.github+json"},
         timeout=10,
     )
@@ -758,4 +758,5 @@ def submit_solver_pr():
         "pr_number": pr.get("number"),
         "branch": branch,
         "context_hash": context_hash,
+        "head_sha": commit_sha,
     })

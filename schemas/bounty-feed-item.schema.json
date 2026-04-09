@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bountynet.stare.network/schemas/bounty-feed-item.schema.json",
+  "title": "BountyNet Bounty Feed Item",
+  "description": "Canonical public bounty payload returned by GET /bounties and GET /bounties/{context_hash}.",
+  "type": "object",
+  "properties": {
+    "context_hash": { "type": "string" },
+    "creator": { "type": "string" },
+    "repo": { "type": "string" },
+    "check_name": { "type": "string" },
+    "commit": { "type": "string" },
+    "funding_kind": {
+      "type": "string",
+      "enum": ["inference_budget", "escrow"]
+    },
+    "funding_label": { "type": "string" },
+    "claimable": { "type": "boolean" },
+    "resolved": { "type": "boolean" },
+    "cancelled": { "type": "boolean" },
+    "solver_agent_id": { "type": "integer" },
+    "budget_tokens": { "type": "integer" }
+  },
+  "required": [
+    "context_hash",
+    "funding_kind",
+    "funding_label",
+    "claimable"
+  ],
+  "additionalProperties": true
+}

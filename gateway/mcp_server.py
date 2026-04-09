@@ -54,7 +54,7 @@ _INSTRUCTIONS = (
     "Use bountynet_about for a short product summary without opening the widget."
 )
 
-# Tool _meta: MCP Apps standard + ChatGPT compatibility alias
+# Tool _meta: MCP Apps standard + OpenAI Apps output template
 _FEED_TOOL_META: dict[str, Any] = {
     "ui": {"resourceUri": _WIDGET_URI},
     "openai/outputTemplate": _WIDGET_URI,
@@ -115,7 +115,7 @@ def bountynet_about() -> str:
         "BountyNet turns failing CI into funded repair jobs: repos install the GitHub App or connect "
         "via ChatGPT; when checks fail, a bounty context is created and solver agents can claim work, "
         "run inference through the gateway, and submit fixes. Payouts and validation tie to on-chain "
-        "state when EURC escrow is configured."
+        "escrow when configured."
     )
 
 

@@ -1,18 +1,35 @@
 """
-Identity routes — onboarding + status.
+Identity routes — canonical onboarding + status.
 
-POST /identity/onboard   — create Dynamic identity, check EIP-8004 registration
-POST /identity/android-attestation/bind — link verified leaf SPKI (bind_token from /attest/android-key/verify)
-GET  /identity/<agent_id> — wallet, balances, ENS name, roles, android_attestations
+Canonical flow:
+  verified Dynamic auth -> POST /identity/onboard -> Dynamic EVM wallet ->
+  Arc EIP-8004 agent mint/transfer -> return agent_id + wallet + ENS.
+
+POST /identity/onboard                  — canonical onboarding operation
+POST /identity/android-attestation/bind — link verified leaf SPKI to an existing agent
+GET  /identity/<agent_id>               — wallet, balances, ENS name, roles, android_attestations
 """
 import os
 import json
+import hashlib
+import secrets
 import subprocess
+import time
 from urllib.parse import urlencode, urlparse, parse_qsl, urlunparse
-from flask import Blueprint, request, jsonify, redirect
+from flask import Blueprint, request, jsonify
 from eth_abi import encode as abi_encode
 from eth_account import Account
-from gateway.chain import get_agent_wallet, eurc_balance, get_next_agent_id, native_balance, ESCROW, send_tx, sig, IDENTITY
+from gateway.chain import (
+    agent_fqdn,
+    get_agent_wallet,
+    eurc_balance,
+    get_next_agent_id,
+    native_balance,
+    ESCROW,
+    send_tx,
+    sig,
+    IDENTITY,
+)
 from gateway.events import emit
 from gateway.auth import require_auth, verify_dynamic_jwt
 from gateway.routes.android_key_attestation import (
@@ -21,16 +38,47 @@ from gateway.routes.android_key_attestation import (
     verify_and_consume_bind_token,
 )
 
-DYNAMIC_ENV_ID = os.environ.get("DYNAMIC_ENV_ID", "")
 APP_REDIRECT_DEFAULT = os.environ.get("APP_REDIRECT_URL", "https://bountynet.stare.network/")
 GATEWAY_PUBLIC_URL = os.environ.get("GATEWAY_PUBLIC_URL", "https://gateway.stare.network")
 
 identity_bp = Blueprint("identity", __name__)
 RELAYER_ADDRESS = Account.from_key(os.environ.get("DEPLOYER_PRIVATE_KEY", "")).address if os.environ.get("DEPLOYER_PRIVATE_KEY") else None
 
+# identity_anchor -> {"created": bool, "wallets": list, "uid": str} — soak Dynamic stub only
+_soak_dynamic_users: dict[str, dict] = {}
+# create-wallet is called with Dynamic userId, not identity_anchor — map back
+_soak_uid_to_anchor: dict[str, str] = {}
+_cli_sessions: dict[str, dict] = {}
+CLI_SESSION_TTL_SECONDS = int(os.environ.get("BOUNTYNET_CLI_SESSION_TTL_SECONDS", "600"))
+
+
+def reset_soak_dynamic_state() -> None:
+    """Test harness only — clears in-process Dynamic stub state."""
+    _soak_dynamic_users.clear()
+    _soak_uid_to_anchor.clear()
+
+
+def _prune_cli_sessions() -> None:
+    now = time.time()
+    expired = [sid for sid, session in _cli_sessions.items() if session.get("expires_at", 0) <= now]
+    for sid in expired:
+        _cli_sessions.pop(sid, None)
+
+
+def _cli_auth_url(app_url: str, session_id: str) -> str:
+    base = app_url.rstrip("/") or APP_REDIRECT_DEFAULT.rstrip("/")
+    return append_query(
+        f"{base}/auth/cli",
+        {
+            "session_id": session_id,
+        },
+    )
+
 
 def call_dynamic(cmd: str, arg: str) -> dict:
-    bridge = os.path.join(os.path.dirname(__file__), "..", "..", "wallet", "dynamic_bridge.mjs")
+    if os.environ.get("BOUNTYNET_SOAK_MODE", "").lower() in ("1", "true", "yes"):
+        return _soak_dynamic_stub(cmd, arg)
+    bridge = os.path.join(os.path.dirname(__file__), "..", "..", "services", "wallet", "dynamic_bridge.mjs")
     result = subprocess.run(
         ["node", bridge, cmd, arg],
         capture_output=True, text=True, timeout=15,
@@ -40,28 +88,57 @@ def call_dynamic(cmd: str, arg: str) -> dict:
     return json.loads(result.stdout)
 
 
-def derive_external_id(claims: dict, body: dict) -> str | None:
+def _soak_dynamic_stub(cmd: str, arg: str) -> dict:
+    """Minimal Dynamic-shaped responses for end-to-end soak tests (no Node SDK)."""
+    addr = os.environ.get(
+        "BOUNTYNET_SOAK_WALLET",
+        "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    )
+
+    def _uid_for_anchor(anchor: str) -> str:
+        h = int(hashlib.sha256(anchor.encode()).hexdigest(), 16)
+        return f"soak-{h % 1_000_000_000}"
+
+    if cmd == "get-user":
+        bucket = _soak_dynamic_users.setdefault(arg, {"created": False, "wallets": [], "uid": ""})
+        if not bucket["created"]:
+            return {"error": "not_found"}
+        uid = bucket.get("uid") or _uid_for_anchor(arg)
+        return {"userId": uid, "wallets": bucket["wallets"]}
+
+    if cmd == "create-user":
+        bucket = _soak_dynamic_users.setdefault(arg, {"created": False, "wallets": [], "uid": ""})
+        uid = _uid_for_anchor(arg)
+        bucket["uid"] = uid
+        _soak_uid_to_anchor[uid] = arg
+        bucket["created"] = True
+        bucket["wallets"] = []
+        return {"userId": uid, "wallets": []}
+
+    if cmd == "create-wallet":
+        anchor = _soak_uid_to_anchor.get(arg)
+        if not anchor:
+            return {"error": "unknown_user"}
+        bucket = _soak_dynamic_users.setdefault(anchor, {"created": False, "wallets": [], "uid": arg})
+        bucket["wallets"] = [{"address": addr, "chain": "EVM"}]
+        return {"wallet": bucket["wallets"][0]}
+
+    return {"error": f"unknown soak dynamic cmd: {cmd}"}
+
+
+def derive_identity_anchor(claims: dict) -> str | None:
     """
     Derive a stable Dynamic anchor from verified claims.
-    Caller-supplied body.external_id is honored only when
-    BOUNTYNET_ALLOW_EXTERNAL_ID_FALLBACK is enabled (local tooling).
     """
     sub = claims.get("sub")
     email = claims.get("email")
 
     if sub and sub != "dev":
+        if str(sub).startswith("dynamic:"):
+            return str(sub)
         return f"dynamic:{sub}"
     if email:
         return f"email:{str(email).strip().lower()}"
-
-    if os.environ.get("BOUNTYNET_ALLOW_EXTERNAL_ID_FALLBACK", "").lower() in (
-        "1",
-        "true",
-        "yes",
-    ):
-        external_id = body.get("external_id")
-        if external_id:
-            return str(external_id)
     return None
 
 
@@ -82,11 +159,10 @@ def resolve_wallet_and_agent(claims: dict) -> tuple[str | None, int | None]:
     EVM wallet + existing on-chain agent id for this Dynamic user.
     Does not create users, wallets, or mint agents (use POST /identity/onboard for that).
     """
-    body: dict = {}
-    external_id = derive_external_id(claims, body)
-    if not external_id:
+    identity_anchor = derive_identity_anchor(claims)
+    if not identity_anchor:
         return None, None
-    user = call_dynamic("get-user", external_id)
+    user = call_dynamic("get-user", identity_anchor)
     if "error" in user:
         return None, None
     wallets = user.get("wallets", [])
@@ -141,13 +217,13 @@ def append_query(url: str, params: dict[str, str]) -> str:
 
 
 def onboard_identity(body: dict, claims: dict) -> dict:
-    external_id = derive_external_id(claims, body)
-    if not external_id:
-        raise ValueError("could not derive external identity")
+    identity_anchor = derive_identity_anchor(claims)
+    if not identity_anchor:
+        raise ValueError("could not derive identity anchor")
 
-    user = call_dynamic("get-user", external_id)
+    user = call_dynamic("get-user", identity_anchor)
     if "error" in user:
-        user = call_dynamic("create-user", external_id)
+        user = call_dynamic("create-user", identity_anchor)
     if "error" in user:
         raise RuntimeError(user["error"])
 
@@ -156,7 +232,7 @@ def onboard_identity(body: dict, claims: dict) -> dict:
 
     if not evm:
         call_dynamic("create-wallet", user["userId"])
-        user = call_dynamic("get-user", external_id)
+        user = call_dynamic("get-user", identity_anchor)
         wallets = user.get("wallets", [])
         evm = next((w for w in wallets if w.get("chain") == "EVM"), None)
 
@@ -171,14 +247,19 @@ def onboard_identity(body: dict, claims: dict) -> dict:
             agent_uri = str(body.get("agent_uri") or "ipfs://bountynet-agent.json")
             agent_id, txs = register_agent_for_wallet(address, agent_uri)
         if agent_id is not None:
-            ens_name = f"agent-{agent_id}.maceip.eth"
+            ens_name = agent_fqdn(agent_id)
 
-    emit("agent", f"Agent onboarded: {external_id} → {address[:10]}... (agent #{agent_id})" if address else f"Agent onboarded: {external_id}",
-         agent_id=agent_id, data={"external_id": external_id, "wallet": address})
+    emit(
+        "agent",
+        f"Agent onboarded: {identity_anchor} → {address[:10]}... (agent #{agent_id})"
+        if address
+        else f"Agent onboarded: {identity_anchor}",
+        agent_id=agent_id,
+        data={"identity_anchor": identity_anchor, "wallet": address},
+    )
 
     return {
-        "external_id": external_id,
-        "identity_anchor": external_id,
+        "identity_anchor": identity_anchor,
         "claims_sub": claims.get("sub"),
         "dynamic_user_id": user.get("userId"),
         "agent_id": agent_id,
@@ -191,44 +272,93 @@ def onboard_identity(body: dict, claims: dict) -> dict:
     }
 
 
-@identity_bp.route("/identity/login")
-def login():
+@identity_bp.route("/identity/cli/sessions", methods=["POST"])
+def create_cli_session():
     """
-    Redirect to Dynamic auth. After login, Dynamic redirects back
-    to the redirect_uri with a JWT token.
-    Used by `be join` — opens browser to this URL.
+    Canonical CLI auth adapter.
+    Creates a short-lived browser auth session that `be join` can poll.
     """
-    redirect_uri = request.args.get("redirect_uri")
-    app_redirect = request.args.get("app_redirect")
-    if not redirect_uri and app_redirect:
-        redirect_uri = f"{GATEWAY_PUBLIC_URL.rstrip('/')}/identity/complete?{urlencode({'app_redirect': app_redirect})}"
-    if not redirect_uri:
-        redirect_uri = "http://localhost:9876/callback"
-    dynamic_url = f"https://app.dynamic.xyz/connect/{DYNAMIC_ENV_ID}?redirect_uri={redirect_uri}"
-    return redirect(dynamic_url)
+    _prune_cli_sessions()
+    body = request.json or {}
+    app_url = str(body.get("app_url") or APP_REDIRECT_DEFAULT).strip()
+    session_id = secrets.token_urlsafe(24)
+    expires_at = int(time.time() + CLI_SESSION_TTL_SECONDS)
+    _cli_sessions[session_id] = {
+        "status": "pending",
+        "created_at": int(time.time()),
+        "expires_at": expires_at,
+    }
+    return jsonify(
+        {
+            "session_id": session_id,
+            "status": "pending",
+            "auth_url": _cli_auth_url(app_url, session_id),
+            "poll_url": f"{GATEWAY_PUBLIC_URL.rstrip('/')}/identity/cli/sessions/{session_id}",
+            "expires_at": expires_at,
+        }
+    ), 201
 
 
-@identity_bp.route("/identity/complete")
-def complete():
-    token = request.args.get("token") or request.args.get("jwt")
-    app_redirect = request.args.get("app_redirect") or APP_REDIRECT_DEFAULT
-    if not token:
-        return jsonify({"error": "missing token"}), 400
+@identity_bp.route("/identity/cli/sessions/<session_id>")
+def get_cli_session(session_id: str):
+    """
+    Poll the canonical CLI auth adapter session.
+    Completed sessions are one-shot and removed after first successful read.
+    """
+    _prune_cli_sessions()
+    session = _cli_sessions.get(session_id)
+    if not session:
+        return jsonify({"error": "session not found or expired"}), 404
 
-    claims = verify_dynamic_jwt(token)
-    if not claims:
-        return jsonify({"error": "invalid token"}), 401
+    if session.get("status") != "complete":
+        return jsonify(
+            {
+                "session_id": session_id,
+                "status": session.get("status", "pending"),
+                "expires_at": session.get("expires_at"),
+            }
+        )
 
-    try:
-        result = onboard_identity({}, claims)
-    except Exception as e:
-        return redirect(append_query(app_redirect, {"onboarding_error": str(e)}))
+    payload = dict(session)
+    payload["session_id"] = session_id
+    _cli_sessions.pop(session_id, None)
+    return jsonify(payload)
 
-    return redirect(append_query(app_redirect, {
-        "agent_id": str(result.get("agent_id") or ""),
-        "ens": result.get("ens") or "",
-        "wallet": result.get("wallet") or "",
-    }))
+
+@identity_bp.route("/identity/cli/sessions/<session_id>/complete", methods=["POST"])
+@require_auth
+def complete_cli_session(session_id: str):
+    """
+    Browser-side completion for the canonical CLI auth adapter.
+    The caller must already hold a verified Dynamic JWT and must supply the
+    result returned by POST /identity/onboard.
+    """
+    _prune_cli_sessions()
+    session = _cli_sessions.get(session_id)
+    if not session:
+        return jsonify({"error": "session not found or expired"}), 404
+
+    token = request.headers.get("Authorization", "")
+    if not token.startswith("Bearer "):
+        return jsonify({"error": "authorization bearer token required"}), 401
+
+    body = request.json or {}
+    agent_id = body.get("agent_id")
+    if not agent_id:
+        return jsonify({"error": "agent_id required"}), 400
+
+    session.update(
+        {
+            "status": "complete",
+            "completed_at": int(time.time()),
+            "token": token[7:],
+            "agent_id": agent_id,
+            "wallet": body.get("wallet") or "",
+            "ens": body.get("ens") or "",
+            "identity_anchor": body.get("identity_anchor") or "",
+        }
+    )
+    return jsonify({"status": "complete", "session_id": session_id, "agent_id": agent_id})
 
 
 @identity_bp.route("/identity/android-attestation/bind", methods=["POST"])
@@ -283,8 +413,7 @@ def bind_android_attestation():
 def onboard():
     """
     Create or retrieve identity from a verified Dynamic JWT.
-    The gateway derives the stable external_id from claims instead of trusting
-    a caller-provided identifier.
+    The gateway derives the stable identity anchor from verified claims.
     """
     body = request.json or {}
     claims = getattr(request, "auth_claims", {}) or {}
@@ -301,7 +430,7 @@ def link_wallet(agent_id: int):
     """
     Link a Circle Smart Account (or any wallet) to an agent.
     After linking, bounty payouts go to this address instead of the Dynamic EOA.
-    The linked wallet gets gasless EURC transfers via Circle's paymaster.
+    The linked wallet can receive gasless token transfers via Circle's paymaster when enabled.
 
     Body: { "wallet": "0x..." }
     """
@@ -353,7 +482,7 @@ def agent_status(agent_id: int):
     return jsonify({
         "agent_id": agent_id,
         "wallet": wallet,
-        "ens": f"agent-{agent_id}.maceip.eth",
+        "ens": agent_fqdn(agent_id),
         "balances": {
             "eurc": f"{bal:.2f}",
             "native": f"{native:.4f}",

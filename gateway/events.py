@@ -1,10 +1,9 @@
 """
-BountyNet Event Log — unified event stream across all services.
+BountyNet **product event** stream (live feed), not application logs.
 
-Every action in the system emits an event here. The webapp polls
-GET /events to show users what's happening in real-time.
-
-Events are in-memory (last 500). No storage needed — it's a live feed.
+Operators use Python ``logging`` configured in ``gateway.logutil`` (stderr,
+``[bountynet:gateway]``). This module is for *user-visible* activity on
+``GET /events`` (in-memory, last 500).
 """
 import time
 import threading

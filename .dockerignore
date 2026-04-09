@@ -1,0 +1,13 @@
+.venv
+.git
+**/__pycache__
+*.py[cod]
+*.db
+.cursor
+**/node_modules
+clients/web/dist
+**/target
+contracts/out
+.pytest_cache
+.mypy_cache
+*.egg-info

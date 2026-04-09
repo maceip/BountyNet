@@ -5,8 +5,8 @@ LiteLLM handles: provider detection, format conversion, error handling, retries.
 We handle: auth, bounty metering, key resolution.
 
 Key pool:
-  - Staker keys (deposited per bounty via /budget/deposit)
-  - Solver keys (deposited on join)
+  - Staker inference budget keys (deposited per bounty via /budget/deposit)
+  - Solver provider keys
   - Platform keys (fallback)
 
 When bounty is active → staker's key. Otherwise → solver's key or platform key.
@@ -14,7 +14,7 @@ When bounty is active → staker's key. Otherwise → solver's key or platform k
 Endpoints:
   POST /v1/messages          — Anthropic format
   POST /v1/chat/completions  — OpenAI format
-  POST /budget/deposit       — deposit API key + budget
+  POST /budget/deposit       — deposit inference budget or solver provider keys
   GET  /budget/<context_hash>
   GET  /credits/<agent_id>
 """
@@ -146,6 +146,37 @@ def parse_token(auth):
 def do_completion(messages, model, agent_id, ctx_hash):
     provider = detect_provider(model)
     api_key, source = resolve_api_key(agent_id, ctx_hash, provider)
+
+    if (
+        os.environ.get("BOUNTYNET_SOAK_MODE", "").lower() in ("1", "true", "yes")
+        and os.environ.get("BOUNTYNET_SOAK_FAKE_INFERENCE", "").lower()
+        in ("1", "true", "yes")
+    ):
+        fake_in = sum(len(str(m.get("content", ""))) for m in messages) or 10
+        fake_out = 24
+        cost = meter(
+            agent_id,
+            ctx_hash,
+            fake_in,
+            fake_out,
+            model=model,
+            key_source="soak_fake",
+        )
+        return {
+            "id": "soak-chatcmpl-fake",
+            "choices": [
+                {
+                    "message": {"role": "assistant", "content": "soak-fake-completion"},
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {"prompt_tokens": fake_in, "completion_tokens": fake_out},
+            "_bountynet": {
+                "cost_tokens": cost,
+                "key_source": "soak_fake",
+                "agent_id": agent_id,
+            },
+        }, 200
 
     if not api_key:
         return {"error": f"no {provider} key available"}, 500

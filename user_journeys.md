@@ -1,197 +1,29 @@
-# BountyNet — Hackathon Task Map
+# BountyNet — user journeys
 
-Every task is tied to a user journey, a spec glossary item, and a bounty.
-If it's not on this list, we don't build it.
+Operational flows the repo implements end-to-end. For routes and payloads, see [`API.md`](API.md).
 
----
+## Staker
 
-## Components
+1. Open the web setup flow at `/setup`.
+2. Install the GitHub App and return with `?installation_id=...`.
+3. Select repos, add an inference budget key, test it, and activate with `POST /github/setup`.
+4. Scan installed repos with `POST /github/scan/:installation_id`.
+5. On failing CI, the gateway opens a bounty context and notifies the feed.
+6. For on-chain escrow mode, creation uses on-chain `create_bounty` via the relayer when configured.
 
-### 1. `be` CLI (Rust, minimal — **no mise fork**)
+## Solver
 
-Source: **`be-cli/`** only. Build: `cd be-cli && cargo build --release` → binary **`be`**.
+1. Onboard an agent (`be join` -> `POST /identity/cli/sessions` -> web `/auth/cli` -> `POST /identity/onboard`).
+2. List work with `GET /bounties`, claim with `POST /bounties/{hash}/claim`, receive `bnet_*` bearer token.
+3. Call `POST /v1/messages` or `/v1/chat/completions` with metering, then `POST /github/submit-pr` to open a fix branch.
 
-| Command | What it does | Status |
-|---|---|---|
-| `be join` | Browser → Dynamic login → onboard → saves `~/.bountynet/agent.json` | DONE |
-| `be bounties list` | `GET /bounties` | DONE |
-| `be bounties create` | `POST /bounties/create` | DONE |
-| `be bounties claim <hash>` | `POST /bounties/<hash>/claim` | DONE |
-| `be bounties watch` | Poll `GET /bounties`, client filters claimable | DONE |
-| `be status` | `GET /identity/<agent_id>` | DONE |
+## Operator
 
-### 2. Contracts (Vyper, Moccasin)
+1. Run the gateway with real JWKS and GitHub webhook secrets in production.
+2. Persist state with `BOUNTYNET_DB_PATH` / `BOUNTYNET_DATA_DIR` (see `gateway/store.py`).
+3. Point the web UI (`clients/web/`) at the gateway origin for setup, health, and bounty views.
 
-Source: `contracts/`
-Deployed: Arc Testnet (chain 5042002) + Flare Coston2 (chain 114)
+## Development only
 
-| Contract | Chain | Address | Status |
-|---|---|---|---|
-| BountyEscrow.vy | Arc | 0x439E...4812 | DEPLOYED |
-| IdentityRegistry.vy | Arc | 0xb165...0eE | DEPLOYED |
-| ValidationRegistry.vy | Arc | 0xCbe1...7e1 | DEPLOYED |
-| BountyNetResolver.sol | Sepolia | deployed | DEPLOYED |
-| MockEURC.vy | Arc | 0x89B5...D72a | DEPLOYED |
-| OracleProofStore.sol | Coston2 | 0xcb2D...D544 | DEPLOYED, ecrecover verified |
-
-### 3. Gateway (Python/Flask, deployed on EC2)
-
-Source: `gateway/`
-Running at: https://gateway.stare.network
-
-| Route | Status |
-|---|---|
-| POST /identity/onboard | DEPLOYED — returns agent_id from on-chain scan |
-| POST /identity/{id}/wallet | DEPLOYED — links Circle Smart Account |
-| GET /identity/{id} | DEPLOYED — wallet, balances, ENS |
-| GET /bounties | DEPLOYED — merged on-chain + API-key bounties |
-| POST /bounties/create | DEPLOYED — api_key + eurc modes |
-| POST /bounties/{hash}/claim | DEPLOYED — both modes, bnet_token issued |
-| POST /github/webhook | DEPLOYED — check_run, installation, pull_request |
-| POST /github/scan/{id} | DEPLOYED — scan repos for CI failures + insights |
-| POST /github/setup | DEPLOYED — configure repos, API key, budget |
-| POST /github/submit-pr | DEPLOYED — creates branch, commits, opens PR (E2E verified) |
-| POST /oracle | DEPLOYED — TEE-attested validation |
-| GET /oracle/health | DEPLOYED — TEE signer, source hash, image digest |
-| POST /v1/messages | DEPLOYED — Anthropic-compatible inference proxy (LiteLLM) |
-| POST /v1/chat/completions | DEPLOYED — OpenAI-compatible inference proxy |
-| POST /budget/deposit | DEPLOYED — staker/solver key deposit |
-| GET /budget/{hash} | DEPLOYED |
-| GET /credits/{id} | DEPLOYED |
-| POST /attest | DEPLOYED — GitHub OIDC attestation |
-| GET /ens/lookup/{sub} | DEPLOYED — multi-chain (Arc + Coston2) |
-| GET /ens/{sender}/{data}.json | DEPLOYED — CCIP-Read ENSIP-25 |
-| GET /events | DEPLOYED — unified event stream |
-| GET /health | DEPLOYED |
-
-### 4. Web Frontend (React + OGL + Vite)
-
-Source: `web/`
-Running at: https://bountynet.stare.network
-
-| Feature | Status |
-|---|---|
-| Single-page dashboard (`App.tsx`: Overview / Bounties / Gateway / Resources) | DONE |
-| Component library (hex motif, lite/dark mode) | DONE |
-| Gateway-backed stats (`/health`, `/bounties`, `/events`, `/resources`, …) | DONE |
-| Live event feed (polls `/events`) | DONE |
-| Install GitHub App entry (marketing) | DONE (see `App.tsx`) |
-| **Dynamic React SDK** (`@dynamic-labs` provider + `useAuth`) | **Not in this tree** — use `be join` / Android Custom Tab |
-| **Dedicated `/setup` SPA route** in `web/src` | **Not in this tree** — setup uses gateway GitHub flows + deployed URLs |
-| Circle wallet (passkey) in this SPA | **Not in current `web/package.json`** — gateway + `wallet/` Python/JS helpers apply where used |
-| Stake/solve/bounty detail/agent profile **as separate pages** | NOT DONE (see `GAPS.md`) |
-
-### 5. GitHub App
-
-Source: `gateway/routes/github.py` + `action/`
-Registered: bountynet-ci-client (App ID 3269358)
-Permissions: Contents R/W, Pull requests R/W, Checks R, Actions R
-
-| Piece | Status |
-|---|---|
-| Webhook handler (check_run, installation, pull_request) | DEPLOYED |
-| bountynet/attest Action (OIDC) | PUBLISHED (v1 tag) |
-| GitHub App registered + installed on maceip | DONE |
-| Scan-on-install (CI failures + workflow insights) | DEPLOYED |
-| PR submission (branch + commit + PR) | VERIFIED (PR #2) |
-| bountynet.yml injection on install | NOT DONE |
-
-### 6. Oracle TEE (Flare)
-
-Source: `oracle-tee/`
-Running at: EC2 Docker (port 8095)
-
-| Piece | Status |
-|---|---|
-| Flare FCE extension (Python handler) | DEPLOYED |
-| TEE signing with ECDSA (secp256k1) | WORKING |
-| OracleProofStore on Coston2 | DEPLOYED, ecrecover verified |
-| Source hash + image digest in proofs | WORKING |
-| Gateway wired to TEE oracle | DEPLOYED |
-| Cross-chain proof (Coston2 → Arc) | WORKING |
-| Runner Docker image | BUILT (not deployed) |
-
-### 7. SimBountyNet
-
-Source: `sim/`
-
-| Piece | Status |
-|---|---|
-| sim/agent.py (honest/hallucinate/malicious) | TESTED — PR #2 created |
-| sim/malicious.py (7 attack vectors) | TESTED — 4/7 defended |
-| sim/sim_solver.py (browser-use, solver UI) | BUILT, needs ANTHROPIC_API_KEY |
-| sim/sim_staker.py (browser-use, staker UI) | BUILT, needs ANTHROPIC_API_KEY |
-
-### 8. ENS (CCIP-Read + ENSIP-25)
-
-| Piece | Status |
-|---|---|
-| BountyNetResolver.sol deployed (Sepolia) | DONE |
-| Gateway resolves *.maceip.eth | DONE |
-| agent-{id}.maceip.eth from Arc registry | DONE |
-| ENSIP-25 multi-chain (Arc + Coston2 coin types) | DONE |
-| Text records (oracle.source_hash, network.*) | DONE |
-| Mainnet deployment | NEEDS ETH |
-
----
-
-## User Journeys — Current Status
-
-### Staker journey (example persona: repo owner)
-
-```
-1. Staker visits bountynet.stare.network             ✅ WORKS
-2. Clicks "Install GitHub App"                       ✅ WORKS → github.com/apps/bountynet-ci-client
-3. GitHub redirects to /setup?installation_id=X      ✅ WORKS
-4. Setup scans repos, shows CI failures + insights   ✅ WORKS (5 failures found on freehold-relay)
-5. Staker pastes API key, sets budget, activates     ✅ WORKS
-6. CI fails → webhook → bounty created + comment     ✅ WORKS (in-memory, comment posted)
-7. Solver claims → inference through staker key       ✅ WORKS (metered, events logged)
-8. Solver submits PR                                  ✅ WORKS (PR #2 verified)
-9. CI passes → oracle validates → payout              ⚠️ PARTIAL (oracle signs; full on-chain resolution path depends on webhook wiring)
-```
-
-### Solver journey (CLI + gateway)
-
-```
-1. Runs `be join`                                     ✅ WORKS (Rust binary, Dynamic OAuth)
-2. Runs `be bounties list`                           ✅ WORKS
-3. Runs `be bounties claim <hash>`                  ✅ WORKS (bnet_token issued)
-4. Sets ANTHROPIC_API_KEY + BASE_URL                  ✅ WORKS
-5. Inference routed through staker's key              ✅ WORKS (LiteLLM, 3-tier resolution)
-6. Agent generates fix → submit PR                    ✅ WORKS (PR #2)
-7. CI passes → oracle → payout                        ⚠️ PARTIAL (same as staker journey #9)
-8. Runs `be status`                                   ✅ WORKS
-9. Runs `be bounties watch` (auto-pilot)              ✅ WORKS (polls + auto-claims)
-```
-
----
-
-## Bounty Alignment
-
-### Arc/Circle ($15k)
-- BountyEscrow.vy on Arc ✅
-- EURC settlement ✅
-- Gateway / wallet linking (`POST /identity/{id}/wallet`, Circle paths in `wallet/`) ✅ where deployed
-- Gasless claims via backend relayer ✅
-- **Circle passkey / modular wallet in this `web/` bundle** — **not present in current `package.json`**; E2E needs re-integration if required for judging
-
-### ENS ($10k)
-- CCIP-Read wildcard resolver ✅
-- ENSIP-25 multi-chain ✅
-- agent-{id}.maceip.eth ✅
-- Text records ✅
-- Mainnet deployment — **NEEDS ETH**
-
-### Flare ($10k)
-- TEE oracle on Coston2 ✅
-- OracleProofStore deployed + verified ✅
-- Source hash + image digest attestation ✅
-- Cross-chain proofs (Coston2 → Arc) ✅
-- Runner Docker image ✅
-
----
-
-## Open items
-
-Remaining limitations and follow-ups: **[`GAPS.md`](GAPS.md)** (single source). **Claim guard:** invalid `agent_id` on `POST /bounties/.../claim` is rejected (`agent_id <= 0` in `gateway/routes/bounties.py`).
+- **`BOUNTYNET_DEV_SKIP_JWT_VERIFICATION`** — accepts Dynamic-shaped requests without JWKS (tests/local; never production).
+- **`BOUNTYNET_DEV_SKIP_GITHUB_WEBHOOK_VERIFY`** — missing webhook secret accepts unsigned payloads.

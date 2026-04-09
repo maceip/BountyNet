@@ -8,6 +8,7 @@ import textwrap
 import requests
 
 from gateway.github.app_auth import get_installation_token
+from gateway.github.github_env import GITHUB_API_BASE
 
 BOUNTYNET_YML_DEFAULT = textwrap.dedent(
     """\
@@ -22,7 +23,7 @@ BOUNTYNET_YML_DEFAULT = textwrap.dedent(
 
 def gh_post_comment(token: str, repo: str, sha: str, body: str) -> None:
     requests.post(
-        f"https://api.github.com/repos/{repo}/commits/{sha}/comments",
+        f"{GITHUB_API_BASE}/repos/{repo}/commits/{sha}/comments",
         headers={"Authorization": f"token {token}", "Accept": "application/vnd.github+json"},
         json={"body": body},
         timeout=10,
@@ -31,7 +32,7 @@ def gh_post_comment(token: str, repo: str, sha: str, body: str) -> None:
 
 def gh_create_branch(token: str, repo: str, branch: str, from_sha: str) -> bool:
     resp = requests.post(
-        f"https://api.github.com/repos/{repo}/git/refs",
+        f"{GITHUB_API_BASE}/repos/{repo}/git/refs",
         headers={"Authorization": f"token {token}", "Accept": "application/vnd.github+json"},
         json={"ref": f"refs/heads/{branch}", "sha": from_sha},
         timeout=10,
@@ -43,7 +44,7 @@ def gh_commit_files(token: str, repo: str, branch: str, files: list, message: st
     headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github+json"}
 
     ref_resp = requests.get(
-        f"https://api.github.com/repos/{repo}/git/ref/heads/{branch}",
+        f"{GITHUB_API_BASE}/repos/{repo}/git/ref/heads/{branch}",
         headers=headers,
         timeout=10,
     )
@@ -52,7 +53,7 @@ def gh_commit_files(token: str, repo: str, branch: str, files: list, message: st
     base_sha = ref_resp.json()["object"]["sha"]
 
     commit_resp = requests.get(
-        f"https://api.github.com/repos/{repo}/git/commits/{base_sha}",
+        f"{GITHUB_API_BASE}/repos/{repo}/git/commits/{base_sha}",
         headers=headers,
         timeout=10,
     )
@@ -61,7 +62,7 @@ def gh_commit_files(token: str, repo: str, branch: str, files: list, message: st
     tree_items = []
     for f in files:
         blob = requests.post(
-            f"https://api.github.com/repos/{repo}/git/blobs",
+            f"{GITHUB_API_BASE}/repos/{repo}/git/blobs",
             headers=headers,
             json={"content": f["content"], "encoding": "utf-8"},
             timeout=10,
@@ -74,21 +75,21 @@ def gh_commit_files(token: str, repo: str, branch: str, files: list, message: st
         })
 
     tree = requests.post(
-        f"https://api.github.com/repos/{repo}/git/trees",
+        f"{GITHUB_API_BASE}/repos/{repo}/git/trees",
         headers=headers,
         json={"base_tree": base_tree, "tree": tree_items},
         timeout=10,
     ).json()
 
     commit = requests.post(
-        f"https://api.github.com/repos/{repo}/git/commits",
+        f"{GITHUB_API_BASE}/repos/{repo}/git/commits",
         headers=headers,
         json={"message": message, "tree": tree["sha"], "parents": [base_sha]},
         timeout=10,
     ).json()
 
     requests.patch(
-        f"https://api.github.com/repos/{repo}/git/refs/heads/{branch}",
+        f"{GITHUB_API_BASE}/repos/{repo}/git/refs/heads/{branch}",
         headers=headers,
         json={"sha": commit["sha"]},
         timeout=10,
@@ -99,7 +100,7 @@ def gh_commit_files(token: str, repo: str, branch: str, files: list, message: st
 
 def gh_create_pr(token: str, repo: str, head: str, base: str, title: str, body: str) -> dict:
     return requests.post(
-        f"https://api.github.com/repos/{repo}/pulls",
+        f"{GITHUB_API_BASE}/repos/{repo}/pulls",
         headers={"Authorization": f"token {token}", "Accept": "application/vnd.github+json"},
         json={"title": title, "body": body, "head": head, "base": base},
         timeout=10,
@@ -108,7 +109,7 @@ def gh_create_pr(token: str, repo: str, head: str, base: str, title: str, body: 
 
 def gh_default_branch(token: str, repo: str) -> str | None:
     resp = requests.get(
-        f"https://api.github.com/repos/{repo}",
+        f"{GITHUB_API_BASE}/repos/{repo}",
         headers={"Authorization": f"token {token}", "Accept": "application/vnd.github+json"},
         timeout=10,
     )
@@ -118,7 +119,7 @@ def gh_default_branch(token: str, repo: str) -> str | None:
 
 
 def gh_get_contents(token: str, repo: str, path: str, ref: str | None = None) -> dict | None:
-    url = f"https://api.github.com/repos/{repo}/contents/{path}"
+    url = f"{GITHUB_API_BASE}/repos/{repo}/contents/{path}"
     params = {}
     if ref:
         params["ref"] = ref
@@ -141,7 +142,7 @@ def gh_create_file(
 ) -> bool:
     b64 = base64.b64encode(content.encode("utf-8")).decode("ascii")
     resp = requests.put(
-        f"https://api.github.com/repos/{repo}/contents/{path}",
+        f"{GITHUB_API_BASE}/repos/{repo}/contents/{path}",
         headers={"Authorization": f"token {token}", "Accept": "application/vnd.github+json"},
         json={"message": message, "content": b64, "branch": branch},
         timeout=20,
@@ -177,7 +178,7 @@ def gh_list_repos(installation_id: int) -> list:
     if not token:
         return []
     resp = requests.get(
-        "https://api.github.com/installation/repositories",
+        f"{GITHUB_API_BASE}/installation/repositories",
         headers={"Authorization": f"token {token}", "Accept": "application/vnd.github+json"},
         timeout=10,
     )

@@ -1,5 +1,4 @@
-"""
-Attestation route — receives OIDC-backed CI attestations.
+"""Attestation route — receives OIDC-backed CI attestations.
 
 POST /attest  — from bountynet/attest GitHub Action
 GET  /attest/<context_hash>  — lookup attestation
@@ -11,6 +10,7 @@ the attestation. This serves two purposes:
 1. Bounty resolution — provable CI outcome
 2. Principal binding — GitHub actor → agent band
 """
+import logging
 import os
 import json
 import time
@@ -18,6 +18,7 @@ import jwt as pyjwt
 from flask import Blueprint, request, jsonify
 
 attest_bp = Blueprint("attest", __name__)
+_log = logging.getLogger(__name__)
 
 GITHUB_OIDC_JWKS = "https://token.actions.githubusercontent.com/.well-known/jwks"
 _jwks_client = None
@@ -45,7 +46,7 @@ def verify_oidc(token: str) -> dict | None:
         key = client.get_signing_key_from_jwt(token)
         return pyjwt.decode(token, key.key, algorithms=["RS256"], audience="bountynet")
     except Exception as e:
-        print(f"[attest] OIDC verification failed: {e}")
+        _log.warning("OIDC verification failed: %s", e)
         return None
 
 
@@ -82,7 +83,13 @@ def receive_attestation():
     attestations[context_hash] = attestation
     attestation_id = f"att_{context_hash[-8:]}"
 
-    print(f"[attest] {context.get('repository')}@{context.get('sha', '')[:8]} by {context.get('actor')} oidc={'verified' if claims else 'unverified'}")
+    _log.info(
+        "attestation stored %s@%s by %s oidc=%s",
+        context.get("repository"),
+        (context.get("sha") or "")[:8],
+        context.get("actor"),
+        "verified" if claims else "unverified",
+    )
 
     return jsonify({
         "attestation_id": attestation_id,

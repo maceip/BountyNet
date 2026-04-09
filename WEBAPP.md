@@ -1,17 +1,27 @@
-# BountyNet web (`web/`)
+# BountyNet web (`clients/web/`)
 
-## What is actually in this repo
+## Layout
 
-The app is a **single-page dashboard** in **`web/src/App.tsx`**: sidebar navigation between **Overview**, **Bounties**, **Gateway**, and **Resources** tabs. It calls the **gateway** (`VITE_GATEWAY_URL`, overridable via `localStorage` key `bountynet.gateway`).
+The dashboard uses **React Router** (`clients/web/src/App.tsx`, `clients/web/src/layout/DashboardLayout.tsx`, pages under `clients/web/src/pages/`). It loads gateway data from `VITE_GATEWAY_URL` or `localStorage` (`bountynet.gateway`).
 
-Typical fetches: **`GET /health`**, **`GET /bounties`**, **`GET /events`**, **`GET /resources`**, **`GET /credits/rates`**. There is **no** React Router map of separate files per URL in this tree—deep links like **`/setup?installation_id=`** are expected to be served by the **deployed** site or another entry, not necessarily this Vite bundle.
+Typical calls: **`GET /health`**, **`GET /bounties`**, **`GET /events`**, **`GET /resources/claims`**, **`GET /credits/rates`**.
 
-## Auth (current split)
+## Canonical flow
 
-- **CLI:** `be join` → gateway Dynamic login + `POST /identity/onboard` (see [`ARCHITECTURE.md`](ARCHITECTURE.md)).
-- **Android:** Chrome Custom Tab → `WEB_AUTH_URL` in `android/app/build.gradle.kts` (deep link back to the app).
-- **This SPA:** focuses on **public / gateway-keyed reads**; it does **not** wire `@dynamic-labs` React SDK.
+The canonical buyer path is the web setup flow:
 
-Anything describing `<DynamicProvider>`, `useAuth()`, `gatewayFetch()`, or a full **`/explore`** implementation was **removed or never landed in this branch**—treat old copies of this file as obsolete.
+1. Open `/setup`
+2. Install the GitHub App
+3. Return with `?installation_id=...`
+4. Select repos
+5. Add and test API key budget
+6. Activate + scan for failing CI
 
-See also: [`web/README.md`](web/README.md), [`API.md`](API.md), [`GAPS.md`](GAPS.md).
+The rest of the app is an operator/inspection surface around that path.
+
+## Auth
+
+- **CLI:** `be join` → `POST /identity/cli/sessions` → web `/auth/cli` → `POST /identity/onboard` (see [`ARCHITECTURE.md`](ARCHITECTURE.md)).
+- **This SPA:** public reads, setup flow, and the browser-side CLI auth handoff at `/auth/cli`.
+
+See [`clients/web/README.md`](clients/web/README.md), [`API.md`](API.md), [`GAPS.md`](GAPS.md), [`REPO_LAYOUT.md`](REPO_LAYOUT.md).

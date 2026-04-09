@@ -1,6 +1,6 @@
 ---
 name: onboard-staker
-description: Set up BountyNet for a staker or solver working inside Claude Code — API key consent, install or build the `be` CLI from `be-cli/`, join the network (Dynamic), optional `be bounties watch`, and install the pink bounty[] status line. Use when the user wants to connect Claude Code to BountyNet, stake, or run solver workflows.
+description: Set up BountyNet for a staker or solver working inside Claude Code — API key consent, install or build the `be` CLI from `clients/cli/`, join the network (Dynamic), optional `be bounties watch`, and install the pink bounty[] status line. Use when the user wants to connect Claude Code to BountyNet, stake, or run solver workflows.
 ---
 
 # BountyNet × Claude Code onboarding
@@ -39,7 +39,7 @@ If **another plugin** already owns `statusLine.command`, only one can win unless
 
 ## CLI name
 
-The Rust binary is **`be`** (build from **`be-cli/`**: `cargo build --release` → `target/release/be`). Commands: `be join`, `be bounties watch`, `be status`, etc.
+The Rust binary is **`be`** (build from **`clients/cli/`**: `cargo build --release` → `target/release/be`). Commands: `be join`, `be bounties watch`, `be status`, etc.
 
 ## If something fails
 

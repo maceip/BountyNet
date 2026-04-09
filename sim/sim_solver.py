@@ -3,7 +3,7 @@
 
 Uses browser-use to exercise the BountyNet webapp end-to-end:
   1. Open the landing page
-  2. Log in via Dynamic (email or GitHub)
+  2. Log in via the web auth widget (email or GitHub)
   3. Dashboard — agent status, balances
   4. Bounty feed — claimable work
   5. Claim through the UI
@@ -84,10 +84,10 @@ def _get_task_prompt(task: str, email: str) -> str:
 """,
         "login": f"""
 1. Go to {SITE}
-2. Click the Dynamic login widget (top right)
+2. Click the login widget (top right)
 3. Try to sign in with email: {email or 'solver@test.local'}
 4. If login succeeds — note what changes on the page
-5. Check if you see: agent ID, wallet address, ENS name
+5. Check if you see: agent ID, wallet address, human-readable agent hostname if shown
 6. Check if "Quick Actions" appear (Create Bounty, Watch for Bounties)
 7. Report: login flow, post-login state, any errors
 """,
@@ -109,7 +109,7 @@ def _get_task_prompt(task: str, email: str) -> str:
 """,
         "full_flow": f"""
 1. Go to {SITE}
-2. Click Dynamic login — sign in with email {email or 'solver@test.local'}
+2. Click login — sign in with email {email or 'solver@test.local'}
 3. Wait for login to complete
 4. Check dashboard — agent ID, wallet, balances
 5. Look for bounties — are any claimable?
@@ -125,7 +125,7 @@ def _get_task_prompt(task: str, email: str) -> str:
 
 def main():
     p = argparse.ArgumentParser(description="Browser sim — solver journey (browser-use)")
-    p.add_argument("--email", default="", help="Email for Dynamic login")
+    p.add_argument("--email", default="", help="Email for browser login flow")
     p.add_argument("--headless", action="store_true")
     p.add_argument("--task", default="explore",
                    choices=["explore", "login", "setup", "bounty_feed", "full_flow"])

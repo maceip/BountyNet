@@ -1,9 +1,9 @@
 """
 Resource Claims + Compute Credits — staked infra marketplace.
 
-POST /resources/stake     — mint Resource Claim NFT (XL instance or API key)
-GET  /resources           — list all staked resources
-GET  /resources/{id}      — single resource status
+POST /resources/claims      — mint Resource Claim NFT (XL instance or API key)
+GET  /resources/claims      — canonical list
+GET  /resources/claims/{id} — canonical single resource status
 GET  /credits/rates       — inference pricing table (tokens → EURC)
 """
 import os
@@ -50,8 +50,8 @@ def tokens_to_eurc(tokens: int, model: str = "claude-sonnet-4-20250514") -> floa
 
 # ── Endpoints ──────────────────────────────────────────────────
 
-@resources_bp.route("/resources/stake", methods=["POST"])
-def stake():
+@resources_bp.route("/resources/claims", methods=["POST"])
+def create_claim():
     """
     Mint a Resource Claim NFT.
     Body: {
@@ -88,11 +88,12 @@ def stake():
         result = send_tx(RESOURCE_CLAIM, data)
         eurc_value = tokens_to_eurc(token_budget)
 
-        emit("bounty", f"Resource staked: {spec} ({cores} cores, {memory_gb}GB) — {token_budget:,} tokens (~{eurc_value} EURC)",
+        emit("bounty", f"Resource claim created: {spec} ({cores} cores, {memory_gb}GB) — {token_budget:,} tokens (~{eurc_value} EURC)",
              data={"spec": spec, "provider": provider, "cores": cores, "budget": token_budget})
 
         return jsonify({
-            "status": "staked",
+            "status": "claimed",
+            "resource_claim_status": "claimed",
             "resource_type": resource_type,
             "provider": provider,
             "spec": spec,
@@ -106,9 +107,9 @@ def stake():
         return jsonify({"error": str(e)}), 500
 
 
-@resources_bp.route("/resources")
+@resources_bp.route("/resources/claims")
 def list_resources():
-    """List all staked resources."""
+    """List all resource claims."""
     if not RESOURCE_CLAIM:
         return jsonify({"resources": []})
 
@@ -159,9 +160,9 @@ def list_resources():
         return jsonify({"resources": [], "error": str(e)})
 
 
-@resources_bp.route("/resources/<int:token_id>")
+@resources_bp.route("/resources/claims/<int:token_id>")
 def resource_detail(token_id: int):
-    """Single resource status."""
+    """Single resource claim status."""
     if not RESOURCE_CLAIM:
         return jsonify({"error": "not configured"}), 500
 

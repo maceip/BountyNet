@@ -9,6 +9,8 @@ import time
 
 import jwt as pyjwt
 
+from gateway.github.github_env import GITHUB_API_BASE
+
 APP_ID = os.environ.get("GITHUB_APP_ID", "")
 
 
@@ -19,7 +21,7 @@ def _load_private_key() -> str:
                 return f.read()
         except OSError:
             pass
-    raw = os.environ.get("GITHUB_APP_PRIVATE_KEY", "") or os.environ.get("GITHUB_SIGNING_KEY", "")
+    raw = os.environ.get("GITHUB_APP_PRIVATE_KEY", "")
     return raw.replace("\\n", "\n") if raw else ""
 
 
@@ -29,11 +31,8 @@ WEBHOOK_SECRET = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
 
 def verify_webhook(payload: bytes, signature: str) -> bool:
     if not WEBHOOK_SECRET:
-        return os.environ.get("BOUNTYNET_ALLOW_UNSIGNED_GITHUB_WEBHOOKS", "").lower() in (
-            "1",
-            "true",
-            "yes",
-        )
+        truthy = ("1", "true", "yes")
+        return os.environ.get("BOUNTYNET_DEV_SKIP_GITHUB_WEBHOOK_VERIFY", "").lower() in truthy
     expected = "sha256=" + hmac.new(
         WEBHOOK_SECRET.encode(), payload, hashlib.sha256
     ).hexdigest()
@@ -51,7 +50,7 @@ def get_installation_token(installation_id: int) -> str:
 
     try:
         resp = requests.post(
-            f"https://api.github.com/app/installations/{installation_id}/access_tokens",
+            f"{GITHUB_API_BASE}/app/installations/{installation_id}/access_tokens",
             headers={
                 "Authorization": f"Bearer {get_app_jwt()}",
                 "Accept": "application/vnd.github+json",

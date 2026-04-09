@@ -1,23 +1,93 @@
+# ── Secrets & local environment ─────────────────────────────────
 .env
-.env.local
+.env.*
+!.env.example
+!**/.env.example
+!.env.sample
+!**/.env.sample
+*.pem
+*.key
+!**/public.key
+id_rsa
+id_rsa.pub
+*.p12
+*.pfx
+credentials.json
+**/service-account*.json
+*.secret
+*.secrets
+
+# Local-only env files for injectors / tools
+**/openrouter.env
+
+# ── Python ───────────────────────────────────────────────────
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
 .venv/
+venv/
+.envrc
+.mypy_cache/
+.ruff_cache/
 *.egg-info/
-.pytest_cache/
-.coverage
-node_modules/
+.eggs/
 dist/
+build/
+*.egg
+.coverage
+htmlcov/
+.pytest_cache/
+
+# ── Node / frontend ───────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.tsbuildinfo
+.next/
+.nuxt/
+.turbo/
+
+# ── Rust ─────────────────────────────────────────────────────
+**/target/
+
+# ── Android / JVM ───────────────────────────────────────────
+*.apk
+*.aab
+*.dex
+local.properties
+.kotlin/
+*.iml
+clients/android/app/build/
+clients/android/build/
+clients/android/.gradle/
+clients/android/third_party/keyattestation/build/
+clients/android/third_party/keyattestation/.gradle/
+
+# ── Editors & OS ─────────────────────────────────────────────
+.idea/
+.vscode/
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ── Project build / outputs ─────────────────────────────────
 out/
 vendor/
-.idea/
-android/local.properties
-.vscode/
-.DS_Store
-be/target/
-be-cli/target/
-android/app/build/
-android/build/
-android/.gradle/
-android/third_party/keyattestation/build/
-android/third_party/keyattestation/.gradle/
+coverage/
+*.log
+
+# Generated oracle deployment dumps (operator machines)
+services/oracle-tee/*deployment*.json
+
+# Scratch / fetched blobs (do not commit)
+ec2-fetched/
+
+# Local contract address overrides
+contracts/deployments.local.json

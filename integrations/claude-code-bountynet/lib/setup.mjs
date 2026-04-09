@@ -32,8 +32,10 @@ function collectBeCliCandidates() {
     walk = path.dirname(walk);
   }
   for (const r of roots) {
-    const c = path.join(r, "be-cli");
-    if (fs.existsSync(path.join(c, "Cargo.toml"))) dirs.push(c);
+    for (const sub of ["clients/cli", "be-cli"]) {
+      const c = path.join(r, sub);
+      if (fs.existsSync(path.join(c, "Cargo.toml"))) dirs.push(c);
+    }
   }
   return [...new Set(dirs)];
 }
@@ -164,9 +166,9 @@ async function main() {
 Could not find or build the BountyNet CLI (binary name: be).
 
 Fix one of:
-  • Put "be" on your PATH (e.g. cargo install --path /path/to/BountyNet/be-cli)
+  • Put "be" on your PATH (e.g. cargo install --path /path/to/BountyNet/clients/cli)
   • Set BOUNTYNET_BE_BIN to the full path of the "be" executable
-  • Set BOUNTYNET_REPO_ROOT to your BountyNet checkout (must contain be-cli/)
+  • Set BOUNTYNET_REPO_ROOT to your BountyNet checkout (must contain clients/cli/)
   • Clone github.com/maceip/BountyNet and run this wizard from that tree
 `);
       process.exit(1);

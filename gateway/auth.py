@@ -2,16 +2,19 @@
 Gateway auth — validates Dynamic JWTs on protected routes.
 
 Uses Dynamic's JWKS endpoint to verify JWT signatures.
-Public routes (ENS, bounties list, health) skip auth.
+Public routes (name-resolution helpers, bounties list, health) skip auth.
 Protected routes (onboard, inference, oracle) require valid JWT.
 
 DYNAMIC_JWKS_ENDPOINT from .env:
   https://app.dynamic.xyz/api/v0/sdk/<env_id>/.well-known/jwks
 """
+import logging
 import os
 import json
 import functools
 from flask import request, jsonify
+
+_log = logging.getLogger(__name__)
 
 JWKS_URL = os.environ.get("DYNAMIC_JWKS_ENDPOINT", "")
 DYNAMIC_ENV_ID = os.environ.get("DYNAMIC_ENV_ID", "")
@@ -19,11 +22,8 @@ DYNAMIC_ENV_ID = os.environ.get("DYNAMIC_ENV_ID", "")
 
 def _allow_unverified_jwt() -> bool:
     """Local/tests only — never enable in production."""
-    return os.environ.get("BOUNTYNET_ALLOW_UNVERIFIED_JWT", "").lower() in (
-        "1",
-        "true",
-        "yes",
-    )
+    truthy = ("1", "true", "yes")
+    return os.environ.get("BOUNTYNET_DEV_SKIP_JWT_VERIFICATION", "").lower() in truthy
 
 # Lazy-loaded JWKS client
 _jwks_client = None
@@ -46,11 +46,14 @@ def verify_dynamic_jwt(token: str) -> dict | None:
     Verify a Dynamic JWT and return the claims.
     Returns None if invalid.
     """
+    if _allow_unverified_jwt():
+        return {"sub": "local-dev", "email": "local-dev@localhost"}
+
     client = get_jwks_client()
     if not client:
-        if _allow_unverified_jwt():
-            return {"sub": "dev", "email": "dev@localhost"}
-        print("[auth] set DYNAMIC_JWKS_ENDPOINT or BOUNTYNET_ALLOW_UNVERIFIED_JWT=1 (local only)")
+        _log.error(
+            "set DYNAMIC_JWKS_ENDPOINT or BOUNTYNET_DEV_SKIP_JWT_VERIFICATION=1 (local/tests only)"
+        )
         return None
 
     try:
@@ -64,7 +67,7 @@ def verify_dynamic_jwt(token: str) -> dict | None:
         )
         return claims
     except Exception as e:
-        print(f"[auth] JWT verification failed: {e}")
+        _log.warning("JWT verification failed: %s", e)
         return None
 
 

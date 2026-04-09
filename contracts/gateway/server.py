@@ -1,16 +1,14 @@
 """
-BountyNet ENS Gateway — CCIP-Read (EIP-3668) off-chain resolver.
+BountyNet CCIP-Read (EIP-3668) off-chain resolver gateway.
 
-Handles requests from ENS clients for *.maceip.eth subdomains.
-Reads agent data from EIP-8004 Identity Registry on Arc Testnet.
-
-Deploy behind Caddy at: ens-gateway.stare.network
+Serves lookups for the configured parent zone (`BOUNTYNET_CCIP_PARENT`, default `bountynet.eth`).
+Reads agent data from the deployed EIP-8004 Identity Registry.
 
 Usage:
   python gateway/server.py
 
-EIP-3668 gateway URL format:
-  https://ens-gateway.stare.network/{sender}/{data}.json
+EIP-3668 gateway URL shape:
+  https://<host>/{sender}/{data}.json
 """
 import os
 import json
@@ -27,15 +25,18 @@ from flask import Flask, jsonify, request
 
 # ── Config ──────────────────────────────────────────────────────
 
-ARC_RPC = os.environ.get("QUICKNODE_ARC_HTTP", "https://rpc.testnet.arc.network")
+EVM_RPC = os.environ.get(
+    "BOUNTYNET_EVM_RPC",
+    os.environ.get("QUICKNODE_ARC_HTTP", "http://127.0.0.1:8545"),
+)
 IDENTITY_REGISTRY = os.environ.get("IDENTITY_REGISTRY", "0xb16571a67cE2f080d808B0b6c754b35408C3b0eE")
 GATEWAY_PRIVATE_KEY = os.environ.get("RELAYER_PRIVATE_KEY", "")  # Signs responses
-PARENT_NAME = "maceip.eth"
+PARENT_NAME = os.environ.get("BOUNTYNET_CCIP_PARENT", "bountynet.eth")
 RESPONSE_TTL = 300  # 5 minute expiry
 
 # ── Web3 setup ──────────────────────────────────────────────────
 
-w3 = Web3(Web3.HTTPProvider(ARC_RPC))
+w3 = Web3(Web3.HTTPProvider(EVM_RPC))
 
 IDENTITY_ABI = json.loads("""[
     {"inputs":[{"name":"token_id","type":"uint256"}],"name":"ownerOf","outputs":[{"name":"","type":"address"}],"stateMutability":"view","type":"function"},
@@ -132,11 +133,11 @@ def resolve_subdomain(subdomain: str) -> str | None:
     """
     Resolve a subdomain to an address.
 
-    Supported patterns:
-      agent-{id}.maceip.eth  → agent wallet from Identity Registry
-      deployer.maceip.eth    → deployer address
-      treasury.maceip.eth    → treasury address
-      bounty.maceip.eth      → escrow contract address
+    Supported patterns (suffix = PARENT_NAME / BOUNTYNET_CCIP_PARENT):
+      agent-{id}.{parent}  → agent wallet from Identity Registry
+      deployer.{parent}     → deployer address
+      treasury.{parent}    → treasury address
+      bounty.{parent}      → escrow contract address
     """
     if subdomain in _STATIC_SUBDOMAIN_ADDR and _STATIC_SUBDOMAIN_ADDR[subdomain]:
         return _STATIC_SUBDOMAIN_ADDR[subdomain]
@@ -232,7 +233,7 @@ def health():
             "status": "ok",
             "identity_registry": IDENTITY_REGISTRY,
             "registered_agents": next_id - 1,
-            "arc_rpc": ARC_RPC[:40] + "...",
+            "evm_rpc": EVM_RPC[:40] + "...",
         })
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500
@@ -249,8 +250,8 @@ def lookup(subdomain: str):
 
 if __name__ == "__main__":
     port = int(os.environ.get("GATEWAY_PORT", "8090"))
-    print(f"BountyNet ENS Gateway starting on :{port}")
+    print(f"BountyNet CCIP gateway starting on :{port}")
     print(f"  Identity Registry: {IDENTITY_REGISTRY}")
-    print(f"  Arc RPC: {ARC_RPC[:40]}...")
+    print(f"  EVM RPC: {EVM_RPC[:40]}...")
     print(f"  Parent: {PARENT_NAME}")
     app.run(host="0.0.0.0", port=port)

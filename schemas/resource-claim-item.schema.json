@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bountynet.stare.network/schemas/resource-claim-item.schema.json",
+  "title": "BountyNet Resource Claim Item",
+  "description": "Canonical resource claim payload returned by GET /resources/claims and GET /resources/claims/{id}.",
+  "type": "object",
+  "properties": {
+    "token_id": { "type": "integer" },
+    "staker": { "type": "string" },
+    "resource_type": { "type": "string" },
+    "provider": { "type": "string" },
+    "spec": { "type": "string" },
+    "cores": { "type": "integer" },
+    "memory_gb": { "type": "integer" },
+    "token_budget": { "type": "integer" },
+    "tokens_used": { "type": "integer" },
+    "tokens_remaining": { "type": "integer" },
+    "eurc_value": { "type": "number" },
+    "eurc_remaining": { "type": "number" },
+    "usage_pct": { "type": "number" },
+    "active": { "type": "boolean" }
+  },
+  "required": [
+    "token_id",
+    "resource_type",
+    "provider",
+    "spec",
+    "token_budget",
+    "tokens_remaining",
+    "active"
+  ],
+  "additionalProperties": true
+}

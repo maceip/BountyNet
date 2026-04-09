@@ -6,14 +6,55 @@ GET  /bounties/<hash>       — single bounty
 POST /bounties/create       — create a bounty (manual or from webhook)
 POST /bounties/<hash>/claim — solver claims a bounty
 """
+import logging
+import os
+
 from flask import Blueprint, request, jsonify
 from eth_utils import keccak
 from eth_abi import encode
-from gateway.chain import w3, ESCROW, get_bounty, sig, send_tx
+from gateway.chain import w3, ESCROW, get_bounty, sig, send_tx, ORACLE_KEY
 from gateway.events import emit
 from gateway import store
 
 bounties_bp = Blueprint("bounties", __name__)
+_log = logging.getLogger(__name__)
+
+
+def api_key_funding_label(budget_tokens: int) -> str:
+    return f"{budget_tokens:,} tokens"
+
+
+def escrow_funding_label(amount_micro_eurc: int) -> str:
+    return f"{amount_micro_eurc / 1e6:.2f} EURC"
+
+
+def api_key_bounty_payload(context_hash: str, ab: dict) -> dict:
+    budget_tokens = int(ab.get("budget_tokens", 0))
+    return {
+        "context_hash": context_hash,
+        "creator": ab.get("owner", ""),
+        "funding_kind": "inference_budget",
+        "funding_label": api_key_funding_label(budget_tokens),
+        "repo": ab.get("repo", ""),
+        "check_name": ab.get("check_name", ""),
+        "commit": ab.get("commit", ""),
+        "solver_agent_id": ab.get("solver_agent_id", 0),
+        "claimable": ab.get("solver_agent_id", 0) == 0,
+        "resolved": bool(ab.get("resolved", False)),
+        "cancelled": False,
+        "budget_tokens": budget_tokens,
+    }
+
+
+def escrow_bounty_payload(context_hash: str, bounty: dict) -> dict:
+    amount = int(bounty["amount"])
+    return {
+        "context_hash": context_hash,
+        **bounty,
+        "funding_kind": "escrow",
+        "funding_label": escrow_funding_label(amount),
+        "claimable": bounty["solver_agent_id"] == 0,
+    }
 
 
 def bounty_feed_snapshot() -> dict:
@@ -42,32 +83,15 @@ def bounty_feed_snapshot() -> dict:
                 ctx_hash = log_entry["topics"][1] if len(log_entry["topics"]) > 1 else log_entry["data"][:32]
                 bounty = get_bounty(ctx_hash)
                 if bounty and not bounty["resolved"] and not bounty["cancelled"]:
-                    bounties.append({
-                        "context_hash": "0x" + ctx_hash.hex() if isinstance(ctx_hash, bytes) else ctx_hash,
-                        **bounty,
-                        "amount_eurc": f"{bounty['amount'] / 1e6:.2f}",
-                        "claimable": bounty["solver_agent_id"] == 0,
-                    })
+                    ctx_hex = "0x" + ctx_hash.hex() if isinstance(ctx_hash, bytes) else ctx_hash
+                    bounties.append(escrow_bounty_payload(ctx_hex, bounty))
         except Exception:
             pass
 
     try:
         for ctx_hex, ab in store.apikey_bounties_all().items():
             if not ab.get("resolved"):
-                bounties.append({
-                    "context_hash": ctx_hex,
-                    "creator": ab.get("owner", ""),
-                    "amount": ab.get("budget_tokens", 0),
-                    "amount_eurc": f"{ab.get('budget_tokens', 0) / 1000:.1f}k tokens",
-                    "repo": ab.get("repo", ""),
-                    "check_name": ab.get("check_name", ""),
-                    "commit": ab.get("commit", ""),
-                    "solver_agent_id": ab.get("solver_agent_id", 0),
-                    "claimable": ab.get("solver_agent_id", 0) == 0,
-                    "resolved": False,
-                    "cancelled": False,
-                    "budget_mode": "api_key",
-                })
+                bounties.append(api_key_bounty_payload(ctx_hex, ab))
 
         return {"bounties": bounties, "count": len(bounties)}
 
@@ -85,42 +109,30 @@ def list_bounties():
 def bounty_detail(context_hash: str):
     ab = store.apikey_bounty_get(context_hash)
     if ab:
-        return jsonify({
-            "context_hash": context_hash,
-            "check_name": ab.get("check_name", "CI"),
-            "repo": ab.get("repo", ""),
-            "commit": ab.get("commit", ""),
-            "budget_tokens": ab.get("budget_tokens", 0),
-            "budget_mode": "api_key",
-            "solver_agent_id": ab.get("solver_agent_id", 0),
-            "claimable": ab.get("solver_agent_id", 0) == 0,
-            "resolved": ab.get("resolved", False),
-        })
+        return jsonify(api_key_bounty_payload(context_hash, ab))
 
     ctx = bytes.fromhex(context_hash[2:] if context_hash.startswith("0x") else context_hash)
     bounty = get_bounty(ctx)
     if not bounty:
         return jsonify({"error": "not found"}), 404
-    bounty["amount_eurc"] = f"{bounty['amount'] / 1e6:.2f}"
-    bounty["context_hash"] = context_hash
-    return jsonify(bounty)
+    return jsonify(escrow_bounty_payload(context_hash, bounty))
 
 
 @bounties_bp.route("/bounties/create", methods=["POST"])
 def create_bounty():
     """
     Create a bounty. Two modes:
-      api_key mode: stores key in budget pool, optional on-chain
-      eurc mode: creates on-chain escrow
+      inference_budget mode: stores staker inference budget in gateway state
+      escrow mode: creates on-chain escrow
 
     Body: {
         "repo": "joe/app",
         "commit": "abc12345",
         "check_name": "Lint & Format",
-        "budget_mode": "api_key" | "eurc",
-        "anthropic_key": "sk-ant-...",     (api_key mode)
-        "budget_tokens": 100000,           (api_key mode)
-        "amount_eurc": 5000000             (eurc mode, in micro-EURC)
+        "funding_kind": "inference_budget" | "escrow",
+        "anthropic_key": "sk-ant-...",       (inference_budget mode)
+        "budget_tokens": 100000,             (inference_budget mode)
+        "escrow_amount_eurc": 5000000        (escrow mode, in micro-EURC)
     }
     """
     body = request.json or {}
@@ -133,9 +145,9 @@ def create_bounty():
 
     context_hash = keccak(f"{repo}:{commit[:8]}:{check_name}:failure".encode())
     context_hash_hex = "0x" + context_hash.hex()
-    budget_mode = body.get("budget_mode", "api_key")
+    funding_kind = body.get("funding_kind", "inference_budget")
 
-    if budget_mode == "api_key":
+    if funding_kind == "inference_budget":
         api_key = body.get("anthropic_key", "") or body.get("openai_key", "")
         budget_tokens = body.get("budget_tokens", 100_000)
 
@@ -165,20 +177,21 @@ def create_bounty():
         )
 
         emit("bounty", f"Bounty created for {repo}:{check_name} ({budget_tokens:,} tokens)",
-             repo=repo, context_hash=context_hash_hex, data={"mode": "api_key", "budget": budget_tokens})
+             repo=repo, context_hash=context_hash_hex, data={"funding_kind": "inference_budget", "budget_tokens": budget_tokens})
 
         return jsonify({
             "context_hash": context_hash_hex,
             "status": "created",
-            "budget_mode": "api_key",
+            "funding_kind": "inference_budget",
+            "funding_label": api_key_funding_label(budget_tokens),
             "budget_tokens": budget_tokens,
         }), 201
 
-    elif budget_mode == "eurc":
+    elif funding_kind == "escrow":
         if not ESCROW:
             return jsonify({"error": "escrow not configured"}), 500
 
-        amount = body.get("amount_eurc", 5_000_000)
+        amount = body.get("escrow_amount_eurc", 5_000_000)
         deadline = w3.eth.block_number + 1000
         uri = f"github:{repo}:{commit[:8]}:{check_name}"
 
@@ -195,15 +208,15 @@ def create_bounty():
             return jsonify({
                 "context_hash": context_hash_hex,
                 "status": "created",
-                "budget_mode": "eurc",
-                "amount_eurc": amount,
+                "funding_kind": "escrow",
+                "funding_label": escrow_funding_label(amount),
                 "deadline_block": deadline,
                 **result,
             }), 201
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-    return jsonify({"error": "budget_mode must be api_key or eurc"}), 400
+    return jsonify({"error": "funding_kind must be inference_budget or escrow"}), 400
 
 
 @bounties_bp.route("/bounties/<context_hash>/claim", methods=["POST"])
@@ -239,6 +252,21 @@ def claim_bounty(context_hash: str):
         credit_amount = int(budget * 0.7)
         store.credits_add_total(agent_id, credit_amount)
 
+        # CI webhook also creates on-chain escrow; mirror claim so resolve_bounty can pay out.
+        if ESCROW:
+            ctx = bytes.fromhex(context_hash[2:] if context_hash.startswith("0x") else context_hash)
+            bounty = get_bounty(ctx)
+            if bounty and bounty["solver_agent_id"] == 0 and not bounty["resolved"] and not bounty["cancelled"]:
+                data = "0x" + (
+                    sig("claim_intent(bytes32,uint256)")
+                    + encode(["bytes32", "uint256"], [ctx, int(agent_id)])
+                ).hex()
+                try:
+                    solver_key = (os.environ.get("BOUNTYNET_SOLVER_PRIVATE_KEY") or "").strip() or ORACLE_KEY
+                    send_tx(ESCROW, data, key=solver_key)
+                except Exception as e:
+                    _log.warning("claim_intent (escrow mirror) failed: %s", e)
+
         emit("bounty", f"Agent #{agent_id} claimed bounty ({budget:,} token budget)",
              context_hash=context_hash, agent_id=int(agent_id))
 
@@ -249,7 +277,6 @@ def claim_bounty(context_hash: str):
             "bnet_token": bnet_token,
             "inference_endpoint": "https://gateway.stare.network/v1/messages",
             "budget_remaining": budget,
-            "budget_mode": "api_key",
         })
 
     if not ESCROW:
@@ -271,7 +298,8 @@ def claim_bounty(context_hash: str):
     ).hex()
 
     try:
-        result = send_tx(ESCROW, data)
+        solver_key = (os.environ.get("BOUNTYNET_SOLVER_PRIVATE_KEY") or "").strip() or ORACLE_KEY
+        result = send_tx(ESCROW, data, key=solver_key)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -287,6 +315,5 @@ def claim_bounty(context_hash: str):
         "bnet_token": bnet_token,
         "inference_endpoint": "https://gateway.stare.network/v1/messages",
         "budget_remaining": bounty["amount"],
-        "budget_mode": "eurc",
         **result,
     })

@@ -1,0 +1,105 @@
+{
+  "nav": {
+    "menu": {
+      "close": "Menü schließen",
+      "open": "Menü öffnen"
+    },
+    "header": {
+      "name": "BountyNet"
+    },
+    "actions": {
+      "search": "Suchen",
+      "userProfile": "Benutzerprofil",
+      "appSwitcher": "App-Umschalter"
+    },
+    "sideNav": {
+      "ariaLabel": "Seitennavigation"
+    }
+  },
+  "footer": {
+    "title": "Fußzeile",
+    "copyright": "Copyright BountyNet"
+  },
+  "profile": {
+    "settings": {
+      "complementMenuTheme": "Menü-Theme umkehren"
+    }
+  },
+  "commonHeader": {
+    "logoAlt": "BountyNet Logo"
+  },
+  "dashboard": {
+    "loading": "Dashboard wird geladen...",
+    "title": "Dashboard",
+    "numberTiles": {
+      "activeUsers": "Aktive Benutzer"
+    },
+    "urlParameters": {
+      "title": "URL-Parameter Beispiel",
+      "greeting": "Hallo {{name}}! 👋",
+      "description": "Dies zeigt, wie Sie sowohl Pfad- als auch Query-Parameter aus der URL abrufen können.",
+      "tryAccessing": "Versuchen Sie:",
+      "pathParameter": "Pfad-Parameter erkannt (id):",
+      "queryParameterQ": "Query-Parameter erkannt (q):",
+      "queryParameterName": "Query-Parameter erkannt (name):"
+    }
+  },
+  "notFound": {
+    "loading": "Fehlerseite wird geladen...",
+    "title": "Seite nicht gefunden",
+    "description": "Dies ist nicht die Seite, die Sie gesucht haben.",
+    "routeNotRecognized": "Die Route '{{pathname}}' ist nicht bekannt.",
+    "maintainer": "BountyNet Kontrolloberfläche"
+  },
+  "placeholder": {
+    "loading": "Platzhalterseite wird geladen...",
+    "title": "Diese Seite ist noch nicht fertig",
+    "description1": "Generell ist es keine gute Idee, Seiten im Aufbau zu haben.",
+    "description2": "Diese Seite hilft, die globale Navigation zu demonstrieren.",
+    "routeInfo": "Sie befinden sich an der Route '{{pathname}}'.",
+    "maintainer": "BountyNet Kontrolloberfläche"
+  },
+  "welcomeHeader": {
+    "title": "Willkommen bei BountyNet",
+    "description1": "Dies ist die Produktionsoberfläche für BountyNet. Sie verbindet Setup, Solver-Fluss und Live-Aktivität in einer einzigen Web-App.",
+    "maintainer": "BountyNet Kontrolloberfläche",
+    "button": {
+      "useTemplate": "Öffnen"
+    }
+  },
+  "welcome": {
+    "run": {
+      "heading": "App starten",
+      "nodeRequirement": "Benötigt Node v.24"
+    },
+    "about": {
+      "heading": "Worum geht's?",
+      "purpose": {
+        "title": "Verwendungszweck",
+        "description": "Dieses Repository enthält die BountyNet-Web-App und verbindet Verträge, Gateway, GitHub-App-Setup und Solver-Flüsse."
+      },
+      "consistency": {
+        "title": "Kohärente Oberfläche",
+        "description": "Die Oberfläche bündelt Setup, Dashboard, Solver-Ansichten und Live-Aktivität in einem konsistenten Ablauf."
+      },
+      "customize": {
+        "title": "Auf den Betrieb ausgerichtet",
+        "description": "Die App ist auf reale BountyNet-Abläufe zugeschnitten, nicht auf Demo- oder Starter-Inhalte."
+      }
+    },
+    "features": {
+      "heading": "Features"
+    },
+    "fetching": {
+      "heading": "Beispiel: Daten laden",
+      "intro": "Hier wird eine Nachricht dynamisch von einem externen API-Endpunkt geladen. Das zeigt, wie Sie Daten laden können, während Komponenten sauber und Netzwerklogik getrennt bleiben. So funktioniert es:",
+      "uiLayer": "UI-Schicht",
+      "uiLayerDesc": "PostComponent.jsx verwaltet den React-State und rendert die Daten mit Carbon Design-Komponenten",
+      "apiLayer": "API-Schicht",
+      "apiLayerDesc": "Client-seitige Funktionen in api/message.js verarbeiten HTTP-Anfragen an unser Express-Backend",
+      "serviceLayer": "Service-Schicht",
+      "serviceLayerDesc": "Server-seitige Handler in service/postHandlers.js leiten Anfragen an externe APIs weiter.",
+      "summary": "Dieses Muster hält Ihre Komponenten auf die Darstellung fokussiert, während die Datenabruflogik zentral für Wiederverwendbarkeit und Testbarkeit gebündelt wird."
+    }
+  }
+}

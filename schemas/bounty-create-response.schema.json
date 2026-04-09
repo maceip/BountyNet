@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bountynet.stare.network/schemas/bounty-create-response.schema.json",
+  "title": "BountyNet Bounty Create Response",
+  "description": "Canonical response payload for POST /bounties/create.",
+  "type": "object",
+  "properties": {
+    "context_hash": { "type": "string" },
+    "status": { "type": "string" },
+    "funding_kind": {
+      "type": "string",
+      "enum": ["inference_budget", "escrow"]
+    },
+    "funding_label": { "type": "string" },
+    "budget_tokens": { "type": "integer" },
+    "deadline_block": { "type": "integer" },
+    "error": { "type": "string" }
+  },
+  "required": [
+    "context_hash",
+    "status",
+    "funding_kind",
+    "funding_label"
+  ],
+  "additionalProperties": true
+}

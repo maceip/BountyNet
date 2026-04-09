@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bountynet.stare.network/schemas/identity-onboard-response.schema.json",
+  "title": "BountyNet Identity Onboard Response",
+  "description": "Canonical wire contract for POST /identity/onboard responses.",
+  "type": "object",
+  "properties": {
+    "agent_id": { "type": ["integer", "null"] },
+    "wallet": { "type": ["string", "null"] },
+    "ens": { "type": ["string", "null"] },
+    "identity_anchor": { "type": ["string", "null"] },
+    "dynamic_user_id": { "type": ["string", "null"] },
+    "registered_on_chain": { "type": "boolean" },
+    "identity_registry": { "type": ["string", "null"] },
+    "roles": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "error": { "type": "string" }
+  },
+  "additionalProperties": true
+}
+

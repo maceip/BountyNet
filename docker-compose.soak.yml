@@ -1,0 +1,8 @@
+# docker compose -f docker-compose.soak.yml build
+# docker compose -f docker-compose.soak.yml run --rm soak
+
+services:
+  soak:
+    build:
+      context: .
+      dockerfile: docker/soak/Dockerfile

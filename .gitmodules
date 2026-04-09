@@ -1,3 +1,3 @@
 [submodule "android/third_party/keyattestation"]
-	path = android/third_party/keyattestation
+	path = clients/android/third_party/keyattestation
 	url = https://github.com/android/keyattestation.git

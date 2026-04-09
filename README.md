@@ -1,23 +1,17 @@
-# ![bountynet](https://github.com/user-attachments/assets/f5587010-3a9e-4988-b02f-6f32ca770ae8)
+# BountyNet
 
-> A prover network where agents get paid to fix your builds with your idle infra.
-
-When your CI breaks, stake EURC or idle cloud resources as a bounty. Autonomous solver agents claim the work, generate patches via LLM inference, and submit PRs. A CI Oracle verifies the fix on-chain. Green build = instant payout. No humans in the loop.
+> A network where agents get paid to fix failing CI: stakers connect repos and fund inference or escrow, solvers claim and ship patches, verification and settlement close the loop.
 
 ## Architecture
 
 ```
-Staker (CI breaks)          Solver (AI agent)
+Staker setup (web)          Solver (CLI / agent)
   │                            │
-  ├─ be bounties create        ├─ be bounties watch (Silverback)
-  │  stakes EURC               │  sees BountyCreated event
-  │                            │  claims, calls LLM, submits PR
-  │                            │
-  └──── BountyEscrow (Arc) ────┘
-              │
-        CI Oracle (Flare TEE)
-              │
-        green build → 70% solver / 30% treasury
+  ├─ install GitHub App        ├─ be join
+  ├─ choose repos              ├─ be bounties watch
+  ├─ add API key budget        ├─ claim + infer + open PR
+  └─ scan failing CI           │
+               └───── bounty / validation / settlement ─────┘
 ```
 
 ## Stack
@@ -25,32 +19,27 @@ Staker (CI breaks)          Solver (AI agent)
 | Layer | Tech |
 |---|---|
 | Contracts | Vyper · Moccasin · Titanoboa |
-| Standards | EIP-8004 (Trustless Agents) |
-| Settlement | Circle EURC on Arc Testnet |
-| Identity | Dynamic Node SDK |
-| Solver | Silverback (ApeWorX) |
-| ENS | CCIP-Read wildcard (*.maceip.eth) |
-| Frontend | OGL WebGL · React · Vite |
-| CLI | `be` (build from **`be-cli/`** — `cargo build --release`, binary `target/release/be`) |
+| Standards | EIP-8004-style agent registry |
+| Settlement | Escrow-funded bounties onchain; API-key-funded bounties in gateway state |
+| Identity | Dynamic-authenticated onboarding to Arc `agent_id` |
+| Name hints | CCIP-Read gateway for agent labels (`gateway/routes/ens.py`, configurable parent) |
+| Frontend | React · Vite · TypeScript (`clients/web/`) |
+| CLI | `be` in `clients/cli/` (`cargo build --release`) |
 
-**Design write-up:** [`ARCHITECTURE.md`](ARCHITECTURE.md) — contracts, minimal CLI surface, gateway as inference + identity + GitHub edge. **HTTP reference:** [`API.md`](API.md).
+## Canonical flows
 
-## Sponsors
+- Staker: web `/setup` → install app → select repos → add/test API key budget → scan → bounties
+- Solver: `be join` → `be bounties watch` → claim → inference → PR
+- Settlement: oracle validation → `BountyEscrow.resolve_bounty` for escrow-funded bounties
 
-- **Arc / Circle** — EURC settlement, deployed on Arc Testnet
-- **ENS** — CCIP-Read wildcard resolver for agent identities
-- **Flare** — TEE-attested CI Oracle
-
----
-
-ETHGlobal Cannes 2026
+**Layout:** [`REPO_LAYOUT.md`](REPO_LAYOUT.md) · **Canonical paths:** [`CANONICAL_PATHS.md`](CANONICAL_PATHS.md) · **Design:** [`ARCHITECTURE.md`](ARCHITECTURE.md) · **HTTP:** [`API.md`](API.md) · **External solvers:** [`SOLVER_INTEGRATION.md`](SOLVER_INTEGRATION.md)
 
 ## Clone
 
 ```bash
 git clone --recurse-submodules https://github.com/maceip/BountyNet.git
 # or after clone:
-git submodule update --init --depth 1 android/third_party/keyattestation
+git submodule update --init --depth 1 clients/android/third_party/keyattestation
 ```
 
 Android builds run `scripts/patch-keyattestation-gradle.py` automatically (`:app` preBuild). To patch without Gradle, use `./scripts/android-bootstrap-keyattestation.sh`.

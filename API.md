@@ -4,7 +4,7 @@ Base URL: `https://gateway.stare.network`
 
 ## Design (see also `ARCHITECTURE.md`)
 
-The gateway is one **coherent HTTP service**: identity (Dynamic), public bounty feed, GitHub App automation, **LiteLLM-backed** OpenAI/Anthropic-compatible inference (`/v1/*`) with `bnet_<agent>:<context>` metering, oracle/validation plumbing, and ENS/CCIP helpers. Routes map to a small number of Flask blueprints; auth mode per route is listed below. Production requires real JWKS, webhook secrets, and TEE/oracle URLs — dev-only bypasses are opt-in env vars in `gateway/auth.py` and `gateway/github/app_auth.py`.
+The gateway is one **coherent HTTP service**: identity (Dynamic), public bounty feed, GitHub App automation, **LiteLLM-backed** OpenAI/Anthropic-compatible inference (`/v1/*`) with `bnet_<agent>:<context>` metering, oracle/validation plumbing, and EIP-3668 CCIP-Read helpers. Routes map to a small number of Flask blueprints; auth mode per route is listed below. Production requires real JWKS, webhook secrets, and TEE/oracle URLs — **never** enable JWT or webhook verification skips outside local/tests (`BOUNTYNET_DEV_SKIP_JWT_VERIFICATION`, `BOUNTYNET_DEV_SKIP_GITHUB_WEBHOOK_VERIFY`).
 
 ---
 
@@ -12,7 +12,7 @@ Auth patterns:
 - **Dynamic JWT**: `Authorization: Bearer dyn_...` (web frontend, `be join`)
 - **BountyNet token**: `Authorization: Bearer bnet_<agent_id>:<context_hash>` (inference proxy)
 - **GitHub webhook**: `X-Hub-Signature-256: sha256=...` (GitHub App)
-- **Public**: no auth (bounty feed, health, ENS lookups)
+- **Public**: no auth (bounty feed, health, CCIP-Read lookups)
 
 ---
 
@@ -20,14 +20,15 @@ Auth patterns:
 
 ### POST /identity/onboard
 
-Create or retrieve a BountyNet identity. Called by `be join` after Dynamic login.
+Create or retrieve a BountyNet identity. This is the canonical onboarding operation used after successful Dynamic authentication.
 
 **Auth:** Dynamic JWT
+
+Send the Dynamic token in the `Authorization: Bearer ...` header. The request body is optional metadata only.
 
 **Request:**
 ```json
 {
-  "dynamic_token": "dyn_...",
   "machine_id": "sha256_of_machine_uid"
 }
 ```
@@ -37,26 +38,79 @@ Create or retrieve a BountyNet identity. Called by `be join` after Dynamic login
 {
   "agent_id": 1,
   "wallet": "0x4d181A813C3A6fd3468D241be5d3c14f47130673",
-  "ens": "agent-1.maceip.eth",
+  "ens": "agent-1.bountynet.eth",
+  "identity_anchor": "dynamic:abc123",
   "dynamic_user_id": "uuid",
   "registered_on_chain": true,
-  "chain": "arc-testnet",
+  "chain": "evm-testnet",
   "identity_registry": "0xb16571a67cE2f080d808B0b6c754b35408C3b0eE"
 }
 ```
 
 **What it does internally:**
 1. Validates Dynamic JWT via JWKS
-2. Calls Dynamic Node SDK to get/create embedded wallet
-3. Checks if wallet already has an EIP-8004 identity on Arc
-4. If not: relayer submits `register(uri)` tx on Arc (gas sponsored)
-5. Returns agent_id + wallet
+2. Derives a stable `identity_anchor` from verified claims
+3. Calls Dynamic Node SDK to get/create embedded wallet
+4. Checks if wallet already has an EIP-8004 identity on the configured chain
+5. If not: relayer submits `register(uri)` (gas from relayer when configured)
+6. Returns agent_id + wallet
+
+---
+
+### POST /identity/cli/sessions
+
+Create a short-lived CLI auth session. This is the canonical auth adapter that `be join` uses before the browser opens.
+
+**Auth:** none
+
+**Request:**
+```json
+{
+  "app_url": "https://bountynet.stare.network"
+}
+```
+
+**Response 201:**
+```json
+{
+  "session_id": "random-session-id",
+  "status": "pending",
+  "auth_url": "https://bountynet.stare.network/auth/cli?session_id=random-session-id",
+  "poll_url": "https://gateway.stare.network/identity/cli/sessions/random-session-id",
+  "expires_at": 1760000000
+}
+```
+
+Schema: [`schemas/identity-cli-session.schema.json`](schemas/identity-cli-session.schema.json)
+
+### GET /identity/cli/sessions/{session_id}
+
+Poll the CLI auth session. Pending sessions return status only; completed sessions return the Dynamic token plus onboarded agent metadata and are consumed on first successful read.
+
+**Auth:** none
+
+### POST /identity/cli/sessions/{session_id}/complete
+
+Browser-side completion for the CLI auth session. Called by the web `/auth/cli` handoff after successful Dynamic auth and `POST /identity/onboard`.
+
+**Auth:** Dynamic JWT
+
+---
+
+### Shared wire contracts
+
+- CLI auth session: [`schemas/identity-cli-session.schema.json`](schemas/identity-cli-session.schema.json)
+- Identity onboard response: [`schemas/identity-onboard-response.schema.json`](schemas/identity-onboard-response.schema.json)
+- Bounty feed/detail item: [`schemas/bounty-feed-item.schema.json`](schemas/bounty-feed-item.schema.json)
+- Bounty create response: [`schemas/bounty-create-response.schema.json`](schemas/bounty-create-response.schema.json)
+- Resource claim item: [`schemas/resource-claim-item.schema.json`](schemas/resource-claim-item.schema.json)
+- Resource claim create response: [`schemas/resource-claim-create-response.schema.json`](schemas/resource-claim-create-response.schema.json)
 
 ---
 
 ### GET /identity/{agent_id}
 
-Agent status — wallet, balances, ENS, fleet.
+Agent status — wallet, balances, registered labels, fleet.
 
 **Auth:** none (public)
 
@@ -65,7 +119,7 @@ Agent status — wallet, balances, ENS, fleet.
 {
   "agent_id": 1,
   "wallet": "0x4d181A813C3A6fd3468D241be5d3c14f47130673",
-  "ens": "agent-1.maceip.eth",
+  "ens": "agent-1.bountynet.eth",
   "balances": {
     "eurc": "23.50",
     "native": "1.9925"
@@ -92,7 +146,7 @@ Reverse lookup — wallet address to agent ID.
 {
   "agent_id": 1,
   "wallet": "0x4d18...",
-  "ens": "agent-1.maceip.eth"
+  "ens": "agent-1.bountynet.eth"
 }
 ```
 
@@ -124,15 +178,14 @@ List active bounties. This is the Bounty Feed.
     {
       "context_hash": "0xabc123...",
       "creator": "0x1a8F...",
-      "amount_eurc": "5.00",
-      "budget_tokens": 100000,
-      "deadline_block": 35317562,
+      "funding_kind": "escrow",
+      "funding_label": "5.00 EURC",
       "solver_agent_id": 0,
       "resolved": false,
       "cancelled": false,
       "claimable": true,
       "context_uri": "ipfs://...",
-      "repo": "maceip/freehold-relay",
+      "repo": "example/freehold-relay",
       "commit": "abc12345",
       "check_name": "Lint & Format",
       "created_at_block": 35316562
@@ -146,11 +199,15 @@ List active bounties. This is the Bounty Feed.
 
 ### GET /bounties/{context_hash}
 
-Single bounty detail. Returns **on-chain** escrow fields when the hash exists on `BountyEscrow`; when the bounty exists only in **API-key / gateway feed** mode, returns gateway-native fields (`budget_tokens`, `check_name`, `repo`, `claimable`, etc.) without on-chain `amount`.
+Single bounty detail. Returns **on-chain** escrow fields when the hash exists on `BountyEscrow`; when the bounty exists only in **API-key / gateway feed** mode, returns gateway-native fields (`funding_kind`, `funding_label`, `check_name`, `repo`, `claimable`, etc.) without on-chain `amount`.
 
 **Auth:** none
 
-**Response 200:** same shape as feed item, or full on-chain `get_bounty` shape for EURC bounties
+**Response 200:** same shape as feed item, or full on-chain `get_bounty` shape for collateral-token bounties
+
+Canonical funding fields:
+- `funding_kind`: `inference_budget` or `escrow`
+- `funding_label`: user-facing amount string
 
 Third-party solver flow: see [`SOLVER_INTEGRATION.md`](SOLVER_INTEGRATION.md).
 
@@ -172,25 +229,25 @@ Create a bounty. Called by GitHub App webhook (auto) or `be bounties create` (ma
 **Request:**
 ```json
 {
-  "repo": "maceip/freehold-relay",
+  "repo": "example/freehold-relay",
   "commit": "abc12345",
   "check_name": "Lint & Format",
-  "failure_log_url": "https://github.com/maceip/freehold-relay/actions/runs/123",
+  "failure_log_url": "https://github.com/example/freehold-relay/actions/runs/123",
   "context_uri": "ipfs://...",
-  "budget_mode": "api_key",
+  "funding_kind": "inference_budget",
   "anthropic_key": "sk-ant-...",
   "budget_tokens": 100000
 }
 ```
 
-Alternative for EURC mode:
+Alternative request for on-chain escrow mode:
 ```json
 {
-  "repo": "maceip/freehold-relay",
+  "repo": "example/freehold-relay",
   "commit": "abc12345",
   "check_name": "Lint & Format",
-  "budget_mode": "eurc",
-  "amount_eurc": 5000000
+  "funding_kind": "escrow",
+  "escrow_amount_eurc": 5000000
 }
 ```
 
@@ -199,15 +256,16 @@ Alternative for EURC mode:
 {
   "context_hash": "0xabc123...",
   "status": "created",
-  "budget_tokens": 100000,
-  "deadline_block": 35317562
+  "funding_kind": "inference_budget",
+  "funding_label": "100,000 tokens",
+  "budget_tokens": 100000
 }
 ```
 
 **What it does internally:**
 1. Generates context_hash: `keccak256(repo + ":" + commit[:8] + ":" + check_name + ":failure")`
-2. If api_key mode: stores key in budget pool, no on-chain tx
-3. If eurc mode: relayer calls `createBounty(hash, amount, deadline, uri)` on Arc
+2. If `inference_budget` mode: stores the staker inference budget in gateway state, no on-chain tx
+3. If `escrow` mode: relayer calls `createBounty(hash, amount, deadline, uri)` on configured escrow
 4. Posts GitHub comment on commit (if installation_id available)
 
 ---
@@ -239,7 +297,7 @@ Solver claims a bounty. Called by `be bounties watch` or a solver bot.
 
 **What it does internally:**
 1. Verifies agent_id is owned by the authenticated wallet
-2. Relayer calls `claim_intent(context_hash, agent_id)` on Arc (gas sponsored)
+2. Relayer calls `claim_intent(context_hash, agent_id)` on configured escrow (relayer-funded gas when enabled)
 3. Returns bnet_token for inference proxy auth
 
 ---
@@ -266,11 +324,74 @@ Solver submits a fix. Gateway creates the PR via GitHub App installation token.
 }
 ```
 
+---
+
+## Resources
+
+### GET /resources/claims
+
+List canonical resource claims.
+
+**Auth:** none
+
+**Response 200:** `{ "resources": [...], "count": N }`
+
+Schema for each item:
+- [`schemas/resource-claim-item.schema.json`](schemas/resource-claim-item.schema.json)
+
+Compatibility alias:
+- none
+
+---
+
+### GET /resources/claims/{token_id}
+
+Single canonical resource-claim detail.
+
+**Auth:** none
+
+**Response 200:** same canonical item shape as the list route, plus optional instance-rate details.
+
+Schema:
+- [`schemas/resource-claim-item.schema.json`](schemas/resource-claim-item.schema.json)
+
+Compatibility alias:
+- none
+
+---
+
+### POST /resources/claims
+
+Create a canonical resource claim.
+
+**Auth:** none
+
+**Request:**
+```json
+{
+  "resource_type": 1,
+  "provider": "aws",
+  "spec": "c6i.8xlarge",
+  "cores": 32,
+  "memory_gb": 64,
+  "token_budget": 500000,
+  "duration_hours": 24
+}
+```
+
+**Response 201:** canonical resource-claim create payload
+
+Schema:
+- [`schemas/resource-claim-create-response.schema.json`](schemas/resource-claim-create-response.schema.json)
+
+Compatibility alias:
+- none
+
 **Response 200:**
 ```json
 {
   "status": "pr_created",
-  "pr_url": "https://github.com/maceip/freehold-relay/pull/42",
+  "pr_url": "https://github.com/example/freehold-relay/pull/42",
   "pr_number": 42,
   "context_hash": "0xabc123...",
   "awaiting_ci": true
@@ -315,7 +436,7 @@ Called by oracle when CI passes on the solver's PR. Can also be called by anyone
 1. Generates validation_hash from repo+sha+check
 2. Relayer calls `validation_response(hash, 100, proof, "ci-pass")` on ValidationRegistry
 3. Relayer calls `resolve_bounty(context_hash, validation_hash)` on BountyEscrow
-4. Posts GitHub comment: "BountyNet: bounty resolved, solver paid 3.50 EURC"
+4. Posts GitHub comment summarizing solver and treasury payouts in token units
 
 ---
 
@@ -374,7 +495,7 @@ OpenAI Chat Completions API compatible. Same auth, same key resolution.
 
 ### POST /budget/deposit
 
-Deposit API key(s) and/or token budget. Called during bounty creation.
+Deposit inference budget keys and/or solver provider keys.
 
 **Auth:** Dynamic JWT
 
@@ -480,9 +601,9 @@ Receives OIDC-backed attestation from `bountynet/attest` GitHub Action.
 {
   "oidc_token": "eyJ...",
   "context": {
-    "repository": "maceip/freehold-relay",
+    "repository": "example/freehold-relay",
     "sha": "abc12345...",
-    "actor": "maceip",
+    "actor": "example",
     "ref": "refs/heads/main",
     "run_id": "123456",
     "workflow": "CI"
@@ -496,7 +617,7 @@ Receives OIDC-backed attestation from `bountynet/attest` GitHub Action.
 {
   "attestation_id": "att_abc123",
   "context_hash": "0xabc123...",
-  "principal": "maceip",
+  "principal": "example",
   "oidc_verified": true
 }
 ```
@@ -513,9 +634,9 @@ Look up attestation for a context hash.
 ```json
 {
   "context_hash": "0xabc123...",
-  "repository": "maceip/freehold-relay",
+  "repository": "example/freehold-relay",
   "sha": "abc12345",
-  "actor": "maceip",
+  "actor": "example",
   "oidc_verified": true,
   "timestamp": 1775247186
 }
@@ -523,11 +644,11 @@ Look up attestation for a context hash.
 
 ---
 
-## ENS (CCIP-Read)
+## Name resolution (CCIP-Read)
 
 ### GET /ens/{sender}/{data}.json
 
-EIP-3668 CCIP-Read gateway. Called by ENS clients resolving *.maceip.eth.
+EIP-3668 CCIP-Read gateway for the configured parent zone (`BOUNTYNET_CCIP_PARENT`, e.g. `*.bountynet.eth`).
 
 **Auth:** none
 
@@ -549,19 +670,33 @@ Direct subdomain lookup (debug/dashboard use).
 **Response 200:**
 ```json
 {
-  "name": "agent-1.maceip.eth",
+  "name": "agent-1.bountynet.eth",
   "address": "0x4d181A813C3A6fd3468D241be5d3c14f47130673"
 }
 ```
 
 **Static mappings:**
-- `deployer.maceip.eth` → deployer wallet
-- `treasury.maceip.eth` → treasury wallet
-- `escrow.maceip.eth` → BountyEscrow contract
-- `identity.maceip.eth` → IdentityRegistry contract
+- `deployer.<parent>` → deployer wallet
+- `treasury.<parent>` → treasury wallet
+- `escrow.<parent>` → BountyEscrow contract
+- `identity.<parent>` → IdentityRegistry contract
 
 **Dynamic mappings:**
-- `agent-{id}.maceip.eth` → reads from Arc IdentityRegistry
+- `agent-{id}.<parent>` → reads from on-chain IdentityRegistry
+
+---
+
+## Client log ingest (optional)
+
+Batched device/application logs for operators. Matches the Android `ShippedLogBatch` JSON (`ts`, `deviceModel`, `androidSdk`, `appId`, `appVersion`, optional `source`, `entries[]` with `level`, `tag`, `message`, …).
+
+### POST /logs/android
+
+**Auth:** `Authorization: Bearer <BOUNTYNET_CLIENT_LOG_TOKEN>` — if the env var is **unset**, the endpoint returns **503** (collector disabled).
+
+**Request:** `Content-Type: application/json` — body as above.
+
+**Response 200:** `{ "ok": true, "received": <n> }`
 
 ---
 
@@ -575,11 +710,12 @@ Direct subdomain lookup (debug/dashboard use).
 ```json
 {
   "status": "ok",
-  "arc_block": 35270654,
+  "chain_block": 35270654,
+  "evm_rpc_source": "primary",
   "registered_agents": 1,
-  "active_bounties": 0,
   "escrow": "0x439E...",
-  "identity": "0xb165..."
+  "identity": "0xb165...",
+  "storage_db": "/path/to/gateway.db"
 }
 ```
 

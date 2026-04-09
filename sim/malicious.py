@@ -167,7 +167,7 @@ def attack_fake_oracle():
             "head_sha": "deadbeef",
             "name": "fake-check",
         },
-        "repository": {"full_name": "maceip/BountyNet"},
+        "repository": {"full_name": "example/bountynet"},
         "installation": {"id": 1},
     }
 

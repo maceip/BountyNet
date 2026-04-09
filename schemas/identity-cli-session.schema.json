@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bountynet.stare.network/schemas/identity-cli-session.schema.json",
+  "title": "BountyNet CLI Identity Session",
+  "description": "Canonical wire contract for the CLI auth adapter session endpoints.",
+  "type": "object",
+  "properties": {
+    "session_id": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "complete"]
+    },
+    "auth_url": { "type": "string" },
+    "poll_url": { "type": "string" },
+    "expires_at": { "type": "integer" },
+    "token": { "type": "string" },
+    "agent_id": { "type": "integer" },
+    "wallet": { "type": "string" },
+    "ens": { "type": "string" },
+    "identity_anchor": { "type": "string" },
+    "error": { "type": "string" }
+  },
+  "required": ["status"],
+  "additionalProperties": true
+}
+

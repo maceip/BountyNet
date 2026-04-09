@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-After `git submodule update --init android/third_party/keyattestation`, apply
+After `git submodule update --init clients/android/third_party/keyattestation`, apply
 the Kotlin JVM plugin line fix for the BountyNet composite Gradle build.
 
 Upstream pins `id("org.jetbrains.kotlin.jvm") version "2.x"` which clashes with
@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-K = ROOT / "android" / "third_party" / "keyattestation" / "build.gradle.kts"
+K = ROOT / "clients" / "android" / "third_party" / "keyattestation" / "build.gradle.kts"
 
 
 def main() -> None:

@@ -9,6 +9,10 @@ Routes include POST|GET|DELETE `/mcp`, `/health`, `/bounties`, `/github`, …
 
 Auth: GitHub X-Hub-Signature-256; inference Bearer bnet_*; optional MCP OAuth per Apps SDK.
 """
+from gateway.logutil import configure_logging
+
+configure_logging("gateway")
+
 from flask import Flask
 from flask_cors import CORS
 
@@ -27,6 +31,7 @@ from gateway.routes.attest import attest_bp
 from gateway.routes.android_key_attestation import android_key_bp
 from gateway.routes.chatgpt_connect import chatgpt_bp
 from gateway.routes.resources import resources_bp
+from gateway.routes.log_ingest import log_ingest_bp
 
 app.register_blueprint(ens_bp)
 app.register_blueprint(github_bp)
@@ -38,6 +43,7 @@ app.register_blueprint(attest_bp)
 app.register_blueprint(android_key_bp)
 app.register_blueprint(chatgpt_bp)
 app.register_blueprint(resources_bp)
+app.register_blueprint(log_ingest_bp)
 
 from gateway.store import init_db
 

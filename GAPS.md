@@ -7,7 +7,7 @@ What **shipped** is described in [`ARCHITECTURE.md`](ARCHITECTURE.md), [`API.md`
 - **Gateway persistence** — SQLite (`gateway/store.py`): installations, budgets, credits, API-key bounties, ChatGPT links, inference session history, CI failure streaks. Configure `BOUNTYNET_DB_PATH` or `BOUNTYNET_DATA_DIR`.
 - **`bountynet.yml` on install** — `.github/bountynet.yml` created on default branch when missing (`gateway/github/api.py` + install webhook).
 - **Progressive bounty budgets** — repeated failures for the same repo+check raise the effective inference budget using configured multipliers until CI goes green (streak reset on success without an open solver PR, or on resolution path as implemented).
-- **Richer web console** — React Router routes: Overview, Bounties (+ detail), Gateway, Resources, Stake, Solve, Explore, Agent (credits + EURC↔credits copy), Settings (Circle env). Live **Events** feed with auto-scroll + optional mic (where the browser supports Web Speech).
+- **Richer web console** — React Router routes: Overview, Bounties (+ detail), Gateway, Resources, Stake, Solve, Explore, Agent (credits), Settings. Live **Events** feed with auto-scroll + optional mic (where the browser supports Web Speech).
 - **Bounty detail for API-key bounties** — `GET /bounties/<context_hash>` returns merged gateway rows, not only on-chain escrow.
 - **Custom solver doc** — see [`SOLVER_INTEGRATION.md`](SOLVER_INTEGRATION.md).
 - **`.be-agent.toml` example** — [`examples/.be-agent.toml`](examples/.be-agent.toml).
@@ -15,13 +15,12 @@ What **shipped** is described in [`ARCHITECTURE.md`](ARCHITECTURE.md), [`API.md`
 
 ## Android-specific (deferred)
 
-Gap tracking and in-tree “close the GAPS” work applies to **gateway, web console, CLI, and docs**. Anything **Android-specific** is **deferred**: Jetpack/Compose UI, Chrome Custom Tab / `WEB_AUTH_URL` flows, deep-link callback polish, foldable/adaptive UX, `ArcClient.kt` + device wallet paths, Play signing/release, and hardening or productizing **`gateway/routes/android_key_attestation.py`** beyond what ships today. The `android/` tree remains optional; CI for it stays deferred per [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+Gap tracking applies to **gateway, web console, CLI, and docs**. Anything **Android-specific** is **deferred**: Jetpack/Compose UI, Chrome Custom Tab / `WEB_AUTH_URL` flows, deep-link polish, foldable/adaptive UX, native Web3 client code, Play signing/release, and hardening **`gateway/routes/android_key_attestation.py`** beyond what ships today. The `clients/android/` tree remains optional; CI for it stays deferred per [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ## Still deferred (larger product scope)
 
 - [ ] **Fiat onramp** for stakers.
 - [ ] **Resource Claim NFT** productization (`ResourceClaim` placeholder in contracts).
-- [ ] **Flare production enclave** runner hardening.
+- [ ] **Production TEE oracle** runner hardening (operator-grade deployment of `services/oracle-tee/`).
 - [ ] **Principal→agent risk bands** and **EIP-712 proof-of-intent** (governance / spec).
-- [ ] **Full Circle Modular Wallets E2E in `web/`** — Settings documents `VITE_CIRCLE_CLIENT_KEY`; full passkey onboarding requires wiring `@circle-fin/modular-wallets-core` + gateway `POST /identity/{id}/wallet` in a follow-on PR.
-- [ ] **Demo video + final submission assets** — operator-produced; see [`SUBMISSION.md`](SUBMISSION.md) / [`DEMO_VIDEO_BROLL.md`](DEMO_VIDEO_BROLL.md).
+- [ ] **Embedded passkey / smart-account wallet UX** in `clients/web/` (optional; gateway wallet-link routes exist).

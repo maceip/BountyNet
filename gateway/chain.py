@@ -6,10 +6,25 @@ from eth_utils import keccak
 from eth_abi import encode
 from flask import jsonify
 
-ARC_RPC = os.environ.get("QUICKNODE_ARC_HTTP", "https://rpc.testnet.arc.network")
-ARC_RPC_FALLBACK = os.environ.get("ARC_RPC_FALLBACK", "https://rpc.testnet.arc.network")
-w3 = Web3(Web3.HTTPProvider(ARC_RPC))
-w3_fallback = Web3(Web3.HTTPProvider(ARC_RPC_FALLBACK))
+# Production must set BOUNTYNET_EVM_RPC. Legacy env names remain for existing deployments.
+_LOCAL_EVM = "http://127.0.0.1:8545"
+PRIMARY_RPC = os.environ.get(
+    "BOUNTYNET_EVM_RPC",
+    os.environ.get("QUICKNODE_ARC_HTTP", _LOCAL_EVM),
+)
+FALLBACK_RPC = os.environ.get(
+    "BOUNTYNET_EVM_RPC_FALLBACK",
+    os.environ.get("ARC_RPC_FALLBACK", _LOCAL_EVM),
+)
+
+# EIP-3666/CCIP parent label for agent hostnames (`agent-{id}.<parent>`).
+CCIP_PARENT = os.environ.get("BOUNTYNET_CCIP_PARENT", "bountynet.eth")
+
+
+def agent_fqdn(agent_id: int | str) -> str:
+    return f"agent-{agent_id}.{CCIP_PARENT}"
+w3 = Web3(Web3.HTTPProvider(PRIMARY_RPC))
+w3_fallback = Web3(Web3.HTTPProvider(FALLBACK_RPC))
 
 ESCROW = os.environ.get("BOUNTY_ESCROW", "")
 IDENTITY = os.environ.get("IDENTITY_REGISTRY", "")
@@ -64,7 +79,7 @@ def send_tx(to: str, data: str, key: str = ORACLE_KEY) -> dict:
         "nonce": nonce,
         "gasPrice": w3.eth.gas_price,
         "gas": 300000,
-        "chainId": 5042002,
+        "chainId": int(os.environ.get("BOUNTYNET_CHAIN_ID", "5042002")),
     }
     signed = acct.sign_transaction(tx)
     tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
@@ -113,8 +128,8 @@ def get_health():
 
         return jsonify({
             "status": "ok",
-            "arc_block": block,
-            "arc_rpc_source": source,
+            "chain_block": block,
+            "evm_rpc_source": source,
             "registered_agents": agents,
             "escrow": ESCROW,
             "identity": IDENTITY,

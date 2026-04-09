@@ -69,7 +69,7 @@
         const hash = document.createElement("code");
         hash.textContent = b.context_hash || "";
         const amt = document.createElement("span");
-        amt.textContent = (b.amount_eurc != null) ? `${b.amount_eurc} EURC` : "";
+        amt.textContent = b.funding_label || "";
         li.appendChild(badge);
         li.appendChild(hash);
         if (amt.textContent) li.appendChild(amt);

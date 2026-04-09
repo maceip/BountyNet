@@ -1,14 +1,14 @@
-"""Deploy BountyNet to Arc Testnet.
+"""Deploy BountyNet contracts to the configured network.
 
 Usage:
-  mox run deploy --network arc-testnet-public
+  mox run deploy --network <your-network>
 """
 import boa
 import os
 import json
 from eth_account import Account
 
-EURC_ARC = "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a"
+COLLATERAL_ERC20 = "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a"
 
 
 def deploy():
@@ -21,7 +21,7 @@ def deploy():
 
     print(f"Deployer:  {deployer.address}")
     print(f"Treasury:  {treasury}")
-    print(f"EURC:      {EURC_ARC}")
+    print(f"Collateral: {COLLATERAL_ERC20}")
 
     boa.env.add_account(deployer)
 
@@ -38,7 +38,7 @@ def deploy():
         "src/BountyEscrow.vy",
         identity.address,
         validation.address,
-        EURC_ARC,
+        COLLATERAL_ERC20,
         treasury,
         7000,
         3000,
@@ -46,13 +46,13 @@ def deploy():
     print(f"  BountyEscrow: {escrow.address}")
 
     addresses = {
-        "network": "arc-testnet",
-        "chain_id": 5042002,
+        "network": os.environ.get("BOUNTYNET_DEPLOY_LABEL", "evm"),
+        "chain_id": int(os.environ.get("BOUNTYNET_CHAIN_ID", "5042002")),
         "deployer": deployer.address,
         "identity_registry": identity.address,
         "validation_registry": validation.address,
         "bounty_escrow": escrow.address,
-        "eurc": EURC_ARC,
+        "eurc": COLLATERAL_ERC20,
         "treasury": treasury,
     }
 

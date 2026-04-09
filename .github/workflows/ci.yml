@@ -1,4 +1,4 @@
-# Repo gate: gateway, be-cli, web, contracts. (Android CI deferred.)
+# Repo gate: gateway, clients/cli, clients/web, contracts. (Android CI deferred.)
 name: CI
 on:
   push:
@@ -24,8 +24,8 @@ jobs:
         env:
           PYTHONPATH: .
 
-  be-cli:
-    name: be-cli (Rust)
+  cli:
+    name: clients/cli (Rust be)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,13 +33,13 @@ jobs:
         with:
           components: rustfmt, clippy
       - name: rustfmt
-        run: cargo fmt --manifest-path be-cli/Cargo.toml --all -- --check
+        run: cargo fmt --manifest-path clients/cli/Cargo.toml --all -- --check
       - name: clippy
-        run: cargo clippy --manifest-path be-cli/Cargo.toml --all-targets -- -D warnings
+        run: cargo clippy --manifest-path clients/cli/Cargo.toml --all-targets -- -D warnings
       - name: test
-        run: cargo test --manifest-path be-cli/Cargo.toml
+        run: cargo test --manifest-path clients/cli/Cargo.toml
       - name: release build
-        run: cargo build --release --manifest-path be-cli/Cargo.toml
+        run: cargo build --release --manifest-path clients/cli/Cargo.toml
 
   web:
     name: Web (Vite build)
@@ -50,11 +50,11 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: clients/web/package-lock.json
       - run: npm ci
-        working-directory: web
+        working-directory: clients/web
       - run: npm run build
-        working-directory: web
+        working-directory: clients/web
 
   contracts:
     name: Contracts (moccasin)

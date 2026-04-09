@@ -1,20 +1,11 @@
 """
-ENS CCIP-Read route — resolves *.maceip.eth via off-chain lookup.
+CCIP-Read gateway route — off-chain resolution for `*.<BOUNTYNET_CCIP_PARENT>`.
 
 Supports:
-  addr(bytes32 node)                  — EIP-137 default address (Arc)
+  addr(bytes32 node)                   — EIP-137 default address (primary registry chain)
   addr(bytes32 node, uint256 coinType) — ENSIP-25 chain-specific address
 
-Chain mapping (coinType → chain):
-  60     = Ethereum mainnet (default)
-  2147488042 = Arc Testnet (0x80000000 + 5042002)
-  2147483762 = Flare Coston2 (0x80000000 + 114)
-  0x80000000 + chainId = EVM chain per ENSIP-11
-
-So:
-  agent-1.maceip.eth           → Arc wallet (default)
-  agent-1.maceip.eth coinType=2147483762 → Coston2 wallet
-  agent-1.maceip.eth coinType=2147488042 → Arc wallet
+coinType uses ENSIP-11: 0x80000000 + chainId for EVM networks.
 
 GET /ens/{sender}/{data}.json  — EIP-3668 gateway endpoint
 GET /ens/lookup/{subdomain}    — direct lookup (debug)
@@ -26,12 +17,18 @@ from eth_account import Account
 from eth_account.messages import encode_defunct
 from eth_utils import keccak
 from eth_abi import encode, decode
-from gateway.chain import get_agent_wallet, get_next_agent_id, ESCROW, IDENTITY
+from gateway.chain import (
+    get_agent_wallet,
+    get_next_agent_id,
+    ESCROW,
+    IDENTITY,
+    CCIP_PARENT,
+)
 
 ens_bp = Blueprint("ens", __name__)
 
 GATEWAY_KEY = os.environ.get("RELAYER_PRIVATE_KEY", "")
-PARENT = "maceip.eth"
+PARENT = CCIP_PARENT
 TTL = 300
 
 # Static name → address mapping
@@ -46,28 +43,28 @@ STATIC_NAMES = {
     "oracle": "0x75528655c2337848C16E6AEB3B98eedDa693F31d",
 }
 
-# Known chain addresses for specific agents / infra
 # coinType = 0x80000000 + chainId (ENSIP-11)
-COIN_ARC = 0x80000000 + 5042002       # Arc Testnet
-COIN_COSTON2 = 0x80000000 + 114       # Flare Coston2
-COIN_SEPOLIA = 0x80000000 + 11155111  # Sepolia
-COIN_ETH = 60                          # Ethereum mainnet
+PRIMARY_COIN_TYPE = 0x80000000 + 5042002   # default IdentityRegistry deployment chain
+AUX_COIN_TYPE = 0x80000000 + 114          # optional auxiliary proof-store chain
+COIN_SEPOLIA = 0x80000000 + 11155111
+COIN_ETH = 60
 
-# Flare/Coston2 addresses (oracle TEE, proof store)
-COSTON2_ADDRESSES = {
+AUX_CHAIN_STATIC = {
     "oracle": "0x75528655c2337848C16E6AEB3B98eedDa693F31d",
-    "proofs": os.environ.get("COSTON2_PROOF_STORE", "0xcb2D6156b37015aF6d743c8C0adfD21175e0D544"),
+    "proofs": os.environ.get(
+        "ORACLE_AUX_PROOF_STORE",
+        os.environ.get("COSTON2_PROOF_STORE", ""),
+    ),
 }
 
 
-def resolve(subdomain: str, coin_type: int = COIN_ARC) -> str | None:
+def resolve(subdomain: str, coin_type: int = PRIMARY_COIN_TYPE) -> str | None:
     """Resolve a subdomain to an address, optionally for a specific chain."""
 
     # Static names resolve the same on all chains (infrastructure addresses)
     if subdomain in STATIC_NAMES and STATIC_NAMES[subdomain]:
-        # But some have chain-specific overrides
-        if coin_type == COIN_COSTON2 and subdomain in COSTON2_ADDRESSES:
-            return COSTON2_ADDRESSES[subdomain]
+        if coin_type == AUX_COIN_TYPE and subdomain in AUX_CHAIN_STATIC and AUX_CHAIN_STATIC[subdomain]:
+            return AUX_CHAIN_STATIC[subdomain]
         return STATIC_NAMES[subdomain]
 
     # Agent resolution: agent-N, solver-N, or bare number
@@ -82,15 +79,12 @@ def resolve(subdomain: str, coin_type: int = COIN_ARC) -> str | None:
 
     if agent_id is not None:
         try:
-            # Default: read from Arc IdentityRegistry
             wallet = get_agent_wallet(agent_id)
             if wallet == "0x0000000000000000000000000000000000000000":
                 return None
 
-            # For Coston2: return the same wallet (agents use same key across chains)
-            # In future: could read from a Coston2 registry
-            if coin_type == COIN_COSTON2:
-                return wallet  # Same EOA works on all EVM chains
+            if coin_type == AUX_COIN_TYPE:
+                return wallet
 
             return wallet
         except Exception:
@@ -124,7 +118,7 @@ def ccip_read(sender: str, data: str):
         subdomain = _node_to_subdomain(node)
         address = resolve(subdomain, coin_type) if subdomain else None
 
-        if address and coin_type in (COIN_ARC, COIN_COSTON2, COIN_SEPOLIA, COIN_ETH, 60):
+        if address and coin_type in (PRIMARY_COIN_TYPE, AUX_COIN_TYPE, COIN_SEPOLIA, COIN_ETH, 60):
             # EVM address — encode as 20 bytes
             addr_bytes = bytes.fromhex(address[2:] if address.startswith("0x") else address)
             result = encode(["bytes"], [addr_bytes])
@@ -164,7 +158,7 @@ def ccip_read(sender: str, data: str):
 
 
 def _resolve_text(subdomain: str | None, key: str) -> str | None:
-    """Resolve ENS text records for agents."""
+    """Resolve off-chain text records for agents."""
     if not subdomain:
         return None
 
@@ -176,12 +170,11 @@ def _resolve_text(subdomain: str | None, key: str) -> str | None:
     if key == "avatar":
         return "https://bountynet.stare.network/logo.jpg"
 
-    # Chain-specific addresses as text records (ENSIP-25 alt format)
-    if key == "network.arc":
-        addr = resolve(subdomain, COIN_ARC)
+    if key in ("network.primary", "network.bountynet.primary"):
+        addr = resolve(subdomain, PRIMARY_COIN_TYPE)
         return addr or ""
-    if key == "network.flare" or key == "network.coston2":
-        addr = resolve(subdomain, COIN_COSTON2)
+    if key in ("network.auxiliary", "network.bountynet.aux"):
+        addr = resolve(subdomain, AUX_COIN_TYPE)
         return addr or ""
 
     # Oracle identity
@@ -209,7 +202,7 @@ def _node_to_subdomain(node: bytes) -> str | None:
     Since we can't reverse namehash, we check known agents + static names.
     """
     # Check static names
-    for name in list(STATIC_NAMES.keys()) + list(COSTON2_ADDRESSES.keys()):
+    for name in list(STATIC_NAMES.keys()) + list(AUX_CHAIN_STATIC.keys()):
         if _namehash(f"{name}.{PARENT}") == node:
             return name
 
@@ -240,22 +233,22 @@ def _namehash(name: str) -> bytes:
 
 @ens_bp.route("/ens/lookup/<subdomain>")
 def lookup(subdomain: str):
-    """Direct lookup — returns addresses on all known chains."""
-    arc_addr = resolve(subdomain, COIN_ARC)
-    coston2_addr = resolve(subdomain, COIN_COSTON2)
+    """Direct lookup — addresses on primary and auxiliary coin types."""
+    primary_addr = resolve(subdomain, PRIMARY_COIN_TYPE)
+    aux_addr = resolve(subdomain, AUX_COIN_TYPE)
 
-    if not arc_addr and not coston2_addr:
+    if not primary_addr and not aux_addr:
         return jsonify({"error": "not found"}), 404
 
     return jsonify({
         "name": f"{subdomain}.{PARENT}",
         "addresses": {
-            "arc_testnet": arc_addr,
-            "coston2": coston2_addr,
-            "default": arc_addr,
+            "primary": primary_addr,
+            "auxiliary": aux_addr,
+            "default": primary_addr,
         },
         "coin_types": {
-            str(COIN_ARC): arc_addr,
-            str(COIN_COSTON2): coston2_addr,
+            str(PRIMARY_COIN_TYPE): primary_addr,
+            str(AUX_COIN_TYPE): aux_addr,
         },
     })

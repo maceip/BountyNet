@@ -149,7 +149,7 @@ def test_only_validator_can_respond(validation, oracle, solver, identity):
 # ── Escrow Tests ────────────────────────────────────────────────
 
 FIVE_EURC = 5 * 10**6
-CONTEXT_HASH = keccak(b"maceip/app:main:abc123:build:error")
+CONTEXT_HASH = keccak(b"example/app:main:abc123:build:error")
 
 
 def test_create_bounty(escrow, eurc, funded_staker):

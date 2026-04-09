@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bountynet.stare.network/schemas/resource-claim-create-response.schema.json",
+  "title": "BountyNet Resource Claim Create Response",
+  "description": "Canonical response payload for POST /resources/claims.",
+  "type": "object",
+  "properties": {
+    "status": { "type": "string" },
+    "resource_claim_status": { "type": "string" },
+    "resource_type": { "type": "integer" },
+    "provider": { "type": "string" },
+    "spec": { "type": "string" },
+    "cores": { "type": "integer" },
+    "memory_gb": { "type": "integer" },
+    "token_budget": { "type": "integer" },
+    "eurc_equivalent": { "type": "number" },
+    "error": { "type": "string" }
+  },
+  "required": [
+    "status",
+    "resource_claim_status",
+    "resource_type",
+    "provider",
+    "spec",
+    "token_budget",
+    "eurc_equivalent"
+  ],
+  "additionalProperties": true
+}

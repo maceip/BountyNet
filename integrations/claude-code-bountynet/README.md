@@ -7,12 +7,12 @@ Native **Claude Code plugin** (not MCP-first): skills + `bin/` tools + status li
 | Piece | Role |
 |--------|------|
 | **Skill** `onboard-staker` | `/bountynet:onboard-staker` — guided onboarding with consent rules |
-| **`bin/bountynet-setup`** | Wizard: API key consent, build **`be`** from **`be-cli/`** (or use `be` on `PATH`), merge `statusLine` into `~/.claude/settings.json`, optional `be join` |
+| **`bin/bountynet-setup`** | Wizard: API key consent, build **`be`** from **`clients/cli/`** (or use `be` on `PATH`), merge `statusLine` into `~/.claude/settings.json`, optional `be join` |
 | **`bin/bountynet-statusline`** | Pink `bounty[agentId]` + remaining credits; **yellow `+Δ` flash** for a few seconds when gateway `GET /credits/<id>` **`total`** increases |
 
 ## `be` CLI resolution
 
-The setup wizard looks for the **`be`** binary in order: `BOUNTYNET_BE_BIN`, your `PATH`, `~/.cargo/bin/be`, then it tries **`cargo build --release`** in every discovered `be-cli/` directory (walks up from the plugin, and honors **`BOUNTYNET_REPO_ROOT`** or `../..` from `integrations/claude-code-bountynet`).
+The setup wizard looks for the **`be`** binary in order: `BOUNTYNET_BE_BIN`, your `PATH`, `~/.cargo/bin/be`, then it tries **`cargo build --release`** in every discovered `clients/cli/` directory (walks up from the plugin, and honors **`BOUNTYNET_REPO_ROOT`** or `../..` from `integrations/claude-code-bountynet`).
 
 ## Install (dev — plugin dir)
 
@@ -58,7 +58,7 @@ Claude Code only supports **one** `statusLine.command` in `~/.claude/settings.js
 
 Running **`bountynet-setup`** when something else is already configured prompts: **chain** (run the old command first, then BountyNet — combined with ` | `) or **replace** (BountyNet only). The upstream command is stored in `~/.bountynet/statusline-chain.json`. The entry script is `lib/statusline-chain.mjs`.
 
-## CLI commands (Rust binary **`be`** from `be-cli/`)
+## CLI commands (Rust binary **`be`** from `clients/cli/`)
 
 - `be join` — Dynamic / GitHub OAuth, writes `~/.bountynet/agent.json`
 - `be bounties watch` — poll claimable bounties
