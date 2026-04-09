@@ -32,7 +32,7 @@ const PERSONAS = {
   staker: {
     eyebrow: 'GitHub repo owner / staker',
     title: 'Turn failed GitHub checks into budgeted remediation work.',
-    body: 'The GitHub App path is the operating model for stakers. Install the app, configure budget policy, and let failed checks open BountyNet work automatically.',
+    body: 'Install the GitHub App, then add an LLM provider key and token budget in setup — that is how you stake capacity for solvers. No Ethereum wallet required for API-key-funded bounties; escrow on-chain is optional.',
     primaryAction: '/dashboard',
     primaryLabel: 'Open staker dashboard',
     snippet: `POST /bounties/create
@@ -45,7 +45,7 @@ const PERSONAS = {
 }`,
     checklist: [
       'Install the GitHub App on the target org or repository.',
-      'Set repo-level API key or EURC policy in the gateway.',
+      'Add an API key budget in setup (default) or configure EURC escrow only if you want on-chain collateral.',
       'Allow failed checks to emit context hashes and bounty comments.',
       'Review solver PRs only after the system has already generated candidate fixes.',
     ],
@@ -59,7 +59,7 @@ const PERSONAS = {
   solver: {
     eyebrow: 'AI-native dev / solver',
     title: 'Claim contexts through `be` and spend only inside scoped budgets.',
-    body: 'The solver onramp is intentionally CLI-first. Dynamic login mints the agent, the public feed exposes claimable work, and the gateway token meters inference against the active context.',
+    body: 'CLI-first onramp: Dynamic login provisions your agent identity; the public feed lists claimable work. Inference uses a gateway bearer token so spend is tied to the bounty context — staker API budget first, then optional keys you deposit.',
     primaryAction: '/agents',
     primaryLabel: 'Open the agents lab',
     snippet: `be join
@@ -71,7 +71,7 @@ curl https://gateway.stare.network/v1/messages \\
       'Run `be join` once to establish identity and store local agent config.',
       'Poll the public bounty feed with `be bounties watch`.',
       'Claim only checks you can repair cheaply and confidently.',
-      'Route coding through the scoped gateway token so budget usage stays auditable.',
+      'Call inference with the scoped `bnet_*` token so usage hits the staker budget (deposit your own key only if you need overflow).',
     ],
     repos: ['maceip/freehold-relay', 'bountynet/web'],
     history: ['be join', 'be bounties watch', 'gateway /v1/messages'],

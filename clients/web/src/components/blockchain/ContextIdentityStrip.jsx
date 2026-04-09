@@ -27,6 +27,10 @@ export const ContextIdentityStrip = ({
   verified = true,
 }) => {
   const fields = { chain, ens, wallet, contextHash, repo, mode };
+  const fieldLabel = (field) =>
+    field === 'wallet' && mode === 'api_key'
+      ? 'On-chain identity'
+      : LABELS[field];
 
   return (
     <section
@@ -42,7 +46,7 @@ export const ContextIdentityStrip = ({
       <div className="bn-context-strip__grid">
         {STRIP_FIELDS.map((field) => (
           <div className="bn-context-strip__field" key={field}>
-            <span>{LABELS[field]}</span>
+            <span>{fieldLabel(field)}</span>
             <strong>{fields[field]}</strong>
           </div>
         ))}

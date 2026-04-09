@@ -12,6 +12,8 @@ export const StakeUnstakeActionBar = ({
   lockedAmount = '5.00',
   availableAmount = '12.40',
   statusLabel = 'Escrow live',
+  committedLabel = 'Escrow',
+  poolLabel = 'Wallet',
 }) => {
   const [mode, setMode] = useState('stake');
 
@@ -44,10 +46,10 @@ export const StakeUnstakeActionBar = ({
         <div className="bn-stake-bar__chamber" data-mode={mode}>
           <div className="bn-stake-bar__lane">
             <div className="bn-stake-bar__locked-zone">
-              <span>Escrow</span>
+              <span>{committedLabel}</span>
             </div>
             <div className="bn-stake-bar__free-zone">
-              <span>Wallet</span>
+              <span>{poolLabel}</span>
             </div>
             <div className="bn-stake-bar__capsule">
               <span>{mode === 'stake' ? 'Locking' : 'Unlocking'}</span>

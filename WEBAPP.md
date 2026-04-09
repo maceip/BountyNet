@@ -17,7 +17,7 @@ The canonical buyer path is the web setup flow:
 5. Add and test API key budget
 6. Activate + scan for failing CI
 
-The rest of the app is an operator/inspection surface around that path.
+That path stakes **API key + token budget** in the gateway; participants do not need to self-custody crypto for inference-funded bounties. The rest of the app is an operator/inspection surface around that path.
 
 ## Auth
 

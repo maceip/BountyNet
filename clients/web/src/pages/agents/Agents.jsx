@@ -261,6 +261,8 @@ const Agents = () => {
                 lockedAmount={`${estimatedSpend}`}
                 availableAmount={`${Math.max(20000 - estimatedSpend, 0)}`}
                 statusLabel="Benchmark budget control"
+                committedLabel="Allocated"
+                poolLabel="Budget pool"
               />
             </Suspense>
           </Tile>

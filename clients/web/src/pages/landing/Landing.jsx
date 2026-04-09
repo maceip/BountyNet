@@ -95,10 +95,10 @@ const Landing = () => {
             work.
           </h1>
           <p className="bn-hero__copy">
-            The live implementation in this repository combines three audited
-            contract surfaces, one gateway edge, and a deliberately minimal CLI.
-            This site reframes that system as a Carbon-native enterprise control
-            plane.
+            Repo owners fund repairs with an API key and token budget in web
+            setup; solvers claim work and run inference through the gateway with a
+            scoped token. On-chain escrow is optional for collateral and payout —
+            not required to participate in API-key-funded bounties.
           </p>
           <div className="bn-hero__actions">
             <Button as={NavLink} to="/setup">
@@ -298,9 +298,11 @@ const Landing = () => {
             <p className="bn-section-label">Recommended next paths</p>
             <h2>Persona-specific onboarding</h2>
             <p>
-              Stakers arrive through the GitHub App and budget configuration.
-              Solvers arrive through Dynamic login, `be`, and the inference
-              proxy. Both are now mapped to dedicated setup and solve flows.
+              Stakers arrive through the GitHub App and API key / budget setup
+              (no self-custody wallet needed for that path). Solvers use Dynamic
+              login plus <code>be</code> for identity and the
+              gateway inference proxy for metered spend. Both map to the Setup and
+              Solve flows.
             </p>
             <div className="bn-inline-actions">
               <Link as={NavLink} to="/setup">
