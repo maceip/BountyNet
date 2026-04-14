@@ -14,6 +14,7 @@ import logging
 import os
 import time
 import json
+import uuid
 import requests
 from flask import Blueprint, request, jsonify
 from eth_utils import keccak
@@ -34,6 +35,10 @@ from gateway import store
 
 github_bp = Blueprint("github", __name__)
 _log = logging.getLogger(__name__)
+
+
+def _make_market_id(prefix: str) -> str:
+    return f"{prefix}_{uuid.uuid4().hex[:12]}"
 
 
 # ── On-chain helpers ───────────────────────────────────────────
@@ -123,6 +128,23 @@ def handle_installation(payload):
             api_key="",
             budget_tokens=100_000,
             budget_used=0,
+        )
+        current = store.market_repository_account_get_by_repo(repo)
+        store.market_repository_account_upsert(
+            account_id=current["id"] if current else _make_market_id("ra"),
+            repo_full_name=repo,
+            installation_id=installation_id,
+            owner_account_id=login,
+            enabled_job_classes=["ci_repair", "dependency_update", "test_repair"],
+            review_policy="maintainer_review",
+            merge_policy="manual_merge",
+            budget_priority=["platform_credits"],
+            monthly_spend_cap=0,
+            per_job_spend_cap=0,
+            allowed_agent_pools=[],
+            api_key_provider="",
+            has_api_key_pool=False,
+            status="active",
         )
         if token:
             yml_results.append({"repo": repo, **gh_ensure_bountynet_yml(token, repo)})
@@ -347,14 +369,52 @@ def setup():
             store.install_repos_set(installation_id, repos)
 
     owner = body.get("owner", "")
+    enabled_job_classes = body.get("enabled_job_classes") or [
+        "ci_repair",
+        "dependency_update",
+        "test_repair",
+    ]
+    required_checks = body.get("required_checks") or []
+    blocked_paths = body.get("blocked_paths") or []
+    review_policy = body.get("review_policy") or "maintainer_review"
+    merge_policy = body.get("merge_policy") or "manual_merge"
+    budget_priority = body.get("budget_priority") or (
+        ["api_key_pool", "platform_credits"] if api_key else ["platform_credits"]
+    )
+    monthly_spend_cap = int(body.get("monthly_spend_cap") or budget_tokens)
+    per_job_spend_cap = int(body.get("per_job_spend_cap") or budget_tokens)
+    allowed_agent_pools = body.get("allowed_agent_pools") or []
+    api_key_provider = body.get("api_key_provider") or (
+        "anthropic" if api_key.startswith("sk-ant") else ("openai" if api_key else "")
+    )
     for repo in repos:
         store.installation_merge_setup(repo, installation_id, owner, api_key, budget_tokens)
+        current = store.market_repository_account_get_by_repo(repo)
+        store.market_repository_account_upsert(
+            account_id=current["id"] if current else _make_market_id("ra"),
+            repo_full_name=repo,
+            installation_id=installation_id,
+            owner_account_id=owner,
+            enabled_job_classes=enabled_job_classes,
+            blocked_paths=blocked_paths,
+            required_checks=required_checks,
+            review_policy=review_policy,
+            merge_policy=merge_policy,
+            budget_priority=budget_priority,
+            monthly_spend_cap=monthly_spend_cap,
+            per_job_spend_cap=per_job_spend_cap,
+            allowed_agent_pools=allowed_agent_pools,
+            api_key_provider=api_key_provider,
+            has_api_key_pool=bool(api_key),
+            status="active",
+        )
 
     return jsonify({
         "status": "configured",
         "repos": repos,
         "budget_tokens": budget_tokens,
         "has_api_key": bool(api_key),
+        "enabled_job_classes": enabled_job_classes,
     })
 
 
@@ -476,6 +536,7 @@ def scan_repos(installation_id):
             "failures": [],
             "insights": [],
             "bounties_created": [],
+            "jobs_created": [],
             "ci_healthy": False,
         }
 
@@ -510,6 +571,41 @@ def scan_repos(installation_id):
                         "check": failure["name"],
                         "sha": failure["head_sha"],
                     })
+                    account = store.market_repository_account_get_by_repo(repo)
+                    if account:
+                        source_event_key = f"github_actions_failure:{repo}:{run['id']}"
+                        existing_job = store.market_job_get_by_source_event_key(source_event_key)
+                        job_id = existing_job["id"] if existing_job else _make_market_id("job")
+                        budget_ceiling = int(account.get("per_job_spend_cap") or 0)
+                        store.market_job_upsert(
+                            job_id=job_id,
+                            repository_account_id=account["id"],
+                            repo_full_name=repo,
+                            job_class="ci_repair",
+                            trigger_source="github_actions_failure",
+                            title=f"Repair failing check: {failure['name']}",
+                            summary=f"Recent failed run on {failure['branch'] or 'default branch'} at {failure['head_sha']}.",
+                            risk_level="medium",
+                            acceptance_policy="maintainer_accept_or_merge",
+                            budget_ceiling=budget_ceiling,
+                            status="open",
+                            candidate_agents=[],
+                            source_event_key=source_event_key,
+                            metadata={
+                                "run_id": run["id"],
+                                "head_sha": failure["head_sha"],
+                                "branch": failure["branch"],
+                                "html_url": failure["url"],
+                            },
+                            expires_at=time.time() + 7 * 24 * 3600,
+                        )
+                        repo_result["jobs_created"].append(
+                            {
+                                "job_id": job_id,
+                                "job_class": "ci_repair",
+                                "title": f"Repair failing check: {failure['name']}",
+                            }
+                        )
 
             # Check if there are recent successes too
             ok_resp = requests.get(
@@ -553,6 +649,7 @@ def scan_repos(installation_id):
     total_failures = sum(len(r["failures"]) for r in results)
     total_bounties = sum(len(r["bounties_created"]) for r in results)
     total_insights = sum(len(r["insights"]) for r in results)
+    total_jobs = sum(len(r["jobs_created"]) for r in results)
 
     emit("scan", f"Scanned {len(results)} repos: {total_failures} failures, {total_insights} insights",
          data={"repos": len(results), "failures": total_failures, "insights": total_insights})
@@ -563,6 +660,7 @@ def scan_repos(installation_id):
         "repos_scanned": len(results),
         "total_failures": total_failures,
         "total_bounties_created": total_bounties,
+        "total_jobs_created": total_jobs,
         "total_insights": total_insights,
         "results": results,
     })

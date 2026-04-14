@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Agent Market</title>
+  <style>
+    :root { --bg:#f4efe8; --card:#fffaf4; --ink:#201d19; --muted:#6f665c; --accent:#9d4f30; --line:#d9cbbb; }
+    body { margin:0; font-family: Georgia, serif; background:linear-gradient(160deg,#f4efe8,#e9dfd2); color:var(--ink); }
+    main { max-width:1080px; margin:0 auto; padding:24px 20px 60px; }
+    .hero { margin-bottom:18px; }
+    .grid { display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:16px; box-shadow:0 14px 34px rgba(55,41,31,.08); }
+    h1,h2 { margin:0 0 10px; }
+    p,label { color:var(--muted); }
+    label { display:block; font-size:13px; margin:8px 0 4px; }
+    input, select, button { width:100%; box-sizing:border-box; border-radius:12px; border:1px solid var(--line); padding:10px 12px; font:inherit; }
+    button { background:var(--accent); color:#fff8f2; border:none; cursor:pointer; margin-top:10px; }
+    .secondary { background:#efe4d7; color:var(--ink); border:1px solid var(--line); }
+    .inline { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    pre { white-space:pre-wrap; word-break:break-word; background:#f7f1e8; border:1px solid var(--line); border-radius:12px; padding:12px; max-height:280px; overflow:auto; }
+    .jobs > div { border-top:1px solid var(--line); padding-top:12px; margin-top:12px; }
+    .pill { display:inline-block; font-size:12px; padding:3px 8px; border-radius:999px; background:#efe4d7; margin-right:6px; }
+  </style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <h1>Agent Market</h1>
+    <p>An agent marketplace for code improvements.</p>
+  </section>
+  <section class="grid">
+    <div class="card">
+      <h2>Seed Fleet</h2>
+      <p>Load managed generic and specialist agents.</p>
+      <button id="seed">Seed Managed Fleet</button>
+      <pre id="seed-out">idle</pre>
+    </div>
+    <div class="card">
+      <h2>Register Repo</h2>
+      <label>Repo Full Name</label><input id="repo-name" value="local/demo-repo">
+      <label>Local Path</label><input id="repo-path" placeholder="C:\path\to\repo">
+      <div class="inline">
+        <div><label>Installation</label><input id="repo-installation" value="1"></div>
+        <div><label>Preset</label><select id="repo-preset"><option>typescript_ci_repair</option><option>typescript_security_audit</option><option>rust_security_patch</option><option>rust_porting</option></select></div>
+      </div>
+      <button id="repo-save">Save Repo</button>
+      <button class="secondary" id="repo-preset-apply">Apply Preset</button>
+      <pre id="repo-out">idle</pre>
+    </div>
+    <div class="card">
+      <h2>Create Job</h2>
+      <label>Repo Full Name</label><input id="job-repo" value="local/demo-repo">
+      <div class="inline">
+        <div><label>Job Class</label><select id="job-class"><option>ci_repair</option><option>dependency_update</option><option>security_update</option><option>config_remediation</option><option>type_repair</option></select></div>
+        <div><label>Risk</label><select id="job-risk"><option>low</option><option selected>medium</option><option>high</option></select></div>
+      </div>
+      <label>Title</label><input id="job-title" value="Repair repository maintenance drift">
+      <div class="inline">
+        <div><label>Pod</label><select id="job-pod"><option>typescript</option><option>rust</option><option>github_actions</option></select></div>
+        <div><label>Lane</label><input id="job-lane" value="migration"></div>
+      </div>
+      <div class="inline">
+        <div><label>Package/Crate</label><input id="job-package" placeholder="typescript or serde"></div>
+        <div><label>Target Version</label><input id="job-version" placeholder="^5.6.3"></div>
+      </div>
+      <button id="job-create">Create Job</button>
+      <button class="secondary" id="jobs-refresh">Refresh Jobs</button>
+      <pre id="job-out">idle</pre>
+    </div>
+  </section>
+  <section class="card jobs" style="margin-top:16px;">
+    <h2>Jobs</h2>
+    <div id="jobs-list"></div>
+  </section>
+</main>
+<script>
+const show = (id, value) => document.getElementById(id).textContent = JSON.stringify(value, null, 2);
+async function post(url, body) {
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+  return await r.json();
+}
+async function get(url) { const r = await fetch(url); return await r.json(); }
+async function seedFleet() { show("seed-out", await post("/market/agents/seed", {})); await loadJobs(); }
+async function saveRepo() {
+  show("repo-out", await post("/market/repositories/setup", {
+    installation_id: Number(document.getElementById("repo-installation").value || "1"),
+    repos: [document.getElementById("repo-name").value],
+    local_path: document.getElementById("repo-path").value,
+    owner: "local",
+    budget_priority: ["platform_credits", "api_key_pool"],
+    has_api_key_pool: true
+  }));
+}
+async function applyPreset() {
+  const repo = encodeURIComponent(document.getElementById("repo-name").value);
+  show("repo-out", await post(`/market/repositories/${repo}/apply-preset`, { preset: document.getElementById("repo-preset").value }));
+}
+async function createJob() {
+  const pkg = document.getElementById("job-package").value.trim();
+  const version = document.getElementById("job-version").value.trim();
+  const metadata = { pod: document.getElementById("job-pod").value, lane: document.getElementById("job-lane").value, required_trust_tier: "standard" };
+  if (pkg) { metadata.package = pkg; metadata.crate = pkg; }
+  if (version) metadata.target_version = version;
+  show("job-out", await post("/market/jobs", {
+    repo_full_name: document.getElementById("job-repo").value,
+    job_class: document.getElementById("job-class").value,
+    title: document.getElementById("job-title").value,
+    risk_level: document.getElementById("job-risk").value,
+    metadata
+  }));
+  await loadJobs();
+}
+async function runAutopilot(jobId) {
+  alert(JSON.stringify(await post(`/market/jobs/${jobId}/autopilot`, {}), null, 2));
+  await loadJobs();
+}
+async function loadJobs() {
+  const payload = await get("/market/jobs?limit=20");
+  const list = document.getElementById("jobs-list");
+  const jobs = payload.jobs || [];
+  if (!jobs.length) { list.innerHTML = "<p>No jobs yet.</p>"; return; }
+  list.innerHTML = "";
+  for (const job of jobs) {
+    const div = document.createElement("div");
+    div.innerHTML = `<strong>${job.title}</strong> <span class="pill">${job.job_class}</span> <span class="pill">${job.status}</span><p>${job.repo_full_name}</p>`;
+    const button = document.createElement("button");
+    button.textContent = "Autopilot";
+    button.onclick = () => runAutopilot(job.id);
+    div.appendChild(button);
+    list.appendChild(div);
+  }
+}
+document.getElementById("seed").onclick = seedFleet;
+document.getElementById("repo-save").onclick = saveRepo;
+document.getElementById("repo-preset-apply").onclick = applyPreset;
+document.getElementById("job-create").onclick = createJob;
+document.getElementById("jobs-refresh").onclick = loadJobs;
+loadJobs();
+</script>
+</body>
+</html>
