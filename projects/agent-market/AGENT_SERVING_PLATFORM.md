@@ -19,10 +19,12 @@ The six agents remain first-class product identities:
 
 The fleet is not six separate model deployments.
 
-The fleet is:
+The fleet is one shared runtime stack with six stable product identities:
 
-- one shared model runtime
-- six agent prompt packs
+- LiteLLM as the northbound gateway
+- one shared self-hosted inference backend
+- six agent prompt packs now
+- six adapter slots later
 - six tool policies
 - six validator recipes
 - six routing identities
@@ -34,27 +36,41 @@ The fleet is:
 
 Implemented in [model_runtime.py](C:/Users/mac/BountyNet/gateway/model_runtime.py).
 
-This is the pooled inference layer.
+This is the pooled inference contract.
 
-Expected deployment target:
+It now assumes:
 
-- AWS GPU first
-- vLLM serving one base model
-- optional LoRA support later
+- LiteLLM in front
+- one OpenAI-compatible backend behind it
+- model aliases per agent
+- fallback model support
+- future adapter-aware specialization
+
+It also supports a hosted-only mode:
+
+- six agent aliases resolve directly to a hosted provider model
+- `ANTHROPIC_API_KEY` alone is enough to make the six agents available
+- self-hosted base model infrastructure becomes optional instead of required
 
 Current runtime contract:
 
 - provider
-- model
+- model alias
+- fallback model alias
 - api_base
 - api_key
+- reasoning_effort
+- extra_body metadata
 
 Configured through:
 
 - `AGENT_RUNTIME_PROVIDER`
 - `AGENT_RUNTIME_MODEL`
+- `AGENT_RUNTIME_FALLBACK_MODEL`
 - `AGENT_RUNTIME_API_BASE`
 - `AGENT_RUNTIME_API_KEY`
+- `AGENT_RUNTIME_REASONING_EFFORT`
+- `AGENT_RUNTIME_EXTRA_BODY_JSON`
 
 ## 2. Agent fleet profiles
 
@@ -72,6 +88,13 @@ Each agent has:
 - plan requirement
 
 This is the main place where the six agents are differentiated.
+
+Each profile now carries:
+
+- runtime alias
+- fallback alias
+- adapter id
+- reasoning profile
 
 ## 3. Agent gateway/service
 
@@ -151,10 +174,31 @@ That means:
 
 If the runtime is not configured, the service falls back and records that fallback in telemetry.
 
+## Deployable stack
+
+Deployable stack artifacts now live in [docker/agent-runtime](C:/Users/mac/BountyNet/docker/agent-runtime).
+
+That directory contains:
+
+- `docker-compose.yml`
+- `litellm.config.yaml`
+- `.env.example`
+- `adapters/`
+
+The intended runtime shape is:
+
+1. gateway points at LiteLLM
+2. LiteLLM exposes six stable agent aliases
+3. the aliases target one shared backend model
+4. external providers cover overflow or weak lanes
+5. later, agent aliases can bind to PEFT adapters without changing the product API
+
+For the fastest launch path, those aliases can all resolve to a single hosted model such as `anthropic/claude-sonnet-4-5`.
+
 ## Near-term production path
 
-1. deploy vLLM on AWS
-2. point `AGENT_RUNTIME_API_BASE` at it
+1. bring up LiteLLM plus SGLang locally
+2. point `AGENT_RUNTIME_API_BASE` at LiteLLM
 3. keep the six agent identities unchanged
 4. improve each agent’s prompt pack and validator recipe
 5. later attach LoRA adapters only where a lane proves worth specializing

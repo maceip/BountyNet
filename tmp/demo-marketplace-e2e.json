@@ -1,0 +1,2140 @@
+{
+  "seed_status": 200,
+  "runtime": {
+    "agents": [
+      {
+        "adapter": "ts-migrator",
+        "agent_slug": "ts-migrator",
+        "allowed_tools": [
+          "repo_context",
+          "workflow_upgrade",
+          "tsconfig_normalize",
+          "package_json_update",
+          "diff_summary"
+        ],
+        "api_base": "",
+        "api_key": "***",
+        "configured": true,
+        "extra_body": {
+          "metadata": {
+            "agent_adapter": "ts-migrator",
+            "agent_lane": "migration",
+            "agent_pod": "typescript",
+            "agent_slug": "ts-migrator"
+          }
+        },
+        "extra_headers": {},
+        "fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+        "has_api_key": true,
+        "model": "agents/ts-migrator",
+        "plan_required": true,
+        "provider": "litellm",
+        "reasoning_effort": "medium",
+        "resolved_fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+        "resolved_model": "anthropic/claude-sonnet-4-5",
+        "timeout_seconds": 120,
+        "use_responses_api": false,
+        "validator_recipe": [
+          "typecheck",
+          "tests",
+          "ci-policy"
+        ]
+      },
+      {
+        "adapter": "ts-auditor",
+        "agent_slug": "ts-auditor",
+        "allowed_tools": [
+          "repo_context",
+          "package_json_update",
+          "tsconfig_normalize",
+          "diff_summary"
+        ],
+        "api_base": "",
+        "api_key": "***",
+        "configured": true,
+        "extra_body": {
+          "metadata": {
+            "agent_adapter": "ts-auditor",
+            "agent_lane": "security_audit",
+            "agent_pod": "typescript",
+            "agent_slug": "ts-auditor"
+          }
+        },
+        "extra_headers": {},
+        "fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+        "has_api_key": true,
+        "model": "agents/ts-auditor",
+        "plan_required": true,
+        "provider": "litellm",
+        "reasoning_effort": "high",
+        "resolved_fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+        "resolved_model": "anthropic/claude-sonnet-4-5",
+        "timeout_seconds": 120,
+        "use_responses_api": false,
+        "validator_recipe": [
+          "audit",
+          "typecheck",
+          "tests"
+        ]
+      },
+      {
+        "adapter": "ts-architect",
+        "agent_slug": "ts-architect",
+        "allowed_tools": [
+          "repo_context",
+          "opportunity_scan",
+          "tsconfig_normalize",
+          "diff_summary"
+        ],
+        "api_base": "",
+        "api_key": "***",
+        "configured": true,
+        "extra_body": {
+          "metadata": {
+            "agent_adapter": "ts-architect",
+            "agent_lane": "architecture_refactor",
+            "agent_pod": "typescript",
+            "agent_slug": "ts-architect"
+          }
+        },
+        "extra_headers": {},
+        "fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+        "has_api_key": true,
+        "model": "agents/ts-architect",
+        "plan_required": true,
+        "provider": "litellm",
+        "reasoning_effort": "high",
+        "resolved_fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+        "resolved_model": "anthropic/claude-sonnet-4-5",
+        "timeout_seconds": 120,
+        "use_responses_api": false,
+        "validator_recipe": [
+          "typecheck",
+          "tests",
+          "scope-check"
+        ]
+      },
+      {
+        "adapter": "rust-porter",
+        "agent_slug": "rust-porter",
+        "allowed_tools": [
+          "repo_context",
+          "cargo_update",
+          "workflow_upgrade",
+          "diff_summary"
+        ],
+        "api_base": "",
+        "api_key": "***",
+        "configured": true,
+        "extra_body": {
+          "metadata": {
+            "agent_adapter": "rust-porter",
+            "agent_lane": "porting",
+            "agent_pod": "rust",
+            "agent_slug": "rust-porter"
+          }
+        },
+        "extra_headers": {},
+        "fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+        "has_api_key": true,
+        "model": "agents/rust-porter",
+        "plan_required": true,
+        "provider": "litellm",
+        "reasoning_effort": "medium",
+        "resolved_fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+        "resolved_model": "anthropic/claude-sonnet-4-5",
+        "timeout_seconds": 120,
+        "use_responses_api": false,
+        "validator_recipe": [
+          "cargo-check",
+          "tests",
+          "fmt"
+        ]
+      },
+      {
+        "adapter": "rust-sentinel",
+        "agent_slug": "rust-sentinel",
+        "allowed_tools": [
+          "repo_context",
+          "cargo_update",
+          "diff_summary"
+        ],
+        "api_base": "",
+        "api_key": "***",
+        "configured": true,
+        "extra_body": {
+          "metadata": {
+            "agent_adapter": "rust-sentinel",
+            "agent_lane": "security_patch",
+            "agent_pod": "rust",
+            "agent_slug": "rust-sentinel"
+          }
+        },
+        "extra_headers": {},
+        "fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+        "has_api_key": true,
+        "model": "agents/rust-sentinel",
+        "plan_required": true,
+        "provider": "litellm",
+        "reasoning_effort": "high",
+        "resolved_fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+        "resolved_model": "anthropic/claude-sonnet-4-5",
+        "timeout_seconds": 120,
+        "use_responses_api": false,
+        "validator_recipe": [
+          "cargo-check",
+          "tests",
+          "audit"
+        ]
+      },
+      {
+        "adapter": "rust-optimizer",
+        "agent_slug": "rust-optimizer",
+        "allowed_tools": [
+          "repo_context",
+          "opportunity_scan",
+          "cargo_update",
+          "diff_summary"
+        ],
+        "api_base": "",
+        "api_key": "***",
+        "configured": true,
+        "extra_body": {
+          "metadata": {
+            "agent_adapter": "rust-optimizer",
+            "agent_lane": "performance_optimization",
+            "agent_pod": "rust",
+            "agent_slug": "rust-optimizer"
+          }
+        },
+        "extra_headers": {},
+        "fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+        "has_api_key": true,
+        "model": "agents/rust-optimizer",
+        "plan_required": true,
+        "provider": "litellm",
+        "reasoning_effort": "medium",
+        "resolved_fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+        "resolved_model": "anthropic/claude-sonnet-4-5",
+        "timeout_seconds": 120,
+        "use_responses_api": false,
+        "validator_recipe": [
+          "cargo-check",
+          "tests",
+          "scope-check"
+        ]
+      }
+    ],
+    "runtime": {
+      "api_base": "",
+      "api_key": "***",
+      "configured": true,
+      "extra_body": {},
+      "extra_headers": {},
+      "fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+      "has_api_key": true,
+      "model": "agents/default",
+      "provider": "litellm",
+      "reasoning_effort": "medium",
+      "resolved_fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+      "resolved_model": "anthropic/claude-sonnet-4-5",
+      "timeout_seconds": 120,
+      "use_responses_api": false
+    }
+  },
+  "setup_status": 200,
+  "job_status": 201,
+  "recommendations_status": 200,
+  "recommendations": {
+    "blocked_agents": [
+      {
+        "agent_id": "agent_9dae34a649a0",
+        "agent_kind": "generic",
+        "budget_compatible": true,
+        "display_name": "Generic CI Maintainer",
+        "lane": "workflow_repair",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "github_actions",
+        "policy_pass": false,
+        "policy_warnings": [
+          "trust tier too low"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "ecosystem match",
+          "generic fallback coverage",
+          "budget compatible",
+          "low-cost generic fallback",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_45826d75e801",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 84,
+        "slug": "generic-ci-maintainer",
+        "specialist_id": "",
+        "trust_tier": "standard"
+      },
+      {
+        "agent_id": "agent_e2881cc17e08",
+        "agent_kind": "generic",
+        "budget_compatible": true,
+        "display_name": "Generic TS Maintainer",
+        "lane": "maintenance",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "typescript",
+        "policy_pass": false,
+        "policy_warnings": [
+          "trust tier too low"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "ecosystem match",
+          "generic fallback coverage",
+          "budget compatible",
+          "low-cost generic fallback",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_0e1115973035",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 83,
+        "slug": "generic-ts-maintainer",
+        "specialist_id": "",
+        "trust_tier": "standard"
+      },
+      {
+        "agent_id": "agent_600caa7aee99",
+        "agent_kind": "generic",
+        "budget_compatible": true,
+        "display_name": "Generic Rust Maintainer",
+        "lane": "maintenance",
+        "matched_ecosystems": [],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "rust",
+        "policy_pass": false,
+        "policy_warnings": [
+          "ecosystem mismatch",
+          "trust tier too low"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "generic fallback coverage",
+          "budget compatible",
+          "low-cost generic fallback",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_b6796b6cbdc2",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 63,
+        "slug": "generic-rust-maintainer",
+        "specialist_id": "",
+        "trust_tier": "standard"
+      },
+      {
+        "agent_id": "agent_2d5d38bbbd4a",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "TypeScript Architect",
+        "lane": "architecture_refactor",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [],
+        "pod": "typescript",
+        "policy_pass": false,
+        "policy_warnings": [
+          "job class unsupported"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "ecosystem match",
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_b0862281a06b",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 54,
+        "slug": "ts-architect",
+        "specialist_id": "spec_4e195816684f",
+        "trust_tier": "trusted"
+      },
+      {
+        "agent_id": "agent_d0c561bcbc4c",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "Rust Sentinel",
+        "lane": "security_patch",
+        "matched_ecosystems": [],
+        "matched_job_classes": [],
+        "pod": "rust",
+        "policy_pass": false,
+        "policy_warnings": [
+          "job class unsupported",
+          "ecosystem mismatch"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_02da4493cd5e",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 35,
+        "slug": "rust-sentinel",
+        "specialist_id": "spec_7a3d37069b1e",
+        "trust_tier": "critical"
+      },
+      {
+        "agent_id": "agent_94c4f6032b74",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "Rust Optimizer",
+        "lane": "performance_optimization",
+        "matched_ecosystems": [],
+        "matched_job_classes": [],
+        "pod": "rust",
+        "policy_pass": false,
+        "policy_warnings": [
+          "job class unsupported",
+          "ecosystem mismatch"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_c2b3a5cf9277",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 34,
+        "slug": "rust-optimizer",
+        "specialist_id": "spec_64114dd04d48",
+        "trust_tier": "trusted"
+      },
+      {
+        "agent_id": "agent_3693fc32a5ed",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "Rust Porter",
+        "lane": "porting",
+        "matched_ecosystems": [],
+        "matched_job_classes": [],
+        "pod": "rust",
+        "policy_pass": false,
+        "policy_warnings": [
+          "job class unsupported",
+          "ecosystem mismatch"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_bedc9dce3fc2",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 34,
+        "slug": "rust-porter",
+        "specialist_id": "spec_d3df96f90466",
+        "trust_tier": "trusted"
+      }
+    ],
+    "eligible_agents": [
+      {
+        "agent_id": "agent_bcb94299db5a",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "TypeScript Migrator",
+        "lane": "migration",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "typescript",
+        "policy_pass": true,
+        "policy_warnings": [],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "ecosystem match",
+          "lane match",
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_7c9a8faa8f1d",
+        "recommended": true,
+        "requires_plan": true,
+        "score": 114,
+        "slug": "ts-migrator",
+        "specialist_id": "spec_b03be43f6cb7",
+        "trust_tier": "trusted"
+      },
+      {
+        "agent_id": "agent_e70e788db34c",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "TypeScript Auditor",
+        "lane": "security_audit",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "typescript",
+        "policy_pass": true,
+        "policy_warnings": [],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "ecosystem match",
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_d97bf504282a",
+        "recommended": true,
+        "requires_plan": true,
+        "score": 95,
+        "slug": "ts-auditor",
+        "specialist_id": "spec_505f6e69e14c",
+        "trust_tier": "critical"
+      }
+    ],
+    "job_id": "job_cd7d49fc2705",
+    "recommendations": [
+      {
+        "agent_id": "agent_bcb94299db5a",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "TypeScript Migrator",
+        "lane": "migration",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "typescript",
+        "policy_pass": true,
+        "policy_warnings": [],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "ecosystem match",
+          "lane match",
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_7c9a8faa8f1d",
+        "recommended": true,
+        "requires_plan": true,
+        "score": 114,
+        "slug": "ts-migrator",
+        "specialist_id": "spec_b03be43f6cb7",
+        "trust_tier": "trusted"
+      },
+      {
+        "agent_id": "agent_e70e788db34c",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "TypeScript Auditor",
+        "lane": "security_audit",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "typescript",
+        "policy_pass": true,
+        "policy_warnings": [],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "ecosystem match",
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_d97bf504282a",
+        "recommended": true,
+        "requires_plan": true,
+        "score": 95,
+        "slug": "ts-auditor",
+        "specialist_id": "spec_505f6e69e14c",
+        "trust_tier": "critical"
+      },
+      {
+        "agent_id": "agent_9dae34a649a0",
+        "agent_kind": "generic",
+        "budget_compatible": true,
+        "display_name": "Generic CI Maintainer",
+        "lane": "workflow_repair",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "github_actions",
+        "policy_pass": false,
+        "policy_warnings": [
+          "trust tier too low"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "ecosystem match",
+          "generic fallback coverage",
+          "budget compatible",
+          "low-cost generic fallback",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_45826d75e801",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 84,
+        "slug": "generic-ci-maintainer",
+        "specialist_id": "",
+        "trust_tier": "standard"
+      },
+      {
+        "agent_id": "agent_e2881cc17e08",
+        "agent_kind": "generic",
+        "budget_compatible": true,
+        "display_name": "Generic TS Maintainer",
+        "lane": "maintenance",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "typescript",
+        "policy_pass": false,
+        "policy_warnings": [
+          "trust tier too low"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "ecosystem match",
+          "generic fallback coverage",
+          "budget compatible",
+          "low-cost generic fallback",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_0e1115973035",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 83,
+        "slug": "generic-ts-maintainer",
+        "specialist_id": "",
+        "trust_tier": "standard"
+      },
+      {
+        "agent_id": "agent_600caa7aee99",
+        "agent_kind": "generic",
+        "budget_compatible": true,
+        "display_name": "Generic Rust Maintainer",
+        "lane": "maintenance",
+        "matched_ecosystems": [],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "rust",
+        "policy_pass": false,
+        "policy_warnings": [
+          "ecosystem mismatch",
+          "trust tier too low"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "generic fallback coverage",
+          "budget compatible",
+          "low-cost generic fallback",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_b6796b6cbdc2",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 63,
+        "slug": "generic-rust-maintainer",
+        "specialist_id": "",
+        "trust_tier": "standard"
+      },
+      {
+        "agent_id": "agent_2d5d38bbbd4a",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "TypeScript Architect",
+        "lane": "architecture_refactor",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [],
+        "pod": "typescript",
+        "policy_pass": false,
+        "policy_warnings": [
+          "job class unsupported"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "ecosystem match",
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_b0862281a06b",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 54,
+        "slug": "ts-architect",
+        "specialist_id": "spec_4e195816684f",
+        "trust_tier": "trusted"
+      },
+      {
+        "agent_id": "agent_d0c561bcbc4c",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "Rust Sentinel",
+        "lane": "security_patch",
+        "matched_ecosystems": [],
+        "matched_job_classes": [],
+        "pod": "rust",
+        "policy_pass": false,
+        "policy_warnings": [
+          "job class unsupported",
+          "ecosystem mismatch"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_02da4493cd5e",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 35,
+        "slug": "rust-sentinel",
+        "specialist_id": "spec_7a3d37069b1e",
+        "trust_tier": "critical"
+      },
+      {
+        "agent_id": "agent_94c4f6032b74",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "Rust Optimizer",
+        "lane": "performance_optimization",
+        "matched_ecosystems": [],
+        "matched_job_classes": [],
+        "pod": "rust",
+        "policy_pass": false,
+        "policy_warnings": [
+          "job class unsupported",
+          "ecosystem mismatch"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_c2b3a5cf9277",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 34,
+        "slug": "rust-optimizer",
+        "specialist_id": "spec_64114dd04d48",
+        "trust_tier": "trusted"
+      },
+      {
+        "agent_id": "agent_3693fc32a5ed",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "Rust Porter",
+        "lane": "porting",
+        "matched_ecosystems": [],
+        "matched_job_classes": [],
+        "pod": "rust",
+        "policy_pass": false,
+        "policy_warnings": [
+          "job class unsupported",
+          "ecosystem mismatch"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_bedc9dce3fc2",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 34,
+        "slug": "rust-porter",
+        "specialist_id": "spec_d3df96f90466",
+        "trust_tier": "trusted"
+      }
+    ],
+    "routing_summary": {
+      "budget_priority": [
+        "platform_credits",
+        "api_key_pool"
+      ],
+      "job_class": "ci_repair",
+      "repo_full_name": "local/demo-marketplace-repo",
+      "required_trust_tier": "trusted"
+    }
+  },
+  "autopilot_status": 200,
+  "autopilot": {
+    "assignment": {
+      "agent_id": "agent_bcb94299db5a",
+      "assigned_by": "platform-router",
+      "created_at": 1776146077.7042534,
+      "id": "assign_e81719dad4c4",
+      "job_id": "job_cd7d49fc2705",
+      "lease_expires_at": 1776149677.7042513,
+      "mode": "exclusive",
+      "plan_id": "plan_cbe78b31c8c0",
+      "recommendation_id": "rec_850755be3cbd",
+      "specialist_id": "spec_b03be43f6cb7",
+      "status": "active",
+      "updated_at": 1776146077.7042534
+    },
+    "plan": {
+      "agent_id": "agent_bcb94299db5a",
+      "created_at": 1776146077.6970224,
+      "estimated_cost": 0,
+      "estimated_seconds": 900,
+      "id": "plan_cbe78b31c8c0",
+      "job_id": "job_cd7d49fc2705",
+      "operator_id": "platform-router",
+      "status": "proposed",
+      "steps": [
+        "inspect repository files relevant to the job",
+        "prepare the smallest safe code change",
+        "record evidence and open a maintainer-review submission"
+      ],
+      "summary": "Let TypeScript Migrator produce a narrow, policy-compliant fix for Repair workflow drift.",
+      "updated_at": 1776146077.6970224
+    },
+    "recommendation": {
+      "agent_id": "agent_bcb94299db5a",
+      "agent_kind": "specialist",
+      "budget_compatible": true,
+      "display_name": "TypeScript Migrator",
+      "lane": "migration",
+      "matched_ecosystems": [
+        "typescript"
+      ],
+      "matched_job_classes": [
+        "ci_repair"
+      ],
+      "pod": "typescript",
+      "policy_pass": true,
+      "policy_warnings": [],
+      "pricing_profile": "per_accepted_change",
+      "reasons": [
+        "job class match",
+        "ecosystem match",
+        "lane match",
+        "budget compatible",
+        "trust tier satisfies requirement",
+        "specialized fit",
+        "historical performance"
+      ],
+      "recommendation_id": "rec_850755be3cbd",
+      "recommended": true,
+      "requires_plan": true,
+      "score": 114,
+      "slug": "ts-migrator",
+      "specialist_id": "spec_b03be43f6cb7",
+      "trust_tier": "trusted"
+    },
+    "run": {
+      "agent_id": "agent_bcb94299db5a",
+      "assignment_id": "assign_e81719dad4c4",
+      "changed_files": [
+        ".github/workflows/ci.yml",
+        "tsconfig.json"
+      ],
+      "created_at": 1776146077.7243307,
+      "evidence": {
+        "changed_files": [
+          ".github/workflows/ci.yml",
+          "tsconfig.json"
+        ],
+        "changes_applied": true,
+        "job_class": "ci_repair",
+        "lane": "migration",
+        "mode": "apply",
+        "pod": "typescript",
+        "repo_path": "C:\\Users\\mac\\BountyNet\\tmp\\demo-marketplace-repo"
+      },
+      "finished_at": 1776146080.8348598,
+      "id": "run_3f905bc7d765",
+      "job_id": "job_cd7d49fc2705",
+      "logs": [
+        "Running ts-migrator against C:\\Users\\mac\\BountyNet\\tmp\\demo-marketplace-repo in apply mode.",
+        "Updated workflow action versions in .github\\workflows\\ci.yml.",
+        "Normalized compiler options in tsconfig.json."
+      ],
+      "mode": "apply",
+      "repository_account_id": "ra_bf1b5a53e7d2",
+      "started_at": 1776146077.7243295,
+      "status": "completed",
+      "submission_id": "sub_02a81f89131e",
+      "summary": "TypeScript Migrator produced 2 file change(s).",
+      "updated_at": 1776146080.834861
+    },
+    "status": "autopilot_complete",
+    "submission": {
+      "acceptance_attribution": "",
+      "agent_id": "agent_bcb94299db5a",
+      "branch_name": "agent/ts-migrator/job_cd7d49fc2705",
+      "diff_summary": "Updated workflow action versions in .github\\workflows\\ci.yml.; Normalized compiler options in tsconfig.json.",
+      "evidence": {
+        "changed_files": [
+          ".github/workflows/ci.yml",
+          "tsconfig.json"
+        ],
+        "changes_applied": true,
+        "job_class": "ci_repair",
+        "lane": "migration",
+        "mode": "apply",
+        "pod": "typescript",
+        "repo_path": "C:\\Users\\mac\\BountyNet\\tmp\\demo-marketplace-repo"
+      },
+      "id": "sub_02a81f89131e",
+      "job_id": "job_cd7d49fc2705",
+      "pr_number": 0,
+      "pr_url": "",
+      "status": "submitted",
+      "submitted_at": 1776146080.8256173,
+      "updated_at": 1776146080.8256173
+    }
+  },
+  "detail": {
+    "assignments": [
+      {
+        "agent_id": "agent_bcb94299db5a",
+        "assigned_by": "platform-router",
+        "created_at": 1776146077.7042534,
+        "id": "assign_e81719dad4c4",
+        "job_id": "job_cd7d49fc2705",
+        "lease_expires_at": 1776149677.7042513,
+        "mode": "exclusive",
+        "plan_id": "plan_cbe78b31c8c0",
+        "recommendation_id": "rec_850755be3cbd",
+        "specialist_id": "spec_b03be43f6cb7",
+        "status": "active",
+        "updated_at": 1776146077.7042534
+      }
+    ],
+    "invocations": [
+      {
+        "agent_id": "agent_bcb94299db5a",
+        "created_at": 1776146077.7334652,
+        "finished_at": 1776146080.8082688,
+        "id": "invoke_a15054b2cedf",
+        "job_id": "job_cd7d49fc2705",
+        "model": "agents/ts-migrator",
+        "provider": "litellm",
+        "repository_account_id": "ra_bf1b5a53e7d2",
+        "request": {
+          "agent_display_name": "TypeScript Migrator",
+          "agent_slug": "ts-migrator",
+          "job": {
+            "id": "job_cd7d49fc2705",
+            "job_class": "ci_repair",
+            "metadata": {
+              "lane": "migration",
+              "pod": "typescript",
+              "required_trust_tier": "trusted"
+            },
+            "risk_level": "medium",
+            "summary": "",
+            "title": "Repair workflow drift"
+          },
+          "policy": {
+            "allowed_files": [
+              "package.json",
+              "tsconfig.json",
+              "tsconfig.base.json",
+              ".github/workflows/*.yml",
+              ".github/workflows/*.yaml"
+            ],
+            "allowed_tools": [
+              "repo_context",
+              "workflow_upgrade",
+              "tsconfig_normalize",
+              "package_json_update",
+              "diff_summary"
+            ],
+            "plan_required": true,
+            "validator_recipe": [
+              "typecheck",
+              "tests",
+              "ci-policy"
+            ]
+          },
+          "repo_context": {
+            ".github/workflows/ci.yml": "name: CI\njobs:\n  test:\n    steps:\n      - uses: actions/checkout@v3\n      - uses: actions/setup-node@v3\n",
+            "tsconfig.json": "{\"compilerOptions\":{\"strict\":true}}\n"
+          },
+          "repo_full_name": "local/demo-marketplace-repo",
+          "repo_path": "C:\\Users\\mac\\BountyNet\\tmp\\demo-marketplace-repo",
+          "runtime": {
+            "adapter": "ts-migrator",
+            "fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+            "model": "agents/ts-migrator",
+            "provider": "litellm",
+            "reasoning_effort": "medium",
+            "resolved_fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+            "resolved_model": "anthropic/claude-sonnet-4-5"
+          }
+        },
+        "response": {
+          "fallback": true,
+          "files_to_touch": [],
+          "planned_tools": [
+            "repo_context",
+            "workflow_upgrade",
+            "tsconfig_normalize",
+            "package_json_update",
+            "diff_summary"
+          ],
+          "proposed_updates": [],
+          "runtime_error": "litellm.APIError: APIError: OpenrouterException - [WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions",
+          "summary": "TypeScript Migrator runtime call failed; using bounded local executor fallback.",
+          "validator_notes": [
+            "typecheck",
+            "tests",
+            "ci-policy"
+          ],
+          "why_this_change": "litellm.APIError: APIError: OpenrouterException - [WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions"
+        },
+        "started_at": 1776146077.7334638,
+        "status": "fallback",
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "tool_calls": [
+          {
+            "allowed": true,
+            "tool": "repo_context"
+          },
+          {
+            "allowed": true,
+            "tool": "workflow_upgrade"
+          },
+          {
+            "allowed": true,
+            "tool": "tsconfig_normalize"
+          },
+          {
+            "allowed": true,
+            "tool": "package_json_update"
+          },
+          {
+            "allowed": true,
+            "tool": "diff_summary"
+          }
+        ],
+        "updated_at": 1776146080.8082697,
+        "validations": [
+          {
+            "name": "typecheck",
+            "status": "pending"
+          },
+          {
+            "name": "tests",
+            "status": "pending"
+          },
+          {
+            "name": "ci-policy",
+            "status": "pending"
+          }
+        ]
+      }
+    ],
+    "job": {
+      "acceptance_policy": "maintainer_accept_or_merge",
+      "budget_ceiling": 0,
+      "candidate_agents": [],
+      "created_at": 1776146077.4467115,
+      "expires_at": 1776750877.4467094,
+      "id": "job_cd7d49fc2705",
+      "job_class": "ci_repair",
+      "metadata": {
+        "lane": "migration",
+        "pod": "typescript",
+        "required_trust_tier": "trusted"
+      },
+      "repo_full_name": "local/demo-marketplace-repo",
+      "repository_account_id": "ra_bf1b5a53e7d2",
+      "risk_level": "medium",
+      "source_event_key": "",
+      "status": "assigned",
+      "summary": "",
+      "title": "Repair workflow drift",
+      "trigger_source": "manual",
+      "updated_at": 1776146077.7107146
+    },
+    "payouts": [],
+    "plans": [
+      {
+        "agent_id": "agent_bcb94299db5a",
+        "created_at": 1776146077.6970224,
+        "estimated_cost": 0,
+        "estimated_seconds": 900,
+        "id": "plan_cbe78b31c8c0",
+        "job_id": "job_cd7d49fc2705",
+        "operator_id": "platform-router",
+        "status": "proposed",
+        "steps": [
+          "inspect repository files relevant to the job",
+          "prepare the smallest safe code change",
+          "record evidence and open a maintainer-review submission"
+        ],
+        "summary": "Let TypeScript Migrator produce a narrow, policy-compliant fix for Repair workflow drift.",
+        "updated_at": 1776146077.6970224
+      }
+    ],
+    "recommendations": [
+      {
+        "agent_id": "agent_bcb94299db5a",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "TypeScript Migrator",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "migration",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "typescript",
+        "policy_pass": true,
+        "policy_warnings": [],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "ecosystem match",
+          "lane match",
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_850755be3cbd",
+        "recommended": true,
+        "requires_plan": true,
+        "score": 114,
+        "slug": "ts-migrator",
+        "specialist_id": "spec_b03be43f6cb7",
+        "trust_tier": "trusted"
+      },
+      {
+        "agent_id": "agent_e70e788db34c",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "TypeScript Auditor",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "security_audit",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "typescript",
+        "policy_pass": true,
+        "policy_warnings": [],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "ecosystem match",
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_8d0ee7f5bc78",
+        "recommended": true,
+        "requires_plan": true,
+        "score": 95,
+        "slug": "ts-auditor",
+        "specialist_id": "spec_505f6e69e14c",
+        "trust_tier": "critical"
+      },
+      {
+        "agent_id": "agent_9dae34a649a0",
+        "agent_kind": "generic",
+        "budget_compatible": true,
+        "display_name": "Generic CI Maintainer",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "workflow_repair",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "github_actions",
+        "policy_pass": false,
+        "policy_warnings": [
+          "trust tier too low"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "ecosystem match",
+          "generic fallback coverage",
+          "budget compatible",
+          "low-cost generic fallback",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_6a26826b2f8f",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 84,
+        "slug": "generic-ci-maintainer",
+        "specialist_id": "",
+        "trust_tier": "standard"
+      },
+      {
+        "agent_id": "agent_e2881cc17e08",
+        "agent_kind": "generic",
+        "budget_compatible": true,
+        "display_name": "Generic TS Maintainer",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "maintenance",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "typescript",
+        "policy_pass": false,
+        "policy_warnings": [
+          "trust tier too low"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "ecosystem match",
+          "generic fallback coverage",
+          "budget compatible",
+          "low-cost generic fallback",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_683f5bd1ae4a",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 83,
+        "slug": "generic-ts-maintainer",
+        "specialist_id": "",
+        "trust_tier": "standard"
+      },
+      {
+        "agent_id": "agent_600caa7aee99",
+        "agent_kind": "generic",
+        "budget_compatible": true,
+        "display_name": "Generic Rust Maintainer",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "maintenance",
+        "matched_ecosystems": [],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "rust",
+        "policy_pass": false,
+        "policy_warnings": [
+          "ecosystem mismatch",
+          "trust tier too low"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "generic fallback coverage",
+          "budget compatible",
+          "low-cost generic fallback",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_14137ee0c32b",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 63,
+        "slug": "generic-rust-maintainer",
+        "specialist_id": "",
+        "trust_tier": "standard"
+      },
+      {
+        "agent_id": "agent_2d5d38bbbd4a",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "TypeScript Architect",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "architecture_refactor",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [],
+        "pod": "typescript",
+        "policy_pass": false,
+        "policy_warnings": [
+          "job class unsupported"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "ecosystem match",
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_cc8454d4813c",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 54,
+        "slug": "ts-architect",
+        "specialist_id": "spec_4e195816684f",
+        "trust_tier": "trusted"
+      },
+      {
+        "agent_id": "agent_d0c561bcbc4c",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "Rust Sentinel",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "security_patch",
+        "matched_ecosystems": [],
+        "matched_job_classes": [],
+        "pod": "rust",
+        "policy_pass": false,
+        "policy_warnings": [
+          "job class unsupported",
+          "ecosystem mismatch"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_e17ba4f51db5",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 35,
+        "slug": "rust-sentinel",
+        "specialist_id": "spec_7a3d37069b1e",
+        "trust_tier": "critical"
+      },
+      {
+        "agent_id": "agent_94c4f6032b74",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "Rust Optimizer",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "performance_optimization",
+        "matched_ecosystems": [],
+        "matched_job_classes": [],
+        "pod": "rust",
+        "policy_pass": false,
+        "policy_warnings": [
+          "job class unsupported",
+          "ecosystem mismatch"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_4ecec932d3c3",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 34,
+        "slug": "rust-optimizer",
+        "specialist_id": "spec_64114dd04d48",
+        "trust_tier": "trusted"
+      },
+      {
+        "agent_id": "agent_3693fc32a5ed",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "Rust Porter",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "porting",
+        "matched_ecosystems": [],
+        "matched_job_classes": [],
+        "pod": "rust",
+        "policy_pass": false,
+        "policy_warnings": [
+          "job class unsupported",
+          "ecosystem mismatch"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_95e7bf180e09",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 34,
+        "slug": "rust-porter",
+        "specialist_id": "spec_d3df96f90466",
+        "trust_tier": "trusted"
+      }
+    ],
+    "runs": [
+      {
+        "agent_id": "agent_bcb94299db5a",
+        "assignment_id": "assign_e81719dad4c4",
+        "changed_files": [
+          ".github/workflows/ci.yml",
+          "tsconfig.json"
+        ],
+        "created_at": 1776146077.7243307,
+        "evidence": {
+          "changed_files": [
+            ".github/workflows/ci.yml",
+            "tsconfig.json"
+          ],
+          "changes_applied": true,
+          "job_class": "ci_repair",
+          "lane": "migration",
+          "mode": "apply",
+          "pod": "typescript",
+          "repo_path": "C:\\Users\\mac\\BountyNet\\tmp\\demo-marketplace-repo"
+        },
+        "finished_at": 1776146080.8348598,
+        "id": "run_3f905bc7d765",
+        "job_id": "job_cd7d49fc2705",
+        "logs": [
+          "Running ts-migrator against C:\\Users\\mac\\BountyNet\\tmp\\demo-marketplace-repo in apply mode.",
+          "Updated workflow action versions in .github\\workflows\\ci.yml.",
+          "Normalized compiler options in tsconfig.json."
+        ],
+        "mode": "apply",
+        "repository_account_id": "ra_bf1b5a53e7d2",
+        "started_at": 1776146077.7243295,
+        "status": "completed",
+        "submission_id": "sub_02a81f89131e",
+        "summary": "TypeScript Migrator produced 2 file change(s).",
+        "updated_at": 1776146080.834861
+      }
+    ],
+    "submissions": [
+      {
+        "acceptance_attribution": "",
+        "agent_id": "agent_bcb94299db5a",
+        "branch_name": "agent/ts-migrator/job_cd7d49fc2705",
+        "diff_summary": "Updated workflow action versions in .github\\workflows\\ci.yml.; Normalized compiler options in tsconfig.json.",
+        "evidence": {
+          "changed_files": [
+            ".github/workflows/ci.yml",
+            "tsconfig.json"
+          ],
+          "changes_applied": true,
+          "job_class": "ci_repair",
+          "lane": "migration",
+          "mode": "apply",
+          "pod": "typescript",
+          "repo_path": "C:\\Users\\mac\\BountyNet\\tmp\\demo-marketplace-repo"
+        },
+        "id": "sub_02a81f89131e",
+        "job_id": "job_cd7d49fc2705",
+        "pr_number": 0,
+        "pr_url": "",
+        "status": "submitted",
+        "submitted_at": 1776146080.8256173,
+        "updated_at": 1776146080.8256173
+      }
+    ]
+  },
+  "decision_status": 200,
+  "decision": {
+    "job": {
+      "acceptance_policy": "maintainer_accept_or_merge",
+      "budget_ceiling": 0,
+      "candidate_agents": [],
+      "created_at": 1776146077.4467115,
+      "expires_at": 1776750877.4467094,
+      "id": "job_cd7d49fc2705",
+      "job_class": "ci_repair",
+      "metadata": {
+        "lane": "migration",
+        "pod": "typescript",
+        "required_trust_tier": "trusted"
+      },
+      "repo_full_name": "local/demo-marketplace-repo",
+      "repository_account_id": "ra_bf1b5a53e7d2",
+      "risk_level": "medium",
+      "source_event_key": "",
+      "status": "completed",
+      "summary": "",
+      "title": "Repair workflow drift",
+      "trigger_source": "manual",
+      "updated_at": 1776146080.8862145
+    },
+    "payouts": [
+      {
+        "agent_id": "agent_bcb94299db5a",
+        "amount": 100,
+        "created_at": 1776146080.8993077,
+        "currency": "credits",
+        "funding_source": "platform_credits",
+        "id": "pay_a6c9224896ae",
+        "job_id": "job_cd7d49fc2705",
+        "notes": "Demo acceptance for Langfuse verification.",
+        "operator_id": "platform-managed",
+        "status": "approved",
+        "submission_id": "sub_02a81f89131e"
+      }
+    ],
+    "status": "decided",
+    "submission": {
+      "acceptance_attribution": "maintainer_accepted",
+      "agent_id": "agent_bcb94299db5a",
+      "branch_name": "agent/ts-migrator/job_cd7d49fc2705",
+      "diff_summary": "Updated workflow action versions in .github\\workflows\\ci.yml.; Normalized compiler options in tsconfig.json.",
+      "evidence": {
+        "changed_files": [
+          ".github/workflows/ci.yml",
+          "tsconfig.json"
+        ],
+        "changes_applied": true,
+        "decision_notes": "Demo acceptance for Langfuse verification.",
+        "job_class": "ci_repair",
+        "lane": "migration",
+        "merged_by": "demo-maintainer",
+        "mode": "apply",
+        "pod": "typescript",
+        "repo_path": "C:\\Users\\mac\\BountyNet\\tmp\\demo-marketplace-repo"
+      },
+      "id": "sub_02a81f89131e",
+      "job_id": "job_cd7d49fc2705",
+      "pr_number": 0,
+      "pr_url": "",
+      "status": "accepted",
+      "submitted_at": 1776146080.8256173,
+      "updated_at": 1776146080.8765476
+    }
+  },
+  "final_detail": {
+    "assignments": [
+      {
+        "agent_id": "agent_bcb94299db5a",
+        "assigned_by": "platform-router",
+        "created_at": 1776146077.7042534,
+        "id": "assign_e81719dad4c4",
+        "job_id": "job_cd7d49fc2705",
+        "lease_expires_at": 1776149677.7042513,
+        "mode": "exclusive",
+        "plan_id": "plan_cbe78b31c8c0",
+        "recommendation_id": "rec_850755be3cbd",
+        "specialist_id": "spec_b03be43f6cb7",
+        "status": "completed",
+        "updated_at": 1776146080.8927484
+      }
+    ],
+    "invocations": [
+      {
+        "agent_id": "agent_bcb94299db5a",
+        "created_at": 1776146077.7334652,
+        "finished_at": 1776146080.8082688,
+        "id": "invoke_a15054b2cedf",
+        "job_id": "job_cd7d49fc2705",
+        "model": "agents/ts-migrator",
+        "provider": "litellm",
+        "repository_account_id": "ra_bf1b5a53e7d2",
+        "request": {
+          "agent_display_name": "TypeScript Migrator",
+          "agent_slug": "ts-migrator",
+          "job": {
+            "id": "job_cd7d49fc2705",
+            "job_class": "ci_repair",
+            "metadata": {
+              "lane": "migration",
+              "pod": "typescript",
+              "required_trust_tier": "trusted"
+            },
+            "risk_level": "medium",
+            "summary": "",
+            "title": "Repair workflow drift"
+          },
+          "policy": {
+            "allowed_files": [
+              "package.json",
+              "tsconfig.json",
+              "tsconfig.base.json",
+              ".github/workflows/*.yml",
+              ".github/workflows/*.yaml"
+            ],
+            "allowed_tools": [
+              "repo_context",
+              "workflow_upgrade",
+              "tsconfig_normalize",
+              "package_json_update",
+              "diff_summary"
+            ],
+            "plan_required": true,
+            "validator_recipe": [
+              "typecheck",
+              "tests",
+              "ci-policy"
+            ]
+          },
+          "repo_context": {
+            ".github/workflows/ci.yml": "name: CI\njobs:\n  test:\n    steps:\n      - uses: actions/checkout@v3\n      - uses: actions/setup-node@v3\n",
+            "tsconfig.json": "{\"compilerOptions\":{\"strict\":true}}\n"
+          },
+          "repo_full_name": "local/demo-marketplace-repo",
+          "repo_path": "C:\\Users\\mac\\BountyNet\\tmp\\demo-marketplace-repo",
+          "runtime": {
+            "adapter": "ts-migrator",
+            "fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+            "model": "agents/ts-migrator",
+            "provider": "litellm",
+            "reasoning_effort": "medium",
+            "resolved_fallback_model": "openrouter/anthropic/claude-sonnet-4.5",
+            "resolved_model": "anthropic/claude-sonnet-4-5"
+          }
+        },
+        "response": {
+          "fallback": true,
+          "files_to_touch": [],
+          "planned_tools": [
+            "repo_context",
+            "workflow_upgrade",
+            "tsconfig_normalize",
+            "package_json_update",
+            "diff_summary"
+          ],
+          "proposed_updates": [],
+          "runtime_error": "litellm.APIError: APIError: OpenrouterException - [WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions",
+          "summary": "TypeScript Migrator runtime call failed; using bounded local executor fallback.",
+          "validator_notes": [
+            "typecheck",
+            "tests",
+            "ci-policy"
+          ],
+          "why_this_change": "litellm.APIError: APIError: OpenrouterException - [WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions"
+        },
+        "started_at": 1776146077.7334638,
+        "status": "fallback",
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "tool_calls": [
+          {
+            "allowed": true,
+            "tool": "repo_context"
+          },
+          {
+            "allowed": true,
+            "tool": "workflow_upgrade"
+          },
+          {
+            "allowed": true,
+            "tool": "tsconfig_normalize"
+          },
+          {
+            "allowed": true,
+            "tool": "package_json_update"
+          },
+          {
+            "allowed": true,
+            "tool": "diff_summary"
+          }
+        ],
+        "updated_at": 1776146080.8082697,
+        "validations": [
+          {
+            "name": "typecheck",
+            "status": "pending"
+          },
+          {
+            "name": "tests",
+            "status": "pending"
+          },
+          {
+            "name": "ci-policy",
+            "status": "pending"
+          }
+        ]
+      }
+    ],
+    "job": {
+      "acceptance_policy": "maintainer_accept_or_merge",
+      "budget_ceiling": 0,
+      "candidate_agents": [],
+      "created_at": 1776146077.4467115,
+      "expires_at": 1776750877.4467094,
+      "id": "job_cd7d49fc2705",
+      "job_class": "ci_repair",
+      "metadata": {
+        "lane": "migration",
+        "pod": "typescript",
+        "required_trust_tier": "trusted"
+      },
+      "repo_full_name": "local/demo-marketplace-repo",
+      "repository_account_id": "ra_bf1b5a53e7d2",
+      "risk_level": "medium",
+      "source_event_key": "",
+      "status": "completed",
+      "summary": "",
+      "title": "Repair workflow drift",
+      "trigger_source": "manual",
+      "updated_at": 1776146080.8862145
+    },
+    "payouts": [
+      {
+        "agent_id": "agent_bcb94299db5a",
+        "amount": 100,
+        "created_at": 1776146080.8993077,
+        "currency": "credits",
+        "funding_source": "platform_credits",
+        "id": "pay_a6c9224896ae",
+        "job_id": "job_cd7d49fc2705",
+        "notes": "Demo acceptance for Langfuse verification.",
+        "operator_id": "platform-managed",
+        "status": "approved",
+        "submission_id": "sub_02a81f89131e"
+      }
+    ],
+    "plans": [
+      {
+        "agent_id": "agent_bcb94299db5a",
+        "created_at": 1776146077.6970224,
+        "estimated_cost": 0,
+        "estimated_seconds": 900,
+        "id": "plan_cbe78b31c8c0",
+        "job_id": "job_cd7d49fc2705",
+        "operator_id": "platform-router",
+        "status": "proposed",
+        "steps": [
+          "inspect repository files relevant to the job",
+          "prepare the smallest safe code change",
+          "record evidence and open a maintainer-review submission"
+        ],
+        "summary": "Let TypeScript Migrator produce a narrow, policy-compliant fix for Repair workflow drift.",
+        "updated_at": 1776146077.6970224
+      }
+    ],
+    "recommendations": [
+      {
+        "agent_id": "agent_bcb94299db5a",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "TypeScript Migrator",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "migration",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "typescript",
+        "policy_pass": true,
+        "policy_warnings": [],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "ecosystem match",
+          "lane match",
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_850755be3cbd",
+        "recommended": true,
+        "requires_plan": true,
+        "score": 114,
+        "slug": "ts-migrator",
+        "specialist_id": "spec_b03be43f6cb7",
+        "trust_tier": "trusted"
+      },
+      {
+        "agent_id": "agent_e70e788db34c",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "TypeScript Auditor",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "security_audit",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "typescript",
+        "policy_pass": true,
+        "policy_warnings": [],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "ecosystem match",
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_8d0ee7f5bc78",
+        "recommended": true,
+        "requires_plan": true,
+        "score": 95,
+        "slug": "ts-auditor",
+        "specialist_id": "spec_505f6e69e14c",
+        "trust_tier": "critical"
+      },
+      {
+        "agent_id": "agent_9dae34a649a0",
+        "agent_kind": "generic",
+        "budget_compatible": true,
+        "display_name": "Generic CI Maintainer",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "workflow_repair",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "github_actions",
+        "policy_pass": false,
+        "policy_warnings": [
+          "trust tier too low"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "ecosystem match",
+          "generic fallback coverage",
+          "budget compatible",
+          "low-cost generic fallback",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_6a26826b2f8f",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 84,
+        "slug": "generic-ci-maintainer",
+        "specialist_id": "",
+        "trust_tier": "standard"
+      },
+      {
+        "agent_id": "agent_e2881cc17e08",
+        "agent_kind": "generic",
+        "budget_compatible": true,
+        "display_name": "Generic TS Maintainer",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "maintenance",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "typescript",
+        "policy_pass": false,
+        "policy_warnings": [
+          "trust tier too low"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "ecosystem match",
+          "generic fallback coverage",
+          "budget compatible",
+          "low-cost generic fallback",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_683f5bd1ae4a",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 83,
+        "slug": "generic-ts-maintainer",
+        "specialist_id": "",
+        "trust_tier": "standard"
+      },
+      {
+        "agent_id": "agent_600caa7aee99",
+        "agent_kind": "generic",
+        "budget_compatible": true,
+        "display_name": "Generic Rust Maintainer",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "maintenance",
+        "matched_ecosystems": [],
+        "matched_job_classes": [
+          "ci_repair"
+        ],
+        "pod": "rust",
+        "policy_pass": false,
+        "policy_warnings": [
+          "ecosystem mismatch",
+          "trust tier too low"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "job class match",
+          "generic fallback coverage",
+          "budget compatible",
+          "low-cost generic fallback",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_14137ee0c32b",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 63,
+        "slug": "generic-rust-maintainer",
+        "specialist_id": "",
+        "trust_tier": "standard"
+      },
+      {
+        "agent_id": "agent_2d5d38bbbd4a",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "TypeScript Architect",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "architecture_refactor",
+        "matched_ecosystems": [
+          "typescript"
+        ],
+        "matched_job_classes": [],
+        "pod": "typescript",
+        "policy_pass": false,
+        "policy_warnings": [
+          "job class unsupported"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "ecosystem match",
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_cc8454d4813c",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 54,
+        "slug": "ts-architect",
+        "specialist_id": "spec_4e195816684f",
+        "trust_tier": "trusted"
+      },
+      {
+        "agent_id": "agent_d0c561bcbc4c",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "Rust Sentinel",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "security_patch",
+        "matched_ecosystems": [],
+        "matched_job_classes": [],
+        "pod": "rust",
+        "policy_pass": false,
+        "policy_warnings": [
+          "job class unsupported",
+          "ecosystem mismatch"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_e17ba4f51db5",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 35,
+        "slug": "rust-sentinel",
+        "specialist_id": "spec_7a3d37069b1e",
+        "trust_tier": "critical"
+      },
+      {
+        "agent_id": "agent_94c4f6032b74",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "Rust Optimizer",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "performance_optimization",
+        "matched_ecosystems": [],
+        "matched_job_classes": [],
+        "pod": "rust",
+        "policy_pass": false,
+        "policy_warnings": [
+          "job class unsupported",
+          "ecosystem mismatch"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_4ecec932d3c3",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 34,
+        "slug": "rust-optimizer",
+        "specialist_id": "spec_64114dd04d48",
+        "trust_tier": "trusted"
+      },
+      {
+        "agent_id": "agent_3693fc32a5ed",
+        "agent_kind": "specialist",
+        "budget_compatible": true,
+        "display_name": "Rust Porter",
+        "job_id": "job_cd7d49fc2705",
+        "lane": "porting",
+        "matched_ecosystems": [],
+        "matched_job_classes": [],
+        "pod": "rust",
+        "policy_pass": false,
+        "policy_warnings": [
+          "job class unsupported",
+          "ecosystem mismatch"
+        ],
+        "pricing_profile": "per_accepted_change",
+        "reasons": [
+          "budget compatible",
+          "trust tier satisfies requirement",
+          "specialized fit",
+          "historical performance"
+        ],
+        "recommendation_id": "rec_95e7bf180e09",
+        "recommended": false,
+        "requires_plan": true,
+        "score": 34,
+        "slug": "rust-porter",
+        "specialist_id": "spec_d3df96f90466",
+        "trust_tier": "trusted"
+      }
+    ],
+    "runs": [
+      {
+        "agent_id": "agent_bcb94299db5a",
+        "assignment_id": "assign_e81719dad4c4",
+        "changed_files": [
+          ".github/workflows/ci.yml",
+          "tsconfig.json"
+        ],
+        "created_at": 1776146077.7243307,
+        "evidence": {
+          "changed_files": [
+            ".github/workflows/ci.yml",
+            "tsconfig.json"
+          ],
+          "changes_applied": true,
+          "job_class": "ci_repair",
+          "lane": "migration",
+          "mode": "apply",
+          "pod": "typescript",
+          "repo_path": "C:\\Users\\mac\\BountyNet\\tmp\\demo-marketplace-repo"
+        },
+        "finished_at": 1776146080.8348598,
+        "id": "run_3f905bc7d765",
+        "job_id": "job_cd7d49fc2705",
+        "logs": [
+          "Running ts-migrator against C:\\Users\\mac\\BountyNet\\tmp\\demo-marketplace-repo in apply mode.",
+          "Updated workflow action versions in .github\\workflows\\ci.yml.",
+          "Normalized compiler options in tsconfig.json."
+        ],
+        "mode": "apply",
+        "repository_account_id": "ra_bf1b5a53e7d2",
+        "started_at": 1776146077.7243295,
+        "status": "completed",
+        "submission_id": "sub_02a81f89131e",
+        "summary": "TypeScript Migrator produced 2 file change(s).",
+        "updated_at": 1776146080.834861
+      }
+    ],
+    "submissions": [
+      {
+        "acceptance_attribution": "maintainer_accepted",
+        "agent_id": "agent_bcb94299db5a",
+        "branch_name": "agent/ts-migrator/job_cd7d49fc2705",
+        "diff_summary": "Updated workflow action versions in .github\\workflows\\ci.yml.; Normalized compiler options in tsconfig.json.",
+        "evidence": {
+          "changed_files": [
+            ".github/workflows/ci.yml",
+            "tsconfig.json"
+          ],
+          "changes_applied": true,
+          "decision_notes": "Demo acceptance for Langfuse verification.",
+          "job_class": "ci_repair",
+          "lane": "migration",
+          "merged_by": "demo-maintainer",
+          "mode": "apply",
+          "pod": "typescript",
+          "repo_path": "C:\\Users\\mac\\BountyNet\\tmp\\demo-marketplace-repo"
+        },
+        "id": "sub_02a81f89131e",
+        "job_id": "job_cd7d49fc2705",
+        "pr_number": 0,
+        "pr_url": "",
+        "status": "accepted",
+        "submitted_at": 1776146080.8256173,
+        "updated_at": 1776146080.8765476
+      }
+    ]
+  },
+  "workflow": "name: CI\njobs:\n  test:\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-node@v4\n",
+  "tsconfig": "{\n  \"compilerOptions\": {\n    \"noEmit\": true,\n    \"skipLibCheck\": true,\n    \"strict\": true\n  }\n}\n"
+}

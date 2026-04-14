@@ -14,13 +14,16 @@ class AgentServingProfile:
     allowed_files: tuple[str, ...]
     validator_recipe: tuple[str, ...]
     runtime_model: str
+    runtime_fallback_model: str
     runtime_provider: str
     runtime_adapter: str
+    reasoning_effort: str
     plan_required: bool
 
 
-_DEFAULT_MODEL = "mistral-small"
-_DEFAULT_PROVIDER = "openai_compatible"
+_DEFAULT_MODEL = "agents/default"
+_DEFAULT_FALLBACK_MODEL = "openrouter/anthropic/claude-sonnet-4.5"
+_DEFAULT_PROVIDER = "litellm"
 
 
 AGENT_SERVING_PROFILES: dict[str, AgentServingProfile] = {
@@ -33,9 +36,11 @@ AGENT_SERVING_PROFILES: dict[str, AgentServingProfile] = {
         allowed_tools=("repo_context", "workflow_upgrade", "tsconfig_normalize", "package_json_update", "diff_summary"),
         allowed_files=("package.json", "tsconfig.json", "tsconfig.base.json", ".github/workflows/*.yml", ".github/workflows/*.yaml"),
         validator_recipe=("typecheck", "tests", "ci-policy"),
-        runtime_model=_DEFAULT_MODEL,
+        runtime_model="agents/ts-migrator",
+        runtime_fallback_model=_DEFAULT_FALLBACK_MODEL,
         runtime_provider=_DEFAULT_PROVIDER,
         runtime_adapter="ts-migrator",
+        reasoning_effort="medium",
         plan_required=True,
     ),
     "ts-auditor": AgentServingProfile(
@@ -47,9 +52,11 @@ AGENT_SERVING_PROFILES: dict[str, AgentServingProfile] = {
         allowed_tools=("repo_context", "package_json_update", "tsconfig_normalize", "diff_summary"),
         allowed_files=("package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "tsconfig.json", ".github/workflows/*.yml", ".github/workflows/*.yaml"),
         validator_recipe=("audit", "typecheck", "tests"),
-        runtime_model=_DEFAULT_MODEL,
+        runtime_model="agents/ts-auditor",
+        runtime_fallback_model=_DEFAULT_FALLBACK_MODEL,
         runtime_provider=_DEFAULT_PROVIDER,
         runtime_adapter="ts-auditor",
+        reasoning_effort="high",
         plan_required=True,
     ),
     "ts-architect": AgentServingProfile(
@@ -61,9 +68,11 @@ AGENT_SERVING_PROFILES: dict[str, AgentServingProfile] = {
         allowed_tools=("repo_context", "opportunity_scan", "tsconfig_normalize", "diff_summary"),
         allowed_files=("tsconfig.json", "tsconfig.base.json", "src/**/*.ts", "src/**/*.tsx", "app/**/*.ts", "app/**/*.tsx"),
         validator_recipe=("typecheck", "tests", "scope-check"),
-        runtime_model=_DEFAULT_MODEL,
+        runtime_model="agents/ts-architect",
+        runtime_fallback_model=_DEFAULT_FALLBACK_MODEL,
         runtime_provider=_DEFAULT_PROVIDER,
         runtime_adapter="ts-architect",
+        reasoning_effort="high",
         plan_required=True,
     ),
     "rust-porter": AgentServingProfile(
@@ -75,9 +84,11 @@ AGENT_SERVING_PROFILES: dict[str, AgentServingProfile] = {
         allowed_tools=("repo_context", "cargo_update", "workflow_upgrade", "diff_summary"),
         allowed_files=("Cargo.toml", "Cargo.lock", ".github/workflows/*.yml", ".github/workflows/*.yaml", "src/**/*.rs"),
         validator_recipe=("cargo-check", "tests", "fmt"),
-        runtime_model=_DEFAULT_MODEL,
+        runtime_model="agents/rust-porter",
+        runtime_fallback_model=_DEFAULT_FALLBACK_MODEL,
         runtime_provider=_DEFAULT_PROVIDER,
         runtime_adapter="rust-porter",
+        reasoning_effort="medium",
         plan_required=True,
     ),
     "rust-sentinel": AgentServingProfile(
@@ -89,9 +100,11 @@ AGENT_SERVING_PROFILES: dict[str, AgentServingProfile] = {
         allowed_tools=("repo_context", "cargo_update", "diff_summary"),
         allowed_files=("Cargo.toml", "Cargo.lock", ".cargo/config.toml", ".github/workflows/*.yml", ".github/workflows/*.yaml"),
         validator_recipe=("cargo-check", "tests", "audit"),
-        runtime_model=_DEFAULT_MODEL,
+        runtime_model="agents/rust-sentinel",
+        runtime_fallback_model=_DEFAULT_FALLBACK_MODEL,
         runtime_provider=_DEFAULT_PROVIDER,
         runtime_adapter="rust-sentinel",
+        reasoning_effort="high",
         plan_required=True,
     ),
     "rust-optimizer": AgentServingProfile(
@@ -103,9 +116,11 @@ AGENT_SERVING_PROFILES: dict[str, AgentServingProfile] = {
         allowed_tools=("repo_context", "opportunity_scan", "cargo_update", "diff_summary"),
         allowed_files=("Cargo.toml", "src/**/*.rs", "benches/**/*.rs"),
         validator_recipe=("cargo-check", "tests", "scope-check"),
-        runtime_model=_DEFAULT_MODEL,
+        runtime_model="agents/rust-optimizer",
+        runtime_fallback_model=_DEFAULT_FALLBACK_MODEL,
         runtime_provider=_DEFAULT_PROVIDER,
         runtime_adapter="rust-optimizer",
+        reasoning_effort="medium",
         plan_required=True,
     ),
 }

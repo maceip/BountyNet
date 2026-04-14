@@ -1,0 +1,67 @@
+services:
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    command:
+      - "--config"
+      - "/app/config/litellm.config.yaml"
+      - "--port"
+      - "4000"
+    env_file:
+      - .env
+    volumes:
+      - ./litellm.config.yaml:/app/config/litellm.config.yaml:ro
+    ports:
+      - "4000:4000"
+    depends_on:
+      - sglang
+
+  sglang:
+    image: lmsysorg/sglang:latest
+    command:
+      - "python3"
+      - "-m"
+      - "sglang.launch_server"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "30000"
+      - "--model-path"
+      - "${SGLANG_MODEL_PATH}"
+      - "--served-model-name"
+      - "${SGLANG_SERVED_MODEL_NAME:-base-coder}"
+      - "--chat-template"
+      - "${SGLANG_CHAT_TEMPLATE:-chatml}"
+    env_file:
+      - .env
+    volumes:
+      - ${MODEL_CACHE_DIR:-./models}:/models
+      - ./adapters:/adapters
+    ports:
+      - "30000:30000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: ["gpu"]
+
+  gateway:
+    build:
+      context: ../..
+      dockerfile: docker/gateway/Dockerfile
+    command:
+      - "python"
+      - "-m"
+      - "gateway.app"
+    env_file:
+      - .env
+    environment:
+      AGENT_RUNTIME_PROVIDER: "litellm"
+      AGENT_RUNTIME_API_BASE: "http://litellm:4000"
+      AGENT_RUNTIME_MODEL: "agents/default"
+      AGENT_RUNTIME_FALLBACK_MODEL: "openrouter/anthropic/claude-sonnet-4.5"
+      AGENT_RUNTIME_REASONING_EFFORT: "medium"
+      AGENT_RUNTIME_EXTRA_BODY_JSON: "{\"metadata\":{\"stack\":\"agent-runtime\"}}"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - litellm

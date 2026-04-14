@@ -438,6 +438,55 @@ def test_market_seeded_specialists_and_presets(asgi_app):
         assert body["job_metadata_template"]["required_trust_tier"] == "trusted"
 
 
+def test_market_runtime_status_exposes_agent_runtime_contract(asgi_app, monkeypatch):
+    monkeypatch.setenv("AGENT_RUNTIME_PROVIDER", "litellm")
+    monkeypatch.setenv("AGENT_RUNTIME_API_BASE", "http://litellm.internal:4000")
+    monkeypatch.setenv("AGENT_RUNTIME_API_KEY", "sk-test")
+    monkeypatch.setenv("AGENT_RUNTIME_FALLBACK_MODEL", "openrouter/anthropic/claude-sonnet-4.5")
+
+    with TestClient(asgi_app) as client:
+        runtime = client.get("/market/runtime")
+        assert runtime.status_code == 200, runtime.text
+        payload = runtime.json()
+        assert payload["runtime"]["provider"] == "litellm"
+        assert payload["runtime"]["configured"] is True
+        assert len(payload["agents"]) == 6
+        assert any(item["agent_slug"] == "ts-migrator" for item in payload["agents"])
+
+        ts_runtime = client.get("/market/runtime?agent_slug=ts-migrator")
+        assert ts_runtime.status_code == 200, ts_runtime.text
+        ts_payload = ts_runtime.json()["runtime"]
+        assert ts_payload["agent_slug"] == "ts-migrator"
+        assert ts_payload["model"] == "agents/ts-migrator"
+        assert ts_payload["fallback_model"] == "openrouter/anthropic/claude-sonnet-4.5"
+        assert ts_payload["adapter"] == "ts-migrator"
+        assert ts_payload["has_api_key"] is True
+
+
+def test_market_runtime_status_supports_hosted_only_agent_resolution(asgi_app, monkeypatch):
+    monkeypatch.delenv("AGENT_RUNTIME_API_BASE", raising=False)
+    monkeypatch.delenv("AGENT_RUNTIME_API_KEY", raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "anthropic-test")
+    monkeypatch.setenv(
+        "AGENT_RUNTIME_MODEL_MAP_JSON",
+        json.dumps(
+            {
+                "agents/default": "anthropic/claude-sonnet-4-5",
+                "agents/ts-migrator": "anthropic/claude-sonnet-4-5",
+            }
+        ),
+    )
+
+    with TestClient(asgi_app) as client:
+        ts_runtime = client.get("/market/runtime?agent_slug=ts-migrator")
+        assert ts_runtime.status_code == 200, ts_runtime.text
+        payload = ts_runtime.json()["runtime"]
+        assert payload["model"] == "agents/ts-migrator"
+        assert payload["resolved_model"] == "anthropic/claude-sonnet-4-5"
+        assert payload["configured"] is True
+        assert payload["has_api_key"] is True
+
+
 def test_market_autopilot_executes_local_fix(asgi_app, tmp_path):
     repo_path = tmp_path / "demo-ts-repo"
     repo_path.mkdir()

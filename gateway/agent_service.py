@@ -9,7 +9,7 @@ from typing import Any
 from gateway import store
 from gateway.agent_fleet import get_serving_profile
 from gateway.market_exec import execute_managed_job
-from gateway.model_runtime import complete_json, default_runtime_config, runtime_available
+from gateway.model_runtime import complete_json, runtime_available, runtime_config_for_profile, runtime_summary
 
 
 def _make_id(prefix: str) -> str:
@@ -41,6 +41,7 @@ def build_agent_request(*, agent: dict[str, Any], job: dict[str, Any], account: 
         raise ValueError(f"no serving profile for {agent['slug']}")
     repo_context = _repo_snapshot(account["local_path"]) if account.get("local_path") else {}
     metadata = job.get("metadata") or {}
+    runtime = runtime_config_for_profile(profile, agent_model=agent.get("model", ""))
     return {
         "agent_slug": agent["slug"],
         "agent_display_name": agent["display_name"],
@@ -59,6 +60,15 @@ def build_agent_request(*, agent: dict[str, Any], job: dict[str, Any], account: 
             "allowed_files": list(profile.allowed_files),
             "validator_recipe": list(profile.validator_recipe),
             "plan_required": profile.plan_required,
+        },
+        "runtime": {
+            "provider": runtime.provider,
+            "model": runtime.model,
+            "resolved_model": runtime.resolved_model,
+            "fallback_model": runtime.fallback_model,
+            "resolved_fallback_model": runtime.resolved_fallback_model,
+            "reasoning_effort": runtime.reasoning_effort,
+            "adapter": profile.runtime_adapter,
         },
         "repo_context": repo_context,
     }
@@ -91,7 +101,7 @@ def invoke_agent(*, agent: dict[str, Any], job: dict[str, Any], account: dict[st
     request_payload = build_agent_request(agent=agent, job=job, account=account)
     profile = get_serving_profile(agent["slug"])
     assert profile is not None
-    config = default_runtime_config()
+    config = runtime_config_for_profile(profile, agent_model=agent.get("model", ""))
     invocation_id = _make_id("invoke")
     store.market_agent_invocation_create(
         invocation_id=invocation_id,
@@ -105,19 +115,39 @@ def invoke_agent(*, agent: dict[str, Any], job: dict[str, Any], account: dict[st
         started_at=time.time(),
     )
     if runtime_available(config):
-        response = complete_json(messages=_messages_for_request(request_payload), config=config)
-        tool_calls = [{"tool": tool, "allowed": True} for tool in response["parsed"].get("planned_tools", []) if isinstance(response["parsed"], dict)]
-        validations = [{"name": name, "status": "pending"} for name in profile.validator_recipe]
-        store.market_agent_invocation_update(
-            invocation_id,
-            status="completed",
-            response=response["parsed"],
-            tool_calls=tool_calls,
-            validations=validations,
-            tokens_in=response["tokens_in"],
-            tokens_out=response["tokens_out"],
-            finished_at=time.time(),
-        )
+        try:
+            response = complete_json(messages=_messages_for_request(request_payload), config=config)
+            tool_calls = [{"tool": tool, "allowed": True} for tool in response["parsed"].get("planned_tools", []) if isinstance(response["parsed"], dict)]
+            validations = [{"name": name, "status": "pending"} for name in profile.validator_recipe]
+            store.market_agent_invocation_update(
+                invocation_id,
+                status="completed",
+                response=response["parsed"],
+                tool_calls=tool_calls,
+                validations=validations,
+                tokens_in=response["tokens_in"],
+                tokens_out=response["tokens_out"],
+                finished_at=time.time(),
+            )
+        except Exception as exc:
+            fallback = {
+                "summary": f"{agent['display_name']} runtime call failed; using bounded local executor fallback.",
+                "why_this_change": str(exc),
+                "planned_tools": list(profile.allowed_tools),
+                "files_to_touch": [],
+                "proposed_updates": [],
+                "validator_notes": list(profile.validator_recipe),
+                "fallback": True,
+                "runtime_error": str(exc),
+            }
+            store.market_agent_invocation_update(
+                invocation_id,
+                status="fallback",
+                response=fallback,
+                tool_calls=[{"tool": tool, "allowed": True} for tool in profile.allowed_tools],
+                validations=[{"name": name, "status": "pending"} for name in profile.validator_recipe],
+                finished_at=time.time(),
+            )
     else:
         fallback = {
             "summary": f"{agent['display_name']} runtime unavailable; using bounded local executor fallback.",
@@ -137,6 +167,20 @@ def invoke_agent(*, agent: dict[str, Any], job: dict[str, Any], account: dict[st
             finished_at=time.time(),
         )
     return store.market_agent_invocation_get(invocation_id) or {"id": invocation_id}
+
+
+def runtime_status_for_agent(agent_slug: str, *, agent_model: str = "") -> dict[str, Any]:
+    profile = get_serving_profile(agent_slug)
+    if not profile:
+        raise ValueError(f"no serving profile for {agent_slug}")
+    cfg = runtime_config_for_profile(profile, agent_model=agent_model)
+    status = runtime_summary(cfg)
+    status["agent_slug"] = profile.slug
+    status["adapter"] = profile.runtime_adapter
+    status["validator_recipe"] = list(profile.validator_recipe)
+    status["allowed_tools"] = list(profile.allowed_tools)
+    status["plan_required"] = profile.plan_required
+    return status
 
 
 def execute_agent_assignment(*, agent: dict[str, Any], job: dict[str, Any], account: dict[str, Any], mode: str = "apply") -> dict[str, Any]:

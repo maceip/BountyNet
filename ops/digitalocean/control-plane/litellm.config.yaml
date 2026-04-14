@@ -1,0 +1,82 @@
+model_list:
+  - model_name: agents/default
+    litellm_params:
+      model: anthropic/claude-sonnet-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  - model_name: agents/ts-migrator
+    litellm_params:
+      model: anthropic/claude-sonnet-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      extra_body:
+        metadata:
+          agent_slug: ts-migrator
+          adapter_id: ts-migrator
+
+  - model_name: agents/ts-auditor
+    litellm_params:
+      model: anthropic/claude-sonnet-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      extra_body:
+        metadata:
+          agent_slug: ts-auditor
+          adapter_id: ts-auditor
+
+  - model_name: agents/ts-architect
+    litellm_params:
+      model: anthropic/claude-sonnet-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      extra_body:
+        metadata:
+          agent_slug: ts-architect
+          adapter_id: ts-architect
+
+  - model_name: agents/rust-porter
+    litellm_params:
+      model: anthropic/claude-sonnet-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      extra_body:
+        metadata:
+          agent_slug: rust-porter
+          adapter_id: rust-porter
+
+  - model_name: agents/rust-sentinel
+    litellm_params:
+      model: anthropic/claude-sonnet-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      extra_body:
+        metadata:
+          agent_slug: rust-sentinel
+          adapter_id: rust-sentinel
+
+  - model_name: agents/rust-optimizer
+    litellm_params:
+      model: anthropic/claude-sonnet-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      extra_body:
+        metadata:
+          agent_slug: rust-optimizer
+          adapter_id: rust-optimizer
+
+  - model_name: aws-vllm/base-coder
+    litellm_params:
+      model: openai/base-coder
+      api_base: os.environ/AWS_VLLM_API_BASE
+      api_key: os.environ/AWS_VLLM_API_KEY
+
+router_settings:
+  fallbacks:
+    - agents/default: ["aws-vllm/base-coder"]
+    - agents/ts-migrator: ["aws-vllm/base-coder"]
+    - agents/ts-auditor: ["aws-vllm/base-coder"]
+    - agents/ts-architect: ["aws-vllm/base-coder"]
+    - agents/rust-porter: ["aws-vllm/base-coder"]
+    - agents/rust-sentinel: ["aws-vllm/base-coder"]
+    - agents/rust-optimizer: ["aws-vllm/base-coder"]
+
+litellm_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  salt_key: os.environ/LITELLM_SALT_KEY
+  success_callback: ["langfuse"]
+  service_callbacks: ["langfuse"]
+  json_logs: true

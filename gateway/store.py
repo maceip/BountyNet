@@ -28,7 +28,13 @@ def db_path() -> str:
     data = os.environ.get("BOUNTYNET_DATA_DIR", "").strip()
     if not data:
         data = str(Path.home() / ".bountynet")
-    Path(data).mkdir(parents=True, exist_ok=True)
+    try:
+        Path(data).mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        fallback = Path.cwd() / ".bountynet"
+        fallback.mkdir(parents=True, exist_ok=True)
+        data = str(fallback)
+        os.environ.setdefault("BOUNTYNET_DATA_DIR", data)
     return os.environ.get("BOUNTYNET_DB_PATH", str(Path(data) / "gateway.db"))
 
 

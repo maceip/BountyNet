@@ -7,9 +7,12 @@ from pathlib import Path
 from flask import Blueprint, Response, jsonify, request
 
 from gateway import store
-from gateway.agent_service import execute_agent_assignment
+from gateway.agent_fleet import AGENT_SERVING_PROFILES
+from gateway.agent_service import execute_agent_assignment, runtime_status_for_agent
 from gateway.events import emit
+from gateway.langfuse_market import contract_trace, score_contract_acceptance, update_contract_trace
 from gateway.market_exec import discover_repo_opportunities, execute_managed_job
+from gateway.model_runtime import runtime_summary
 
 market_bp = Blueprint("market", __name__)
 
@@ -30,9 +33,9 @@ _MANAGED_SPECIALISTS = [
 ]
 
 _MANAGED_AGENTS = [
-    {"slug": "generic-ts-maintainer", "display_name": "Generic TS Maintainer", "agent_kind": "generic", "pod": "typescript", "lane": "maintenance", "summary": "Broad low-cost TypeScript maintenance coverage for CI, config, and dependency jobs.", "supported_job_classes": ["ci_repair", "dependency_update", "test_repair", "config_remediation"], "supported_ecosystems": ["typescript", "node", "react", "nextjs"], "supported_budget_types": ["platform_credits", "api_key_pool"], "trust_tier": "standard", "pricing_profile": "per_accepted_change", "acceptance_rate_30d": 0.51, "median_time_to_pr_seconds": 900, "revert_rate_90d": 0.08, "badges": ["managed", "generic", "typescript"], "execution_backend": "shared_model_runtime", "model": "managed/generic-ts"},
-    {"slug": "generic-rust-maintainer", "display_name": "Generic Rust Maintainer", "agent_kind": "generic", "pod": "rust", "lane": "maintenance", "summary": "Broad low-cost Rust maintenance coverage for dependency, CI, and config jobs.", "supported_job_classes": ["ci_repair", "dependency_update", "config_remediation", "test_repair"], "supported_ecosystems": ["rust", "cargo"], "supported_budget_types": ["platform_credits", "api_key_pool"], "trust_tier": "standard", "pricing_profile": "per_accepted_change", "acceptance_rate_30d": 0.48, "median_time_to_pr_seconds": 960, "revert_rate_90d": 0.07, "badges": ["managed", "generic", "rust"], "execution_backend": "shared_model_runtime", "model": "managed/generic-rust"},
-    {"slug": "generic-ci-maintainer", "display_name": "Generic CI Maintainer", "agent_kind": "generic", "pod": "github_actions", "lane": "workflow_repair", "summary": "Repairs broad GitHub Actions and workflow drift issues at low cost.", "supported_job_classes": ["ci_repair", "config_remediation"], "supported_ecosystems": ["github_actions", "typescript", "rust"], "supported_budget_types": ["platform_credits", "api_key_pool"], "trust_tier": "standard", "pricing_profile": "per_accepted_change", "acceptance_rate_30d": 0.54, "median_time_to_pr_seconds": 720, "revert_rate_90d": 0.04, "badges": ["managed", "generic", "ci"], "execution_backend": "shared_model_runtime", "model": "managed/generic-ci"},
+    {"slug": "generic-ts-maintainer", "display_name": "Generic TS Maintainer", "agent_kind": "generic", "pod": "typescript", "lane": "maintenance", "summary": "Broad low-cost TypeScript maintenance coverage for CI, config, and dependency jobs.", "supported_job_classes": ["ci_repair", "dependency_update", "test_repair", "config_remediation"], "supported_ecosystems": ["typescript", "node", "react", "nextjs"], "supported_budget_types": ["platform_credits", "api_key_pool"], "trust_tier": "standard", "pricing_profile": "per_accepted_change", "acceptance_rate_30d": 0.51, "median_time_to_pr_seconds": 900, "revert_rate_90d": 0.08, "badges": ["managed", "generic", "typescript"], "execution_backend": "shared_model_runtime", "model": "agents/default"},
+    {"slug": "generic-rust-maintainer", "display_name": "Generic Rust Maintainer", "agent_kind": "generic", "pod": "rust", "lane": "maintenance", "summary": "Broad low-cost Rust maintenance coverage for dependency, CI, and config jobs.", "supported_job_classes": ["ci_repair", "dependency_update", "config_remediation", "test_repair"], "supported_ecosystems": ["rust", "cargo"], "supported_budget_types": ["platform_credits", "api_key_pool"], "trust_tier": "standard", "pricing_profile": "per_accepted_change", "acceptance_rate_30d": 0.48, "median_time_to_pr_seconds": 960, "revert_rate_90d": 0.07, "badges": ["managed", "generic", "rust"], "execution_backend": "shared_model_runtime", "model": "agents/default"},
+    {"slug": "generic-ci-maintainer", "display_name": "Generic CI Maintainer", "agent_kind": "generic", "pod": "github_actions", "lane": "workflow_repair", "summary": "Repairs broad GitHub Actions and workflow drift issues at low cost.", "supported_job_classes": ["ci_repair", "config_remediation"], "supported_ecosystems": ["github_actions", "typescript", "rust"], "supported_budget_types": ["platform_credits", "api_key_pool"], "trust_tier": "standard", "pricing_profile": "per_accepted_change", "acceptance_rate_30d": 0.54, "median_time_to_pr_seconds": 720, "revert_rate_90d": 0.04, "badges": ["managed", "generic", "ci"], "execution_backend": "shared_model_runtime", "model": "agents/default"},
 ]
 
 _LANE_PRESETS = {
@@ -95,7 +98,7 @@ def _seed_managed_agents() -> list[dict]:
                 "revert_rate_90d": 0.03 if spec["trust_tier"] == "critical" else 0.05,
                 "badges": ["managed", "specialist", spec["pod"]],
                 "execution_backend": "shared_model_runtime",
-                "model": f"managed/{spec['slug']}",
+                "model": f"agents/{spec['slug']}",
                 "specialist_id": specialist_map[spec["slug"]]["id"],
             }
         )
@@ -218,12 +221,35 @@ def _execute_assignment(job: dict, account: dict, assignment: dict, mode: str = 
         raise ValueError("assigned agent not found")
     if not account.get("local_path"):
         raise ValueError("repository account has no local_path configured")
+    plan = store.market_job_plan_get(assignment.get("plan_id", "")) if assignment.get("plan_id") else None
     run_id = _make_id("run")
-    store.market_execution_run_create(run_id=run_id, job_id=job["id"], agent_id=agent["id"], repository_account_id=account["id"], assignment_id=assignment["id"], mode=mode, status="running", summary=f"Running {agent['display_name']}", logs=[], changed_files=[], evidence={}, started_at=time.time())
-    if agent.get("execution_backend") == "shared_model_runtime":
-        result = execute_agent_assignment(agent=agent, job=job, account=account, mode=mode)
-    else:
-        result = execute_managed_job(repo_path=account["local_path"], job=job, agent=agent, mode=mode)
+    with contract_trace(job=job, account=account, agent=agent, assignment=assignment, plan=plan) as trace_ctx:
+        base_evidence = {}
+        if trace_ctx:
+            base_evidence = {
+                "langfuse_trace_id": trace_ctx.get("trace_id", ""),
+                "langfuse_trace_url": trace_ctx.get("trace_url", ""),
+            }
+        store.market_execution_run_create(run_id=run_id, job_id=job["id"], agent_id=agent["id"], repository_account_id=account["id"], assignment_id=assignment["id"], mode=mode, status="running", summary=f"Running {agent['display_name']}", logs=[], changed_files=[], evidence=base_evidence, started_at=time.time())
+        if agent.get("execution_backend") == "shared_model_runtime":
+            result = execute_agent_assignment(agent=agent, job=job, account=account, mode=mode)
+        else:
+            result = execute_managed_job(repo_path=account["local_path"], job=job, agent=agent, mode=mode)
+        evidence = dict(result["evidence"] or {})
+        evidence.update(base_evidence)
+        result["evidence"] = evidence
+        update_contract_trace(
+            trace_ctx,
+            output={
+                "summary": result["summary"],
+                "changed_files": result["changed_files"],
+                "diff_summary": result["diff_summary"],
+            },
+            metadata={
+                "status": "completed" if result["changed_files"] else "noop",
+                "submission_expected": bool(result["changed_files"]),
+            },
+        )
     submission = None
     if result["changed_files"]:
         submission_id = _make_id("sub")
@@ -387,6 +413,26 @@ def seed_managed_specialists():
 @market_bp.route("/market/agents", methods=["GET"])
 def list_agents():
     return jsonify({"agents": store.market_agent_profiles_list(status=request.args.get("status"), agent_kind=request.args.get("agent_kind"))})
+
+
+@market_bp.route("/market/runtime", methods=["GET"])
+def get_runtime_status():
+    requested_slug = (request.args.get("agent_slug") or "").strip()
+    if requested_slug:
+        try:
+            status = runtime_status_for_agent(requested_slug)
+        except ValueError:
+            return jsonify({"error": "agent serving profile not found"}), 404
+        return jsonify({"runtime": status})
+    return jsonify(
+        {
+            "runtime": runtime_summary(),
+            "agents": [
+                runtime_status_for_agent(profile.slug)
+                for profile in AGENT_SERVING_PROFILES.values()
+            ],
+        }
+    )
 
 
 @market_bp.route("/market/agents", methods=["POST"])
@@ -722,4 +768,16 @@ def decide_submission(submission_id: str):
         _set_job_status(job, "open")
         for assignment in matching:
             store.market_job_assignment_update_status(assignment["id"], "rejected")
+    trace_id = (submission.get("evidence") or {}).get("langfuse_trace_id", "")
+    score_contract_acceptance(
+        trace_id=trace_id,
+        accepted=decision == "accepted",
+        comment=f"submission {decision}",
+        metadata={
+            "job_id": job["id"],
+            "submission_id": submission_id,
+            "agent_id": submission["agent_id"],
+            "acceptance_attribution": (body.get("acceptance_attribution") or "").strip(),
+        },
+    )
     return jsonify({"status": "decided", "job": store.market_job_get(job["id"]), "submission": store.market_submission_get(submission_id), "payouts": store.market_payout_ledger_list(job["id"])})

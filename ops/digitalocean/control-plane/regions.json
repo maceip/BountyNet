@@ -1,0 +1,8 @@
+[
+  { "name": "us-east", "region": "nyc3", "tag": "bountynet-control-us-east", "gateway_domain": "use1.gateway.example.com", "langfuse_domain": "use1.langfuse.example.com" },
+  { "name": "us-west", "region": "sfo3", "tag": "bountynet-control-us-west", "gateway_domain": "usw1.gateway.example.com", "langfuse_domain": "usw1.langfuse.example.com" },
+  { "name": "eu-west", "region": "lon1", "tag": "bountynet-control-eu-west", "gateway_domain": "euw1.gateway.example.com", "langfuse_domain": "euw1.langfuse.example.com" },
+  { "name": "eu-central", "region": "fra1", "tag": "bountynet-control-eu-central", "gateway_domain": "euc1.gateway.example.com", "langfuse_domain": "euc1.langfuse.example.com" },
+  { "name": "asia", "region": "sgp1", "tag": "bountynet-control-asia", "gateway_domain": "apac1.gateway.example.com", "langfuse_domain": "apac1.langfuse.example.com" },
+  { "name": "australia", "region": "syd1", "tag": "bountynet-control-australia", "gateway_domain": "au1.gateway.example.com", "langfuse_domain": "au1.langfuse.example.com" }
+]

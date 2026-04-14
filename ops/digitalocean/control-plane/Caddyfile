@@ -1,0 +1,9 @@
+{$GATEWAY_DOMAIN} {
+  encode gzip zstd
+  reverse_proxy gateway:8090
+}
+
+{$LANGFUSE_DOMAIN} {
+  encode gzip zstd
+  reverse_proxy langfuse-web:3000
+}
