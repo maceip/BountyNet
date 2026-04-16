@@ -136,4 +136,25 @@ def get_health():
             "storage_db": db_path(),
         })
     except Exception as e:
+        # Local bootstrap can opt into a non-fatal health response when RPC is not present.
+        # Keep strict behavior by default so production monitoring still fails hard.
+        allow_degraded = os.environ.get("BOUNTYNET_HEALTH_ALLOW_DEGRADED", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        if allow_degraded:
+            from gateway.store import db_path
+
+            return jsonify(
+                {
+                    "status": "degraded",
+                    "error": str(e),
+                    "evm_rpc_source": "unavailable",
+                    "escrow": ESCROW,
+                    "identity": IDENTITY,
+                    "storage_db": db_path(),
+                }
+            )
         return jsonify({"status": "error", "error": str(e)}), 500

@@ -1,0 +1,610 @@
+/* Supply Dashboard */
+.supply-dashboard {
+  padding: 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.supply-dashboard-header {
+  margin-bottom: 32px;
+}
+
+.supply-dashboard-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.supply-dashboard-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Stats Grid */
+.supply-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.supply-stat-card {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 20px;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.supply-stat-card:hover {
+  border-color: var(--border-medium);
+  background-color: rgba(163, 152, 217, 0.02);
+}
+
+.supply-stat-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.supply-stat-header .icon {
+  color: var(--text-secondary);
+}
+
+.supply-stat-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.supply-stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.supply-stat-detail {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+/* Content Section */
+.supply-content-section {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.supply-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.supply-section-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* Action Buttons */
+.supply-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+
+.supply-action-primary {
+  background-color: rgba(163, 152, 217, 0.15);
+  color: var(--text-primary);
+  border: 1px solid rgba(163, 152, 217, 0.3);
+}
+
+.supply-action-primary:hover {
+  background-color: rgba(163, 152, 217, 0.25);
+}
+
+.supply-action-secondary {
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-medium);
+}
+
+.supply-action-secondary:hover {
+  background-color: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+/* Empty State */
+.supply-empty-state {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.supply-empty-state .icon {
+  color: var(--text-tertiary);
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.supply-empty-state h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.supply-empty-state p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 24px;
+}
+
+/* Agent Card */
+.supply-agents-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 16px;
+}
+
+.supply-agent-card {
+  background-color: rgba(163, 152, 217, 0.02);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 16px;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.supply-agent-card:hover {
+  border-color: var(--border-medium);
+  background-color: rgba(163, 152, 217, 0.05);
+}
+
+.supply-agent-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.supply-agent-info {
+  flex: 1;
+}
+
+.supply-agent-info h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+
+.supply-agent-category {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.supply-status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.supply-status-active {
+  background-color: rgba(34, 197, 94, 0.1);
+  color: rgb(34, 197, 94);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.supply-status-submitted {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: rgb(59, 130, 246);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.supply-status-draft {
+  background-color: rgba(156, 163, 175, 0.1);
+  color: rgb(107, 114, 128);
+  border: 1px solid rgba(156, 163, 175, 0.3);
+}
+
+.supply-status-suspended {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: rgb(239, 68, 68);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.supply-agent-description {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+
+/* Agent Stats */
+.supply-agent-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 12px;
+}
+
+.supply-agent-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+}
+
+.supply-stat-value-small {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Agent Actions */
+.supply-agent-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.supply-agent-actions .supply-action-btn {
+  flex: 1;
+}
+
+/* Register Form */
+.supply-register {
+  padding: 32px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.supply-register-header {
+  margin-bottom: 32px;
+}
+
+.supply-register-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.supply-register-header p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.supply-form {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.supply-form-group {
+  margin-bottom: 20px;
+}
+
+.supply-form-group:last-child {
+  margin-bottom: 0;
+}
+
+.supply-form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.supply-form-input,
+.supply-form-select,
+.supply-form-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  background-color: rgba(163, 152, 217, 0.05);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.supply-form-input:focus,
+.supply-form-select:focus,
+.supply-form-textarea:focus {
+  outline: none;
+  border-color: rgba(163, 152, 217, 0.3);
+  background-color: rgba(163, 152, 217, 0.08);
+}
+
+.supply-form-textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.supply-form-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.supply-form-buttons button {
+  flex: 1;
+}
+
+.supply-form-button-secondary {
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+}
+
+.supply-form-button-secondary:hover {
+  background-color: var(--hover-bg);
+}
+
+/* Payouts Page */
+.supply-payouts {
+  padding: 32px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.supply-payouts-header {
+  margin-bottom: 24px;
+}
+
+.supply-payouts-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.supply-payouts-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.supply-payouts-table thead {
+  background-color: rgba(163, 152, 217, 0.05);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.supply-payouts-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.supply-payouts-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-primary);
+}
+
+.supply-payouts-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.supply-payout-status {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.supply-payout-pending {
+  background-color: rgba(250, 204, 21, 0.1);
+  color: rgb(180, 147, 0);
+}
+
+.supply-payout-completed {
+  background-color: rgba(34, 197, 94, 0.1);
+  color: rgb(34, 197, 94);
+}
+
+.supply-payout-processing {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: rgb(59, 130, 246);
+}
+
+/* Eval Agent Card */
+.supply-eval-card {
+  background-color: rgba(163, 152, 217, 0.02);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 20px;
+  transition: border-color 0.2s;
+}
+
+.supply-eval-card:hover {
+  border-color: var(--border-medium);
+}
+
+.supply-eval-card h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.supply-eval-description {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+
+.supply-eval-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  padding: 16px 0;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.supply-eval-metric {
+  text-align: center;
+}
+
+.supply-eval-metric-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.supply-eval-metric-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.supply-eval-metric-unit {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-left: 4px;
+  font-weight: 500;
+}
+
+.supply-eval-progress {
+  margin-bottom: 16px;
+}
+
+.supply-eval-progress-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.supply-eval-progress-bar {
+  width: 100%;
+  height: 8px;
+  background-color: rgba(163, 152, 217, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.supply-eval-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, rgb(34, 197, 94), rgb(113, 92, 215));
+  transition: width 0.3s ease;
+}
+
+.supply-eval-feedback {
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
+}
+
+.supply-eval-feedback-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.supply-eval-feedback-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.supply-eval-feedback-item {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 6px;
+  background-color: rgba(163, 152, 217, 0.05);
+  border-left: 2px solid rgba(163, 152, 217, 0.3);
+  border-radius: 2px;
+}
+
+/* Payout Info */
+.supply-payout-info {
+  margin-top: 32px;
+  background-color: rgba(163, 152, 217, 0.05);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.supply-payout-info h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+}
+
+.supply-payout-info p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .supply-dashboard,
+  .supply-register,
+  .supply-payouts {
+    padding: 16px;
+  }
+
+  .supply-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .supply-agents-list {
+    grid-template-columns: 1fr;
+  }
+
+  .supply-agent-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .supply-form-buttons {
+    flex-direction: column;
+  }
+}

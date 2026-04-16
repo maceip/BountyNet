@@ -1,0 +1,52 @@
+project = "bountynet-marketplace"
+
+entry_port = 443
+service_port = 4000
+droplet_size = "s-2vcpu-4gb"
+droplet_image = "ubuntu-24-04-x64"
+
+ssh_key_fingerprints = ["aa:bb:cc:dd"]
+gateway_docker_image = "ghcr.io/berriai/litellm:main-stable"
+bedrock_region = "us-west-2"
+
+enable_managed_secret_bootstrap = true
+aws_secrets_region              = "us-west-2"
+aws_kms_key_arn                 = "arn:aws:kms:us-west-2:123456789012:key/xxxx-xxxx"
+secret_parameter_names = {
+  openai    = "/bountynet/market/edge/openai_api_key"
+  anthropic = "/bountynet/market/edge/anthropic_api_key"
+  gemini    = "/bountynet/market/edge/gemini_api_key"
+}
+
+regional_plan = {
+  na_west = {
+    region         = "sfo3"
+    droplet_count  = 2
+    droplet_tag    = "bountynet-edge-na-west"
+    traffic_weight = 20
+  }
+  na_east = {
+    region         = "nyc3"
+    droplet_count  = 2
+    droplet_tag    = "bountynet-edge-na-east"
+    traffic_weight = 20
+  }
+  eu = {
+    region         = "fra1"
+    droplet_count  = 3
+    droplet_tag    = "bountynet-edge-eu"
+    traffic_weight = 30
+  }
+  asia = {
+    region         = "sgp1"
+    droplet_count  = 2
+    droplet_tag    = "bountynet-edge-asia"
+    traffic_weight = 20
+  }
+  australia = {
+    region         = "syd1"
+    droplet_count  = 1
+    droplet_tag    = "bountynet-edge-australia"
+    traffic_weight = 10
+  }
+}

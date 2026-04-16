@@ -1,0 +1,17 @@
+{
+  "name": "bountynet-root",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Top-level task runner for BountyNet subprojects.",
+  "scripts": {
+    "bootstrap": "npm --prefix clients/web install && npm --prefix projects/agent-market/console-ui install",
+    "dev:web": "npm --prefix clients/web run dev",
+    "dev:console": "npm --prefix projects/agent-market/console-ui run dev",
+    "build:web": "npm --prefix clients/web run build",
+    "build:console": "npm --prefix projects/agent-market/console-ui run build",
+    "build": "npm run build:web && npm run build:console",
+    "test:web": "npm --prefix clients/web run test",
+    "lint:web": "npm --prefix clients/web run lint",
+    "lint:console": "npm --prefix projects/agent-market/console-ui run lint"
+  }
+}

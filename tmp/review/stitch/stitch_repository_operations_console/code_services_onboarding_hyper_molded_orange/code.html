@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Service Specification Terminal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#ff9000", // Vibrant Orange from SCREEN_7 warning/accents
+                        "on-primary": "#141414", // Deep Charcoal from SCREEN_7 panels
+                        "surface": "#ff9000", // Molded rubber base
+                        "surface-dim": "#e68200", // Recessed darker orange
+                        "surface-bright": "#ffa31a", // Highlighted orange
+                        "charcoal": "#141414",
+                        "charcoal-muted": "#262626",
+                        "on-surface": "#141414",
+                        "outline": "#cc7300"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1.5rem",
+                        "lg": "2.5rem",
+                        "xl": "4rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Newsreader"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        /* Molded Rubber Effect - Single piece look */
+        .molded-base {
+            background-color: #ff9000;
+            background-image: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.1) 0%, transparent 80%);
+        }
+        /* Recessed Instruments (Humped/Grooved inputs) */
+        .hump-input {
+            background: #e68200;
+            box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.2), 
+                        inset -2px -2px 4px rgba(255, 255, 255, 0.1);
+            border: none;
+        }
+        /* Dome Buttons - Tactile protruding buttons */
+        .dome-button {
+            background: #ff9000;
+            box-shadow: 6px 6px 15px rgba(0, 0, 0, 0.15), 
+                        -4px -4px 10px rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .dome-button:active {
+            box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.2);
+            transform: scale(0.97) translateY(1px);
+        }
+        /* Charcoal Terminal Style */
+        .terminal-panel {
+            background-color: #141414;
+            color: #ff9000;
+            box-shadow: inset 2px 2px 10px rgba(0, 0, 0, 0.5);
+        }
+        .editorial-text {
+            color: #141414;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body class="molded-base font-body text-on-surface selection:bg-charcoal selection:text-primary min-h-screen">
+<!-- Simplified Header Navigation -->
+<header class="w-full top-0 px-8 py-6 fixed z-50">
+<div class="flex justify-between items-center w-full max-w-screen-2xl mx-auto">
+<div class="flex items-center gap-12">
+<span class="text-4xl font-bold font-['Newsreader'] tracking-tighter text-charcoal">MAC</span>
+<nav class="hidden md:flex gap-8 items-center">
+<a class="text-charcoal/60 hover:text-charcoal transition-all font-label text-xs uppercase tracking-[0.2em]" href="#">Home</a>
+<a class="text-charcoal font-black font-label text-xs uppercase tracking-[0.2em] border-b-2 border-charcoal pb-1" href="#">Services</a>
+<a class="text-charcoal/60 hover:text-charcoal transition-all font-label text-xs uppercase tracking-[0.2em]" href="#">Audit</a>
+</nav>
+</div>
+<div class="flex items-center gap-6">
+<button class="material-symbols-outlined text-2xl text-charcoal">notifications</button>
+<div class="w-10 h-10 rounded-full bg-charcoal p-0.5">
+<img class="w-full h-full rounded-full object-cover grayscale" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAMxtXB9KRzkLdIkkXL08-ESNuVCdbGLbHwzI-3mEXWc1Wpfm6a2PqDaorkbDLRqO3wZ77Kz0f59LG4nVgqHnzxb_9qjcft5BKr5c_eDtsQqApEb9H9rjQldrWm21t2zK6i58oWweUp3bGyR3BfbHE1nGcSmBdWGNdkYj7FI87rehdpAvw3Md_sYQ7JRSZZuh-FqVJRNOp7q_lJDxp7JGEmOV7LT6tX-MH22OBpF-5xxht1EJe4O9VhqqWqG5pQK9DoVNlMuTTHUJyp"/>
+</div>
+</div>
+</div>
+</header>
+<main class="pt-32 pb-24 max-w-screen-xl mx-auto px-8">
+<section class="mb-20 text-center md:text-left">
+<h1 class="font-headline text-8xl font-black tracking-tighter text-charcoal mb-6 leading-[0.85]">Service Specification Terminal</h1>
+<p class="font-body text-xl editorial-text max-w-2xl leading-relaxed font-medium">
+            Initialize architectural transformation protocols. Define mission-critical requirements through our tactile specification interface.
+        </p>
+</section>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-12">
+<!-- Main Form Area: Molded Orange Single Piece -->
+<div class="md:col-span-12 lg:col-span-8 space-y-12">
+<div class="space-y-10">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+<div class="space-y-3">
+<label class="font-label text-xs font-black uppercase tracking-[0.2em] text-charcoal/70 ml-1">Repository Identifier</label>
+<input class="w-full hump-input rounded-2xl py-5 px-8 focus:ring-2 focus:ring-charcoal/20 text-charcoal font-bold placeholder:text-charcoal/30 transition-shadow" placeholder="ORG/REPO-DEPLOY-V4" type="text"/>
+</div>
+<div class="space-y-3">
+<label class="font-label text-xs font-black uppercase tracking-[0.2em] text-charcoal/70 ml-1">Priority Tier</label>
+<div class="flex gap-4">
+<button class="flex-1 dome-button py-5 rounded-2xl text-xs font-black uppercase tracking-widest text-charcoal">Normal</button>
+<button class="flex-1 bg-charcoal text-primary py-5 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl">Expedited</button>
+</div>
+</div>
+</div>
+<div class="space-y-3">
+<label class="font-label text-xs font-black uppercase tracking-[0.2em] text-charcoal/70 ml-1">Objective Summary</label>
+<textarea class="w-full hump-input rounded-2xl py-6 px-8 focus:ring-2 focus:ring-charcoal/20 text-charcoal font-bold placeholder:text-charcoal/30 min-h-[160px] transition-shadow" placeholder="Detail specific architectural pain points and desired maintenance outcomes..."></textarea>
+</div>
+<div class="flex flex-col sm:flex-row items-center justify-between gap-8 pt-4">
+<div class="flex items-center gap-4">
+<div class="flex -space-x-4">
+<div class="w-12 h-12 rounded-full border-4 border-primary bg-charcoal overflow-hidden">
+<img class="w-full h-full object-cover grayscale" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAETbQ31-6ik1fXXwCjLld9TiQHiXSsKgG8uxfj1xmBmwSybYXjGSTbgFS2vUdhswoZ6ini3t1hmAG3FZC5ozzvUzcIpSjBrTW5LQDdfzkV6UJXRg6h0vbYONGVGD85sXJU83MWkF_NPYwaR2nrRR829xqvxfE96DYq7_pdXDyOzbsbcv4jClZV3tWSwlxBUfiXYLnO1gi5KIEDC_hu_-jU1vv0e13a_eqhE9gXuGEn6Z5qRFhsNc0vSz1O5oLUGXobEjitNFZ4KxG"/>
+</div>
+<div class="w-12 h-12 rounded-full border-4 border-primary bg-charcoal overflow-hidden">
+<img class="w-full h-full object-cover grayscale" src="https://lh3.googleusercontent.com/aida-public/AB6AXuABFDFAecJmaKWoTTNT0X35jAls9OyKtoTOvy206bH0UfTHF-27TijHwYWs-Qc1xbWKB__CAnygq1X25uNC5oKuLE_TxNqUpJQFh4SVpFamkwBLGDi37COkOOEfhNlN7Q1unkL-xH6JSYSjfmiFg6_CSoM-bFRW2wRzdpizz35R33kkqU95BtfFLJ0duJrOUy0TE3d0pmhFSjtVhclNci-G85nFIpxaJy3S4ulWN-pvjb82YUWvfnAsCvI4uhDRxjEm2ewgBueoWROg"/>
+</div>
+<div class="w-12 h-12 rounded-full border-4 border-primary bg-charcoal-muted flex items-center justify-center">
+<span class="text-[10px] font-black text-primary">+12</span>
+</div>
+</div>
+<span class="text-[10px] font-black uppercase tracking-[0.2em] text-charcoal/50">Assigned Agents</span>
+</div>
+<button class="dome-button bg-charcoal text-primary px-12 py-6 rounded-full font-label text-sm font-black uppercase tracking-[0.3em] flex items-center gap-4 hover:scale-105 transition-transform active:scale-95">
+                        SUBMIT SPEC
+                        <span class="material-symbols-outlined text-lg">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Sidebar Info: Terminal style -->
+<aside class="md:col-span-12 lg:col-span-4 space-y-8">
+<div class="terminal-panel rounded-3xl p-8 space-y-6">
+<div class="flex items-center justify-between border-b border-primary/20 pb-4">
+<span class="text-[10px] font-black tracking-widest uppercase">System Status</span>
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between items-end">
+<span class="text-[10px] font-bold opacity-50 uppercase">Network Load</span>
+<span class="text-xl font-black">14.2%</span>
+</div>
+<div class="h-2 bg-charcoal-muted rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[14%]"></div>
+</div>
+</div>
+<div class="space-y-4 pt-4 border-t border-primary/20">
+<div class="flex justify-between items-end">
+<span class="text-[10px] font-bold opacity-50 uppercase">Agent Availability</span>
+<span class="text-xl font-black">HIGH</span>
+</div>
+<p class="text-[11px] leading-relaxed font-bold italic text-primary/80">
+                        "CORE_DISPATCH STANDING BY FOR ARCHITECTURAL HARDENING PROTOCOLS. PRIORITY THREADS ACTIVE."
+                    </p>
+</div>
+</div>
+<div class="dome-button rounded-3xl p-8 flex flex-col justify-between aspect-square group cursor-pointer">
+<div>
+<span class="material-symbols-outlined text-4xl text-charcoal mb-4">security</span>
+<h3 class="font-headline text-3xl font-black text-charcoal leading-none">Security<br/>Overview</h3>
+</div>
+<div class="flex items-center gap-2 text-charcoal/60 font-black text-[10px] tracking-widest uppercase mt-4">
+                    View Logs <span class="material-symbols-outlined text-sm">open_in_new</span>
+</div>
+</div>
+</aside>
+</div>
+<!-- Status Footer -->
+<footer class="mt-20 py-8 border-t border-charcoal/10 flex flex-wrap items-center justify-between gap-8">
+<div class="flex gap-12">
+<div class="flex flex-col">
+<span class="text-[9px] font-black uppercase tracking-[0.2em] text-charcoal/40 mb-1">Deployment Node</span>
+<span class="text-xs font-black text-charcoal">STABLE_CONNECT // SECTOR_07</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[9px] font-black uppercase tracking-[0.2em] text-charcoal/40 mb-1">Architecture OS</span>
+<span class="text-xs font-black text-charcoal">V-4.2.1-BRUTAL</span>
+</div>
+</div>
+<div class="flex gap-3">
+<span class="px-4 py-2 bg-charcoal text-primary text-[9px] font-black uppercase tracking-widest rounded-lg">TRUST TIER 01</span>
+<span class="px-4 py-2 border-2 border-charcoal text-charcoal text-[9px] font-black uppercase tracking-widest rounded-lg">ENCRYPTION: AES-256</span>
+</div>
+</footer>
+</main>
+<!-- Mobile Bottom Nav (Simplified) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-6 h-20 bg-charcoal md:hidden rounded-t-[2.5rem] shadow-2xl">
+<div class="text-primary/40 flex flex-col items-center">
+<span class="material-symbols-outlined">home</span>
+<span class="text-[8px] font-black uppercase tracking-widest mt-1">Home</span>
+</div>
+<div class="bg-primary text-charcoal rounded-full w-12 h-12 flex items-center justify-center -translate-y-4 shadow-lg ring-4 ring-charcoal">
+<span class="material-symbols-outlined font-black">add</span>
+</div>
+<div class="text-primary flex flex-col items-center">
+<span class="material-symbols-outlined">build</span>
+<span class="text-[8px] font-black uppercase tracking-widest mt-1">Services</span>
+</div>
+</nav>
+</body></html>

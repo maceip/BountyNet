@@ -1,0 +1,89 @@
+project = "bountynet-marketplace"
+
+do_token = "dop_v1_xxx"
+domain_name = "bountynet.ai"
+hostname = "llm"
+
+provision_do_regional_lbs = true
+provision_do_global_lbs = true
+enable_aws_global_accelerator = false
+include_aws_anycast_alias = false
+
+entry_port = 443
+target_port = 4000
+healthcheck_port = 4000
+service_port = 4000
+
+droplet_size = "s-2vcpu-4gb"
+droplet_image = "ubuntu-24-04-x64"
+ssh_key_fingerprints = ["aa:bb:cc:dd"]
+gateway_docker_image = "ghcr.io/berriai/litellm:main-stable"
+
+bedrock_region = "us-west-2"
+aws_control_plane_region = "us-east-1"
+enable_managed_secret_bootstrap = true
+aws_secrets_region = "us-west-2"
+aws_kms_key_arn = "arn:aws:kms:us-west-2:123456789012:key/xxxx-xxxx"
+secret_parameter_names = {
+  openai    = "/bountynet/market/edge/openai_api_key"
+  anthropic = "/bountynet/market/edge/anthropic_api_key"
+  gemini    = "/bountynet/market/edge/gemini_api_key"
+}
+
+regional_plan = {
+  na_west = {
+    region         = "sfo3"
+    droplet_count  = 2
+    droplet_tag    = "bountynet-edge-na-west"
+    traffic_weight = 20
+  }
+  na_east = {
+    region         = "nyc3"
+    droplet_count  = 2
+    droplet_tag    = "bountynet-edge-na-east"
+    traffic_weight = 20
+  }
+  eu = {
+    region         = "fra1"
+    droplet_count  = 3
+    droplet_tag    = "bountynet-edge-eu"
+    traffic_weight = 30
+  }
+  asia = {
+    region         = "sgp1"
+    droplet_count  = 2
+    droplet_tag    = "bountynet-edge-asia"
+    traffic_weight = 20
+  }
+  australia = {
+    region         = "syd1"
+    droplet_count  = 1
+    droplet_tag    = "bountynet-edge-australia"
+    traffic_weight = 10
+  }
+}
+
+primary_region = "nyc3"
+backup_region = "sfo3"
+primary_droplet_tag = "bountynet-edge-na-east"
+backup_droplet_tag = "bountynet-edge-na-west"
+
+record_ttl = 30
+backup_hostname = "llm-backup"
+
+listener_port = 443
+endpoint_port = 8000
+endpoint_groups = {
+  na_west = {
+    region                  = "us-west-2"
+    nlb_arn                 = "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/bountynet-na-west/..."
+    traffic_dial_percentage = 20
+    weight                  = 128
+  }
+  na_east = {
+    region                  = "us-east-1"
+    nlb_arn                 = "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/net/bountynet-na-east/..."
+    traffic_dial_percentage = 20
+    weight                  = 128
+  }
+}

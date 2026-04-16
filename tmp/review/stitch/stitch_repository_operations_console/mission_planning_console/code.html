@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>The Ledger | Mission Planning &amp; Repair Queue</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600;6..72,700;6..72,800&amp;family=Work+Sans:wght@400;500;600&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed": "#ffdbcd",
+                    "background": "#fef9eb",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-fixed-variant": "#76320f",
+                    "on-primary-fixed": "#091d2e",
+                    "surface-container-high": "#ede8da",
+                    "on-secondary": "#ffffff",
+                    "tertiary-container": "#545c28",
+                    "error-container": "#ffdad6",
+                    "inverse-on-surface": "#f6f0e2",
+                    "primary": "#314356",
+                    "primary-fixed": "#d1e4fc",
+                    "secondary": "#944925",
+                    "secondary-fixed-dim": "#ffb596",
+                    "outline-variant": "#dac2b6",
+                    "surface-variant": "#e7e2d4",
+                    "on-tertiary-container": "#cbd494",
+                    "tertiary": "#3d4413",
+                    "surface-bright": "#fef9eb",
+                    "surface-container": "#f3eee0",
+                    "on-error": "#ffffff",
+                    "on-secondary-fixed": "#360f00",
+                    "inverse-primary": "#b5c8e0",
+                    "inverse-surface": "#323127",
+                    "on-primary": "#ffffff",
+                    "tertiary-fixed": "#dfe8a6",
+                    "surface": "#fef9eb",
+                    "error": "#ba1a1a",
+                    "secondary-container": "#fe9e72",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface-variant": "#54433a",
+                    "outline": "#877369",
+                    "on-secondary-container": "#773310",
+                    "tertiary-fixed-dim": "#c3cc8c",
+                    "on-background": "#1d1c13",
+                    "surface-tint": "#4e6074",
+                    "primary-fixed-dim": "#b5c8e0",
+                    "on-primary-fixed-variant": "#36485c",
+                    "surface-dim": "#dedacc",
+                    "on-primary-container": "#bed1e9",
+                    "primary-container": "#485a6e",
+                    "on-surface": "#1d1c13",
+                    "surface-container-low": "#f8f3e5",
+                    "on-error-container": "#93000a",
+                    "surface-container-highest": "#e7e2d4",
+                    "on-tertiary-fixed": "#191e00",
+                    "on-tertiary-fixed-variant": "#434b18"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Newsreader", "serif"],
+                    "body": ["Work Sans", "sans-serif"],
+                    "label": ["Inter", "sans-serif"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .parchment-texture {
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.03;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body min-h-screen selection:bg-secondary-container selection:text-on-secondary-container">
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 left-64 h-16 flex justify-between items-center px-6 z-50 bg-stone-50/70 backdrop-blur-md border-b border-stone-200/15 shadow-sm">
+<div class="flex items-center gap-4">
+<h1 class="font-headline text-xl font-black text-stone-900 tracking-tight">The Forge Console</h1>
+<span class="h-4 w-[1px] bg-outline-variant/30"></span>
+<div class="flex items-center gap-2 px-3 py-1 bg-surface-container rounded-lg">
+<span class="material-symbols-outlined text-sm text-secondary" style="font-variation-settings: 'FILL' 1;">security</span>
+<span class="font-label text-xs font-semibold tracking-wide text-on-surface-variant">LOCKED REPOSITORY STATUS</span>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative group">
+<input class="bg-surface-container-low border-none focus:ring-1 focus:ring-secondary rounded-lg font-label text-sm w-64 px-4 py-2 placeholder:text-stone-400" placeholder="Scan Repository Index..." type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-2 text-stone-400 text-lg">search</span>
+</div>
+<div class="flex items-center gap-4 text-blue-900">
+<span class="material-symbols-outlined cursor-pointer hover:scale-105 duration-200">smart_toy</span>
+<span class="material-symbols-outlined cursor-pointer hover:scale-105 duration-200">precision_manufacturing</span>
+<div class="relative">
+<span class="material-symbols-outlined cursor-pointer hover:scale-105 duration-200">notifications</span>
+<span class="absolute -top-1 -right-1 w-2 h-2 bg-error rounded-full"></span>
+</div>
+</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-full w-64 flex flex-col z-40 bg-stone-100 border-r-0">
+<div class="p-6">
+<div class="font-headline text-2xl font-bold text-stone-900 mb-1">The Ledger</div>
+<div class="font-label text-[10px] font-medium tracking-[0.2em] text-stone-500 uppercase">Industrial Desk v1.0</div>
+</div>
+<div class="px-3 flex-1 space-y-1">
+<!-- Mission Planning Active -->
+<a class="flex items-center gap-3 py-3 text-orange-800 font-bold border-l-4 border-orange-800 pl-3 transition-all duration-150 opacity-90 hover:bg-stone-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">assignment_turned_in</span>
+<span class="font-body text-sm tracking-tight">Mission Planning</span>
+</a>
+<a class="flex items-center gap-3 py-3 text-stone-600 hover:text-stone-900 pl-4 transition-colors hover:bg-stone-200" href="#">
+<span class="material-symbols-outlined">build</span>
+<span class="font-body text-sm tracking-tight">Repair Queue</span>
+</a>
+<a class="flex items-center gap-3 py-3 text-stone-600 hover:text-stone-900 pl-4 transition-colors hover:bg-stone-200" href="#">
+<span class="material-symbols-outlined">explore</span>
+<span class="font-body text-sm tracking-tight">Scout Findings</span>
+</a>
+<a class="flex items-center gap-3 py-3 text-stone-600 hover:text-stone-900 pl-4 transition-colors hover:bg-stone-200" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-body text-sm tracking-tight">Artifact Inspection</span>
+</a>
+</div>
+<div class="px-6 mb-6">
+<button class="w-full bg-primary text-on-primary py-3 px-4 rounded-lg font-label font-bold text-xs tracking-widest uppercase shadow-lg hover:bg-primary-container transition-colors">
+                New Work Order
+            </button>
+</div>
+<div class="p-4 border-t border-stone-200/50">
+<div class="flex items-center gap-3 mb-6 p-2 rounded-lg hover:bg-stone-200 transition-colors cursor-pointer">
+<img alt="Lead Intelligence Officer" class="w-10 h-10 rounded-lg object-cover" data-alt="portrait of a serious middle-aged man with sharp features and analytical gaze in professional attire" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlHXlV_Z0JqKqd0P5IszaD3PGdfUrtgOxmuWWjIENi1i_ash2_93OvRrY6Svfo7bCnvGx4ZbmL4c_tc6TeXQGSQ9WoOGa9VfUlwyUKvZFljkB5UJr9BgqCxMLLX3m2VhyGat9VPjj8i_RTf2Cs1dA6Dkce-j8OpRG_HOY3d-h02iz-y2KEabJc0g4muuei7yhAHc2ACgDURvgnFQPmpw6KNbohIGCHP4n7EA9wdkbN364qtGxuiXSumhbe0pLWFG-V9wM8noKJXkmF"/>
+<div>
+<div class="font-label text-xs font-bold text-stone-900">Lead Intelligence Officer</div>
+<div class="font-label text-[10px] text-stone-500">Rank: Senior Tech</div>
+</div>
+</div>
+<div class="space-y-1">
+<a class="flex items-center gap-3 py-2 text-stone-500 hover:text-stone-900 text-xs font-semibold" href="#">
+<span class="material-symbols-outlined text-sm">history_edu</span>
+<span>System Logs</span>
+</a>
+<a class="flex items-center gap-3 py-2 text-stone-500 hover:text-stone-900 text-xs font-semibold" href="#">
+<span class="material-symbols-outlined text-sm">settings</span>
+<span>Forge Settings</span>
+</a>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="pl-64 pt-16 min-h-screen">
+<div class="max-w-[1600px] mx-auto p-8">
+<header class="mb-8">
+<h2 class="font-headline text-4xl font-bold tracking-tight text-on-surface mb-2">Mission Planning &amp; Repair Queue</h2>
+<div class="flex items-center gap-4">
+<span class="flex items-center gap-1.5 px-2 py-0.5 bg-tertiary-container/20 text-on-tertiary-fixed-variant rounded text-[10px] font-bold tracking-tighter uppercase">
+<span class="w-1.5 h-1.5 bg-tertiary rounded-full animate-pulse"></span>
+                        Active Intelligence Feed
+                    </span>
+<span class="text-stone-400 font-label text-xs">Repository: nexus-core-industrial-v4</span>
+</div>
+</header>
+<!-- Three-Column Ledger Layout -->
+<div class="grid grid-cols-12 gap-6 mb-8">
+<!-- Left Column: Scout Findings (1/4 Width) -->
+<section class="col-span-3 space-y-4">
+<div class="flex items-center justify-between mb-2">
+<h3 class="font-headline text-xl font-bold border-b-2 border-primary leading-tight">Scout Findings</h3>
+<span class="material-symbols-outlined text-stone-400">explore</span>
+</div>
+<!-- Scout Card 1 -->
+<div class="bg-surface-container-low p-4 rounded shadow-sm border-l-4 border-secondary hover:bg-surface-container transition-colors">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label text-[10px] font-black text-secondary tracking-widest uppercase">Critical Opening</span>
+<span class="text-stone-400 text-[10px]">2m ago</span>
+</div>
+<p class="font-body text-sm font-semibold mb-3 leading-snug">Unscoped latency spike detected in Subsystem-Alpha cluster.</p>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-stone-200 rounded text-[10px] font-bold text-stone-600">ID: SF-9021</span>
+<span class="px-2 py-0.5 bg-stone-200 rounded text-[10px] font-bold text-stone-600">Risk: High</span>
+</div>
+</div>
+<!-- Scout Card 2 -->
+<div class="bg-surface-container-low p-4 rounded shadow-sm border-l-4 border-tertiary/40 hover:bg-surface-container transition-colors">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label text-[10px] font-black text-tertiary tracking-widest uppercase">Optimization Slot</span>
+<span class="text-stone-400 text-[10px]">45m ago</span>
+</div>
+<p class="font-body text-sm font-semibold mb-3 leading-snug">Dependency 'forge-ui-lib' can be pruned by 12% in production builds.</p>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-stone-200 rounded text-[10px] font-bold text-stone-600">ID: SF-8842</span>
+</div>
+</div>
+<!-- Scout Card 3 -->
+<div class="bg-surface-container-low p-4 rounded shadow-sm border-l-4 border-primary/20 hover:bg-surface-container transition-colors">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label text-[10px] font-black text-stone-500 tracking-widest uppercase">Routine Recon</span>
+<span class="text-stone-400 text-[10px]">2h ago</span>
+</div>
+<p class="font-body text-sm font-semibold mb-3 leading-snug">Legacy auth endpoints verified; no active vulnerabilities found.</p>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-stone-200 rounded text-[10px] font-bold text-stone-600">ID: SF-8711</span>
+</div>
+</div>
+</section>
+<!-- Center Column: Active Repair Queue (1/2 Width) -->
+<section class="col-span-6 space-y-4">
+<div class="flex items-center justify-between mb-2">
+<h3 class="font-headline text-xl font-bold border-b-2 border-secondary leading-tight">Active Repair Queue</h3>
+<div class="flex items-center gap-4">
+<span class="font-label text-[10px] font-bold text-stone-500">OPERATIONAL DENSITY: 84%</span>
+<span class="material-symbols-outlined text-stone-400">build</span>
+</div>
+</div>
+<!-- Work Order Card: High Priority -->
+<div class="bg-surface-container-lowest rounded-lg border border-stone-200/50 shadow-md overflow-hidden relative">
+<div class="absolute top-0 right-0 w-24 h-24 bg-secondary/5 -rotate-45 translate-x-12 -translate-y-12"></div>
+<div class="p-6">
+<div class="flex justify-between items-center mb-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">precision_manufacturing</span>
+<h4 class="font-headline text-lg font-bold">WO-1044: Memory Leak Stabilization</h4>
+</div>
+<span class="px-3 py-1 bg-secondary text-on-secondary rounded text-[10px] font-black tracking-widest uppercase">IN PROGRESS</span>
+</div>
+<div class="grid grid-cols-2 gap-8 mb-6">
+<div>
+<label class="block font-label text-[10px] font-bold text-stone-400 uppercase mb-1">Scope Profile</label>
+<p class="font-body text-sm text-on-surface">Memory management rewrite for Node cluster 04. Refactoring buffer allocation.</p>
+</div>
+<div>
+<label class="block font-label text-[10px] font-bold text-stone-400 uppercase mb-1">Impact Radius</label>
+<p class="font-body text-sm text-on-surface">High. Affects real-time ingest pipeline and socket stability.</p>
+</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-stone-100">
+<div class="flex -space-x-2">
+<img alt="Tech" class="w-8 h-8 rounded border-2 border-white object-cover" data-alt="Close up of a technical operator in heavy duty industrial workwear" src="https://lh3.googleusercontent.com/aida-public/AB6AXuALpYFr2DLycmJ2LfgjxN2b-TuoRFZLteyKC4L2ypi6mkRhXNjxaZWtl-d4RagweSRckBavfHUm7q7UvpE_8rHdzgS-BDJNRdTj7UiNFNaOCr7l9l-HfV-8waTTMg7ZVY_OGhDV9y0tfigjxaO1r_52X7WMSQJ-Tj2w2gbIcfyHufew0j_-lEYuBSU_xFReFLKO1cVfwmzq6gbtJSCpVrEMpiDiRBnKbM81aVd_KVvhe7A08G3KKZKbS9xfs82h_h4sSNbA45NNOZ6B"/>
+<img alt="Tech" class="w-8 h-8 rounded border-2 border-white object-cover" data-alt="Serious technical worker in a workshop environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPAzcgSyInOv1GkuNyj-EbZjz1fdpVFeR8fyCpyj7-PjJHqki8yqT_nP4V3XJ-zGc5eLi8hNl-_MFa3D9UOR9rB40UOaD9ZRFayECLb7DMvnadSZp1rjC5_qFFnsirbtk_2wGBsZwmypmhfjpCzSR6onHCwHe4Em1YoFSUy9IldubvjxabyRdR-2-yoZVm0t7pEsUFCafC7nckW2MGtQ6Q84pBOQs_sAvoRPIkQVSVmHUv_SLB8Zw1Cr65AkoKFudE5i_-i8DSx3Ro"/>
+</div>
+<button class="flex items-center gap-2 bg-stone-100 hover:bg-stone-200 text-stone-900 px-4 py-2 rounded font-label text-[10px] font-bold tracking-widest uppercase transition-all">
+<span class="material-symbols-outlined text-sm">visibility</span>
+                                    Inspect Runbook
+                                </button>
+</div>
+</div>
+</div>
+<!-- Work Order Card: Medium Priority -->
+<div class="bg-surface-container-lowest rounded-lg border border-stone-200/50 shadow-md p-6">
+<div class="flex justify-between items-center mb-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">terminal</span>
+<h4 class="font-headline text-lg font-bold">WO-1045: API Key Rotation Protocol</h4>
+</div>
+<span class="px-3 py-1 bg-stone-200 text-stone-600 rounded text-[10px] font-black tracking-widest uppercase">SCOPED</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex gap-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-stone-400 text-sm">timer</span>
+<span class="font-label text-xs text-stone-500">Est: 45m</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-stone-400 text-sm">check_circle</span>
+<span class="font-label text-xs text-stone-500">Security Verified</span>
+</div>
+</div>
+<button class="bg-primary text-on-primary px-4 py-2 rounded font-label text-[10px] font-bold tracking-widest uppercase">
+                                Commence Repair
+                            </button>
+</div>
+</div>
+</section>
+<!-- Right Column: Agent Roster (1/4 Width) -->
+<section class="col-span-3 space-y-4">
+<div class="flex items-center justify-between mb-2">
+<h3 class="font-headline text-xl font-bold border-b-2 border-tertiary leading-tight">Agent Roster</h3>
+<span class="material-symbols-outlined text-stone-400">group</span>
+</div>
+<div class="space-y-3">
+<!-- Agent 1 -->
+<div class="flex items-center gap-3 p-3 bg-white rounded shadow-sm border border-stone-200/50">
+<img class="w-12 h-12 rounded object-cover grayscale" data-alt="Professional woman with an intense expression in technical gear, soft workshop lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_GNwiPH5jCGVV4ILe5peJPH8Z8wSdWMb-agq7jvXoZXP6noA6zdLB14Y4R7YGiKJL5PrRadVdCSgwGRtwDJhw4l1pJnHtHQjlKgjVFNJ1TUIQq9ECBauxu22668b2eNXfHCJWv-y21MiqCwqiI8Ffw9CWabMa0fi7pwxKNJNhpE9ImPkeiT_X0OlnpTg5E0BV0ePPeiN0IPD6MqubRIinp60BQjd_d132esd2yNvZgyspYFVHiMgDlN051cZljPcndLUPf17Jsw7H"/>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h5 class="font-headline text-sm font-bold">Operator 'Vance'</h5>
+<span class="w-2 h-2 bg-green-500 rounded-full"></span>
+</div>
+<p class="text-[10px] font-label text-stone-500 uppercase tracking-tighter">Spec: Infrastructure Hardening</p>
+<div class="mt-1 w-full bg-stone-100 h-1 rounded overflow-hidden">
+<div class="bg-secondary h-full w-[85%]"></div>
+</div>
+</div>
+</div>
+<!-- Agent 2 -->
+<div class="flex items-center gap-3 p-3 bg-white rounded shadow-sm border border-stone-200/50">
+<img class="w-12 h-12 rounded object-cover grayscale" data-alt="Portrait of a male technical technician with focused eyes and a beard, industrial setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9uyggTeYfjfAiA24TXXs5xLpujoolcacliw_wH-mteAdLKCcSJF3sbkU0PddgNPp8PLgG28JwaLBx-CC3c3XVZQo8SxnTwKDoV9lRheoPqE5usn5pmdc4c_ZuZ480bx0PKFNkIaWHyRMj0AGKK05J27CbXrEmX7mvQSqcfusKUR3hopVIOcysapkKwYMNhWWsr_oBIu_eYcKF3ujr4CQ0mR3crapdYVf_43uP5Qo2JgbBFVU9yEJfCir54xV2UWtyaa4i1L9DcvUE"/>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h5 class="font-headline text-sm font-bold">Operator 'Moro'</h5>
+<span class="w-2 h-2 bg-orange-400 rounded-full"></span>
+</div>
+<p class="text-[10px] font-label text-stone-500 uppercase tracking-tighter">Spec: Logical Diagnostics</p>
+<div class="mt-1 w-full bg-stone-100 h-1 rounded overflow-hidden">
+<div class="bg-secondary h-full w-[40%]"></div>
+</div>
+</div>
+</div>
+<!-- Agent 3 -->
+<div class="flex items-center gap-3 p-3 bg-white rounded shadow-sm border border-stone-200/50">
+<img class="w-12 h-12 rounded object-cover grayscale" data-alt="Close up of a senior engineering lead with gray hair and glasses in a dark office environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaP91fWmUBryTDjWJxrBo-U08wYnoI1jVdxwO52KjLSrqWIymS2nVlSMQ8e1twzCy67A2DvCRebrBGJyN3L_GxVZL9dXpkmjkQbm5GDigGMzW9qr29fwbd69zrYbNVhuQOtPh_6Z7kKWUBdXErUvLKY9ceWZnLeluP-Z9EPsGN_Nsb5nmiB7cU6fecyEP16f1wBBe1FcG5c5Dw1eo26OyHHQgaNz4IY7P1geGyyjhOBH8Lng1x-5s-JYN_FdaPc3yqPsYjDeLDwXGf"/>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h5 class="font-headline text-sm font-bold">Operator 'Hale'</h5>
+<span class="w-2 h-2 bg-stone-300 rounded-full"></span>
+</div>
+<p class="text-[10px] font-label text-stone-500 uppercase tracking-tighter">Spec: Legacy Archaeology</p>
+<div class="mt-1 w-full bg-stone-100 h-1 rounded overflow-hidden">
+<div class="bg-stone-300 h-full w-[0%]"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="p-4 bg-tertiary-container/10 border border-tertiary-container/20 rounded">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-tertiary text-lg">psychology</span>
+<span class="font-headline text-sm font-bold">Analytic Summary</span>
+</div>
+<p class="text-[11px] font-body text-on-surface-variant leading-relaxed">Agent performance remains 12% above quarterly benchmark. Availability is currently constrained by active memory leak stabilization missions.</p>
+</div>
+</section>
+</div>
+<!-- Bottom Section: Accepted Outcomes -->
+<section class="mt-12">
+<div class="flex items-center justify-between mb-6">
+<h3 class="font-headline text-2xl font-bold border-b-4 border-stone-900 leading-none pb-1">Accepted Outcomes</h3>
+<div class="flex gap-4">
+<button class="text-stone-500 hover:text-stone-900 transition-colors">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+<button class="text-stone-500 hover:text-stone-900 transition-colors">
+<span class="material-symbols-outlined">download</span>
+</button>
+</div>
+</div>
+<div class="bg-surface-container-high rounded-lg overflow-hidden border border-stone-300/30">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-highest border-b border-stone-300">
+<th class="p-4 font-headline font-bold text-sm">Settlement ID</th>
+<th class="p-4 font-headline font-bold text-sm">Operation Scope</th>
+<th class="p-4 font-headline font-bold text-sm">Verified By</th>
+<th class="p-4 font-headline font-bold text-sm">Timestamp</th>
+<th class="p-4 font-headline font-bold text-sm text-right">Credit Allocation</th>
+</tr>
+</thead>
+<tbody class="font-label text-xs">
+<tr class="border-b border-stone-300/30 hover:bg-stone-200/50 transition-colors">
+<td class="p-4 font-semibold">TRX-7721-B</td>
+<td class="p-4">Frontend Hydration Fix - Mobile Cluster</td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 bg-green-500 rounded-full"></span>
+<span>System Protocol Alpha</span>
+</div>
+</td>
+<td class="p-4 text-stone-500 uppercase">Oct 24, 08:12 AM</td>
+<td class="p-4 text-right font-black text-tertiary">2.44k cr.</td>
+</tr>
+<tr class="border-b border-stone-300/30 hover:bg-stone-200/50 transition-colors">
+<td class="p-4 font-semibold">TRX-7719-A</td>
+<td class="p-4">Database Index Optimization (Postgres-02)</td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 bg-green-500 rounded-full"></span>
+<span>Lead Intelligence Officer</span>
+</div>
+</td>
+<td class="p-4 text-stone-500 uppercase">Oct 23, 11:45 PM</td>
+<td class="p-4 text-right font-black text-tertiary">5.10k cr.</td>
+</tr>
+<tr class="hover:bg-stone-200/50 transition-colors">
+<td class="p-4 font-semibold">TRX-7718-Z</td>
+<td class="p-4">CSS Grid Refactoring for Legacy Dashboards</td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 bg-stone-300 rounded-full"></span>
+<span>Auto-Verification Agent</span>
+</div>
+</td>
+<td class="p-4 text-stone-500 uppercase">Oct 23, 09:22 PM</td>
+<td class="p-4 text-right font-black text-tertiary">0.85k cr.</td>
+</tr>
+</tbody>
+</table>
+<div class="p-4 bg-stone-50/50 flex justify-center">
+<button class="font-label text-[10px] font-bold tracking-[0.2em] uppercase text-stone-400 hover:text-stone-900">Load Full Settlement History</button>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Background Decorative Elements -->
+<div class="fixed inset-0 parchment-texture pointer-events-none z-0"></div>
+<div class="fixed top-0 left-0 w-full h-full pointer-events-none z-0 overflow-hidden">
+<div class="absolute -top-24 -left-24 w-96 h-96 bg-primary/5 blur-[120px]"></div>
+<div class="absolute bottom-0 right-0 w-[500px] h-[500px] bg-secondary/5 blur-[150px]"></div>
+</div>
+</body></html>

@@ -1,0 +1,153 @@
+.legal-page {
+  display: flex;
+  justify-content: center;
+  padding: 48px 32px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.legal-container {
+  max-width: 800px;
+  width: 100%;
+  color: var(--text-primary);
+}
+
+.legal-page h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 32px;
+  color: var(--text-primary);
+}
+
+.legal-page h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-top: 24px;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.legal-page h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.legal-page p {
+  margin-bottom: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.legal-page section {
+  margin-bottom: 24px;
+}
+
+.legal-page a {
+  color: var(--accent-light);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.legal-page a:hover {
+  color: var(--accent-lighter);
+  text-decoration: underline;
+}
+
+/* Licenses Page */
+.licenses-intro {
+  font-size: 15px;
+  margin-bottom: 32px;
+  color: var(--text-secondary);
+}
+
+.licenses-list {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.license-card {
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 16px;
+  background-color: rgba(163, 152, 217, 0.02);
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.license-card:hover {
+  border-color: var(--border-medium);
+  background-color: rgba(163, 152, 217, 0.04);
+}
+
+.license-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.license-header h3 {
+  margin: 0;
+}
+
+.license-badge {
+  background-color: rgba(163, 152, 217, 0.1);
+  border: 1px solid rgba(163, 152, 217, 0.3);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.license-version {
+  margin: 8px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.license-link {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--accent-light);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.license-link:hover {
+  color: var(--accent-lighter);
+  text-decoration: underline;
+}
+
+.mit-license {
+  border-top: 1px solid var(--border-light);
+  padding-top: 32px;
+  margin-top: 32px;
+}
+
+.mit-license p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+  .legal-page {
+    padding: 24px 16px;
+  }
+
+  .legal-container {
+    max-width: 100%;
+  }
+
+  .legal-page h1 {
+    font-size: 24px;
+    margin-bottom: 24px;
+  }
+
+  .legal-page h2 {
+    font-size: 16px;
+    margin-top: 20px;
+  }
+}

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import time
 import uuid
+import os
 from pathlib import Path
 
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, Response, current_app, jsonify, request
 
 from gateway import store
 from gateway.agent_fleet import AGENT_SERVING_PROFILES
@@ -13,6 +14,8 @@ from gateway.events import emit
 from gateway.langfuse_market import contract_trace, score_contract_acceptance, update_contract_trace
 from gateway.market_exec import discover_repo_opportunities, execute_managed_job
 from gateway.model_runtime import runtime_summary
+from gateway.auth_stack import request_session_authorized
+from gateway.ops_drift import run_drift_once
 
 market_bp = Blueprint("market", __name__)
 
@@ -22,6 +25,13 @@ def _make_id(prefix: str) -> str:
 
 
 _TRUST_ORDER = {"standard": 1, "trusted": 2, "critical": 3}
+_SUBMISSION_REVIEW_ACTIONS = {"start_review", "comment", "changes_requested", "approve"}
+_SUBMISSION_REVIEW_STATUS = {
+    "start_review": "under_review",
+    "comment": None,
+    "changes_requested": "changes_requested",
+    "approve": "approved",
+}
 
 _MANAGED_SPECIALISTS = [
     {"slug": "ts-migrator", "display_name": "TypeScript Migrator", "pod": "typescript", "lane": "migration", "summary": "Handles framework, dependency, and config migrations in TypeScript repositories.", "supported_job_classes": ["ci_repair", "dependency_update", "config_remediation", "codemod"], "supported_ecosystems": ["typescript", "node", "react", "nextjs"], "supported_budget_types": ["platform_credits", "api_key_pool"], "trust_tier": "trusted", "review_requirement": "maintainer_review"},
@@ -44,6 +54,298 @@ _LANE_PRESETS = {
     "rust_security_patch": {"enabled_job_classes": ["security_update", "dependency_update"], "review_policy": "maintainer_review", "merge_policy": "manual_merge", "budget_priority": ["api_key_pool", "platform_credits"], "required_checks": ["CI", "Tests", "Audit"], "blocked_paths": [".github/workflows/**"], "allowed_agent_pools": ["managed-rust", "managed-generic"], "job_metadata": {"pod": "rust", "lane": "security_patch", "required_trust_tier": "critical"}},
     "rust_porting": {"enabled_job_classes": ["codemod", "config_remediation", "dependency_update"], "review_policy": "maintainer_review", "merge_policy": "manual_merge", "budget_priority": ["platform_credits", "api_key_pool"], "required_checks": ["CI", "Tests"], "blocked_paths": [], "allowed_agent_pools": ["managed-rust", "managed-generic"], "job_metadata": {"pod": "rust", "lane": "porting", "required_trust_tier": "trusted"}},
 }
+
+_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+_JOB_STATUS_TRANSITIONS = {
+    "open": {"assigned", "cancelled"},
+    "assigned": {"open", "completed", "cancelled"},
+    "completed": {"open"},
+    "cancelled": set(),
+}
+_MUTATING_JOB_STATUSES = {"open", "assigned"}
+_EXECUTION_MODES = {"dry_run", "apply"}
+_OPS_REGIONAL_TARGET_DROPLETS = {
+    "na_west": 2,
+    "na_east": 2,
+    "eu": 3,
+    "asia": 2,
+    "australia": 1,
+}
+_OPS_REGIONAL_LABELS = {
+    "na_west": "North America (West Coast)",
+    "na_east": "North America (East Coast)",
+    "eu": "Europe",
+    "asia": "Asia",
+    "australia": "Australia",
+}
+_OPS_COMPONENT_CATALOG = [
+    {
+        "component_id": "edge_digitalocean_gateways",
+        "label": "DigitalOcean Edge Gateways",
+        "kind": "edge",
+        "terraform_module": "digitalocean-regional-lbs",
+    },
+    {
+        "component_id": "global_aws_accelerator",
+        "label": "AWS Global Accelerator",
+        "kind": "global_ingress",
+        "terraform_module": "aws-global-accelerator",
+    },
+    {
+        "component_id": "global_do_dns",
+        "label": "DigitalOcean Global DNS",
+        "kind": "global_ingress",
+        "terraform_module": "digitalocean-global-dns",
+    },
+    {
+        "component_id": "global_do_primary_backup_lb",
+        "label": "DigitalOcean Primary + Backup Global LB",
+        "kind": "global_ingress",
+        "terraform_module": "digitalocean-global-lb",
+    },
+    {
+        "component_id": "bedrock_supervisor_mistral",
+        "label": "Bedrock Supervisor (Mistral Small 4)",
+        "kind": "bedrock_supervisor",
+    },
+    {
+        "component_id": "bedrock_worker_glm",
+        "label": "Bedrock Worker Pool (GLM 5.1)",
+        "kind": "bedrock_worker",
+    },
+    {
+        "component_id": "bedrock_worker_minimax",
+        "label": "Bedrock Worker Pool (MiniMax M2.7)",
+        "kind": "bedrock_worker",
+    },
+    {
+        "component_id": "trainium_tuning_loop",
+        "label": "Trainium Tuning Loop (Axolotl qLoRA)",
+        "kind": "training",
+    },
+]
+
+
+def _infra_root() -> Path:
+    override = (os.getenv("MARKET_INFRA_ROOT") or "").strip()
+    if override:
+        return Path(override).expanduser()
+    return Path(__file__).resolve().parents[2] / "infra" / "marketplace-fleet"
+
+
+def _ops_links() -> dict:
+    return {
+        "langfuse_app_url": (os.getenv("LANGFUSE_PUBLIC_URL") or "http://localhost:3001").strip(),
+        "langfuse_docs_url": "https://langfuse.com/docs",
+    }
+
+
+def _ops_authorized() -> bool:
+    expected_token = (os.getenv("MARKET_API_TOKEN") or "").strip()
+    auth = (request.headers.get("Authorization") or "").strip()
+    supplied = ""
+    if auth.lower().startswith("bearer "):
+        supplied = auth.split(" ", 1)[1].strip()
+    supplied = supplied or (request.headers.get("X-Market-Token") or "").strip()
+    if expected_token and supplied == expected_token:
+        return True
+    return request_session_authorized(role="admin", min_aal=2)
+
+
+def _ops_default_regional_weights() -> dict[str, int]:
+    return {
+        "na_west": 20,
+        "na_east": 20,
+        "eu": 30,
+        "asia": 20,
+        "australia": 10,
+    }
+
+
+def _ops_resolve_regional_weights(body: dict) -> dict[str, int]:
+    raw = body.get("regional_weights")
+    if isinstance(raw, dict):
+        resolved = {}
+        for region in _OPS_REGIONAL_TARGET_DROPLETS:
+            resolved[region] = int(raw.get(region) or 0)
+        return resolved
+    if "us_percent" in body or "eu_percent" in body:
+        return {
+            "na_west": int(body.get("us_percent") or 0),
+            "na_east": 0,
+            "eu": int(body.get("eu_percent") or 0),
+            "asia": 0,
+            "australia": 0,
+        }
+    return _ops_default_regional_weights()
+
+
+def _ops_infra_drift_snapshot(infra_root: Path) -> dict:
+    terraform_root = infra_root / "terraform"
+    modules = {
+        "aws_global_accelerator": terraform_root / "aws-global-accelerator",
+        "digitalocean_edge": terraform_root / "digitalocean-regional-lbs",
+        "digitalocean_global_lb": terraform_root / "digitalocean-global-lb",
+        "digitalocean_global_dns": terraform_root / "digitalocean-global-dns",
+    }
+    module_state = {
+        key: {
+            "path": str(path),
+            "present": path.is_dir(),
+            "terraform_lock_present": (path / ".terraform.lock.hcl").is_file(),
+            "tfvars_present": (path / "terraform.tfvars").is_file(),
+        }
+        for key, path in modules.items()
+    }
+    return {
+        "status": "ok",
+        "module_state": module_state,
+        "recent_runs": store.market_ops_drift_runs_list(limit=10),
+        "active_alerts": store.market_ops_alerts_list(limit=20, include_acknowledged=False),
+        "recommended_commands": [
+            "terraform -chdir=infra/marketplace-fleet/terraform/digitalocean-regional-lbs plan",
+            "terraform -chdir=infra/marketplace-fleet/terraform/digitalocean-global-lb plan",
+            "terraform -chdir=infra/marketplace-fleet/terraform/aws-global-accelerator plan",
+            "terraform -chdir=infra/marketplace-fleet/terraform/digitalocean-global-dns plan",
+        ],
+    }
+
+
+def _ops_component_desired_state(action: str) -> str:
+    if action in {"stop", "disable", "scale_down"}:
+        return "stopped"
+    if action in {"start", "enable", "scale_up", "restart"}:
+        return "running"
+    return "unknown"
+
+
+def _ops_component_snapshot() -> dict:
+    persisted = {item["component_id"]: item for item in store.market_ops_component_states_list()}
+    components = []
+    for component in _OPS_COMPONENT_CATALOG:
+        row = persisted.get(component["component_id"])
+        components.append(
+            {
+                **component,
+                "desired_state": (row or {}).get("desired_state", "running"),
+                "last_action": (row or {}).get("last_action", ""),
+                "updated_by": (row or {}).get("updated_by", ""),
+                "notes": (row or {}).get("notes", ""),
+                "updated_at": (row or {}).get("updated_at", 0),
+            }
+        )
+    return {
+        "components": components,
+        "recent_actions": store.market_ops_component_actions_list(limit=10),
+    }
+
+
+def _rollback_action_for(action: str) -> str:
+    lookup = {
+        "start": "stop",
+        "enable": "disable",
+        "stop": "start",
+        "disable": "enable",
+        "scale_up": "scale_down",
+        "scale_down": "scale_up",
+        "restart": "restart",
+    }
+    return lookup.get(action, "restart")
+
+
+def _error(message: str, status_code: int = 400, code: str = "invalid_request"):
+    return jsonify({"error": message, "error_code": code}), status_code
+
+
+def _require_market_auth():
+    if request.method in _SAFE_METHODS:
+        return None
+    expected_token = (os.getenv("MARKET_API_TOKEN") or "").strip()
+    if not expected_token:
+        return None
+    auth = (request.headers.get("Authorization") or "").strip()
+    supplied = ""
+    if auth.lower().startswith("bearer "):
+        supplied = auth.split(" ", 1)[1].strip()
+    supplied = supplied or (request.headers.get("X-Market-Token") or "").strip()
+    if supplied != expected_token:
+        if request.path.startswith("/ops/") and request_session_authorized(role="admin", min_aal=2):
+            return None
+        return _error("unauthorized market write", status_code=401, code="unauthorized")
+    return None
+
+
+@market_bp.before_request
+def _market_before_request():
+    auth_error = _require_market_auth()
+    if auth_error:
+        return auth_error
+    return None
+
+
+def _check_repo_owner_access(account: dict) -> tuple[bool, str]:
+    expected_owner = (account.get("owner_account_id") or "").strip()
+    if not expected_owner:
+        return True, ""
+    body = request.get_json(silent=True) or {}
+    requester_owner = (
+        (request.headers.get("X-Market-Owner") or "").strip()
+        or (body.get("owner") or "").strip()
+    )
+    if requester_owner and requester_owner != expected_owner:
+        return False, f"requester owner '{requester_owner}' does not match repository owner"
+    return True, ""
+
+
+def _agent_pool_tags(agent: dict) -> set[str]:
+    tags = set()
+    pod = (agent.get("pod") or "").strip()
+    if pod:
+        tags.add(f"managed-{pod}")
+    if agent.get("agent_kind") == "generic":
+        tags.add("managed-generic")
+    elif agent.get("agent_kind") == "specialist":
+        tags.add(f"managed-{pod}" if pod else "managed-specialist")
+    if agent.get("operator_id") and agent.get("operator_id") != "platform-managed":
+        tags.add("operator-owned")
+    return tags
+
+
+def _agent_policy_violations(job: dict, account: dict, agent: dict) -> list[str]:
+    metadata = job.get("metadata") or {}
+    desired_pod = (metadata.get("pod") or metadata.get("language") or "").strip()
+    desired_lane = (metadata.get("lane") or "").strip()
+    required_trust = (metadata.get("required_trust_tier") or "standard").strip()
+    violations: list[str] = []
+
+    if job["job_class"] not in (agent.get("supported_job_classes") or []):
+        violations.append("job class unsupported by agent")
+    if desired_pod and not (
+        agent.get("pod") == desired_pod or desired_pod in (agent.get("supported_ecosystems") or [])
+    ):
+        violations.append("agent does not support requested pod/ecosystem")
+    if desired_lane and agent.get("lane") not in {desired_lane, ""} and agent.get("agent_kind") != "generic":
+        violations.append("agent lane does not match requested lane")
+    if _trust_value(agent.get("trust_tier", "")) < _trust_value(required_trust):
+        violations.append("agent trust tier below required level")
+
+    allowed_pools = account.get("allowed_agent_pools") or []
+    if allowed_pools:
+        agent_pools = _agent_pool_tags(agent)
+        if not (set(allowed_pools) & agent_pools):
+            violations.append("agent is outside allowed agent pools")
+    return violations
+
+
+def _validate_mode(raw_mode: str) -> str | None:
+    mode = (raw_mode or "").strip() or "dry_run"
+    if mode not in _EXECUTION_MODES:
+        return None
+    return mode
+
+
+def _is_terminal_submission(submission: dict) -> bool:
+    return submission.get("status") in {"accepted", "rejected"}
 
 
 def _trust_value(label: str) -> int:
@@ -131,24 +433,35 @@ def _seed_managed_agents() -> list[dict]:
     return [a for a in store.market_agent_profiles_list(status="active") if a["slug"] in slugs]
 
 
-def _set_job_status(job: dict, status: str) -> None:
+def _set_job_status(job: dict, status: str) -> bool:
+    current = store.market_job_get(job["id"]) or job
+    current_status = (current.get("status") or "open").strip()
+    target_status = (status or "").strip()
+    if not target_status:
+        return False
+    if target_status == current_status:
+        return True
+    allowed = _JOB_STATUS_TRANSITIONS.get(current_status, set())
+    if target_status not in allowed:
+        return False
     store.market_job_upsert(
-        job_id=job["id"],
-        repository_account_id=job["repository_account_id"],
-        repo_full_name=job["repo_full_name"],
-        job_class=job["job_class"],
-        trigger_source=job["trigger_source"],
-        title=job["title"],
-        summary=job["summary"],
-        risk_level=job["risk_level"],
-        acceptance_policy=job["acceptance_policy"],
-        budget_ceiling=job["budget_ceiling"],
-        status=status,
-        candidate_agents=job["candidate_agents"],
-        source_event_key=job["source_event_key"],
-        metadata=job["metadata"],
-        expires_at=job["expires_at"],
+        job_id=current["id"],
+        repository_account_id=current["repository_account_id"],
+        repo_full_name=current["repo_full_name"],
+        job_class=current["job_class"],
+        trigger_source=current["trigger_source"],
+        title=current["title"],
+        summary=current["summary"],
+        risk_level=current["risk_level"],
+        acceptance_policy=current["acceptance_policy"],
+        budget_ceiling=current["budget_ceiling"],
+        status=target_status,
+        candidate_agents=current["candidate_agents"],
+        source_event_key=current["source_event_key"],
+        metadata=current["metadata"],
+        expires_at=current["expires_at"],
     )
+    return True
 
 
 def _recommend_agents(job: dict, account: dict, agents: list[dict]) -> list[dict]:
@@ -215,7 +528,20 @@ def _default_plan(job: dict, recommendation: dict) -> tuple[str, list[str]]:
     )
 
 
-def _execute_assignment(job: dict, account: dict, assignment: dict, mode: str = "apply") -> tuple[dict, dict | None]:
+def _operator_payload(operator: dict) -> dict:
+    payload = dict(operator)
+    payload["summary_metrics"] = store.market_operator_summary(operator["id"])
+    payload["agents"] = [agent for agent in store.market_agent_profiles_list(status="active") if agent.get("operator_id") == operator["id"]]
+    return payload
+
+
+def _execute_assignment(
+    job: dict,
+    account: dict,
+    assignment: dict,
+    mode: str = "dry_run",
+    idempotency_key: str = "",
+) -> tuple[dict, dict | None]:
     agent = store.market_agent_profile_get(assignment["agent_id"])
     if not agent:
         raise ValueError("assigned agent not found")
@@ -230,6 +556,8 @@ def _execute_assignment(job: dict, account: dict, assignment: dict, mode: str = 
                 "langfuse_trace_id": trace_ctx.get("trace_id", ""),
                 "langfuse_trace_url": trace_ctx.get("trace_url", ""),
             }
+        if idempotency_key:
+            base_evidence["idempotency_key"] = idempotency_key
         store.market_execution_run_create(run_id=run_id, job_id=job["id"], agent_id=agent["id"], repository_account_id=account["id"], assignment_id=assignment["id"], mode=mode, status="running", summary=f"Running {agent['display_name']}", logs=[], changed_files=[], evidence=base_evidence, started_at=time.time())
         if agent.get("execution_backend") == "shared_model_runtime":
             result = execute_agent_assignment(agent=agent, job=job, account=account, mode=mode)
@@ -318,7 +646,7 @@ def setup_repository_accounts():
             repo_full_name=repo,
             installation_id=installation_id,
             owner_account_id=body.get("owner_account_id") or body.get("owner") or "",
-            enabled_job_classes=body.get("enabled_job_classes") or ["ci_repair", "dependency_update", "test_repair", "config_remediation"],
+            enabled_job_classes=body.get("enabled_job_classes") or ["ci_repair", "dependency_update", "security_update", "test_repair", "config_remediation", "type_repair", "codemod"],
             blocked_paths=body.get("blocked_paths") or [],
             required_checks=body.get("required_checks") or [],
             review_policy=body.get("review_policy") or "maintainer_review",
@@ -415,6 +743,73 @@ def list_agents():
     return jsonify({"agents": store.market_agent_profiles_list(status=request.args.get("status"), agent_kind=request.args.get("agent_kind"))})
 
 
+@market_bp.route("/market/operators", methods=["GET"])
+def list_operators():
+    operators = [_operator_payload(item) for item in store.market_operators_list(status=request.args.get("status"))]
+    return jsonify({"operators": operators})
+
+
+@market_bp.route("/market/operators", methods=["POST"])
+def create_or_update_operator():
+    body = request.json or {}
+    slug = (body.get("slug") or "").strip()
+    display_name = (body.get("display_name") or "").strip()
+    if not slug or not display_name:
+        return jsonify({"error": "slug and display_name required"}), 400
+    existing = store.market_operator_get_by_slug(slug)
+    operator_id = (body.get("id") or "").strip() or ((existing or {}).get("id") or _make_id("op"))
+    store.market_operator_upsert(
+        operator_id=operator_id,
+        slug=slug,
+        display_name=display_name,
+        summary=body.get("summary") or "",
+        status=body.get("status") or "pending",
+        onboarding_status=body.get("onboarding_status") or "draft",
+        identity_anchor=body.get("identity_anchor") or "",
+        wallet=body.get("wallet") or "",
+        ens_name=body.get("ens_name") or "",
+        verification_status=body.get("verification_status") or "unverified",
+        contact_email=body.get("contact_email") or "",
+        website_url=body.get("website_url") or "",
+        metadata=body.get("metadata") or {},
+    )
+    operator = store.market_operator_get(operator_id)
+    return jsonify({"status": "saved", "operator": _operator_payload(operator) if operator else {"id": operator_id}})
+
+
+@market_bp.route("/market/operators/<operator_id>", methods=["GET"])
+def get_operator(operator_id: str):
+    operator = store.market_operator_get(operator_id)
+    if not operator:
+        return jsonify({"error": "operator not found"}), 404
+    return jsonify({"operator": _operator_payload(operator)})
+
+
+@market_bp.route("/market/operators/<operator_id>/onboard", methods=["POST"])
+def onboard_operator(operator_id: str):
+    operator = store.market_operator_get(operator_id)
+    if not operator:
+        return jsonify({"error": "operator not found"}), 404
+    body = request.json or {}
+    store.market_operator_upsert(
+        operator_id=operator["id"],
+        slug=operator["slug"],
+        display_name=operator["display_name"],
+        summary=body.get("summary") if body.get("summary") is not None else operator.get("summary", ""),
+        status=body.get("status") or "active",
+        onboarding_status=body.get("onboarding_status") or "completed",
+        identity_anchor=body.get("identity_anchor") or operator.get("identity_anchor", ""),
+        wallet=body.get("wallet") or operator.get("wallet", ""),
+        ens_name=body.get("ens_name") or operator.get("ens_name", ""),
+        verification_status=body.get("verification_status") or "verified",
+        contact_email=body.get("contact_email") or operator.get("contact_email", ""),
+        website_url=body.get("website_url") or operator.get("website_url", ""),
+        metadata={**(operator.get("metadata") or {}), **(body.get("metadata") or {})},
+    )
+    updated = store.market_operator_get(operator_id)
+    return jsonify({"status": "onboarded", "operator": _operator_payload(updated) if updated else {"id": operator_id}})
+
+
 @market_bp.route("/market/runtime", methods=["GET"])
 def get_runtime_status():
     requested_slug = (request.args.get("agent_slug") or "").strip()
@@ -435,6 +830,338 @@ def get_runtime_status():
     )
 
 
+@market_bp.route("/ops/serving/topology", methods=["GET"])
+def ops_serving_topology():
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    infra_root = _infra_root()
+    traffic_state = store.market_ops_traffic_state_get()
+    latest_rollout = store.market_ops_model_rollout_latest()
+    return jsonify(
+        {
+            "status": "ok",
+            "infra_root": str(infra_root),
+            "edge_layer": {
+                "provider": "digitalocean",
+                "droplet_target_by_region": _OPS_REGIONAL_TARGET_DROPLETS,
+                "total_droplets": sum(_OPS_REGIONAL_TARGET_DROPLETS.values()),
+                "gateway_runtime": "litellm_or_custom_openrouter_style_gateway",
+                "redis_prefix_cache": True,
+                "identity_injection": True,
+                "circuit_breakers": {
+                    "primary": "aws_bedrock",
+                    "fallbacks": ["anthropic", "openai", "gemini"],
+                    "trip_on": {"latency_ms": 60000, "status_codes": [503]},
+                },
+            },
+            "supervisor_layer": {
+                "provider": "aws_bedrock",
+                "model": "mistral-small-4",
+                "context_window_tokens": 256000,
+                "role": "triage_and_context_pruning",
+            },
+            "worker_layer": {
+                "provider": "aws_bedrock",
+                "identities": {
+                    "security_patch_ts": "glm-5.1-axolotl-tuned",
+                    "security_patch_rust": "glm-5.1-axolotl-tuned",
+                    "vendor_swap_ts": "glm-5.1-axolotl-tuned",
+                    "vendor_swap_rust": "glm-5.1-axolotl-tuned",
+                    "get_back_on_track_ts": "minimax-m2.7",
+                    "get_back_on_track_rust": "minimax-m2.7",
+                },
+            },
+            "tuning_loop": {
+                "hardware": "aws_trainium_trn1_32xlarge",
+                "engine": "axolotl_qlora",
+                "artifact_source": "s3_successful_marketplace_outcomes",
+                "custom_model_import": "bedrock_custom_model_import",
+            },
+            "regions": [
+                {
+                    "id": region,
+                    "label": _OPS_REGIONAL_LABELS[region],
+                    "provider": "digitalocean",
+                    "droplet_target": count,
+                }
+                for region, count in _OPS_REGIONAL_TARGET_DROPLETS.items()
+            ],
+            "global_ingress": {
+                "aws_global_accelerator_module": (infra_root / "terraform" / "aws-global-accelerator").is_dir(),
+                "do_regional_lb_module": (infra_root / "terraform" / "digitalocean-regional-lbs").is_dir(),
+                "do_primary_backup_global_lb_module": (infra_root / "terraform" / "digitalocean-global-lb").is_dir(),
+                "do_global_dns_module": (infra_root / "terraform" / "digitalocean-global-dns").is_dir(),
+            },
+            "traffic": traffic_state,
+            "last_rollout": latest_rollout,
+            "components": _ops_component_snapshot(),
+            "infra_drift": _ops_infra_drift_snapshot(infra_root),
+        }
+    )
+
+
+@market_bp.route("/ops/serving/traffic-shift", methods=["POST"])
+def ops_serving_traffic_shift():
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    body = request.json or {}
+    regional_weights = _ops_resolve_regional_weights(body)
+    if any(weight < 0 for weight in regional_weights.values()):
+        return _error("regional traffic percentages must be non-negative", 400, "invalid_traffic_shift")
+    if sum(regional_weights.values()) != 100:
+        return _error("regional traffic percentages must sum to 100", 400, "invalid_traffic_shift")
+    changed_by = (body.get("changed_by") or "operator_panel").strip()
+    notes = (body.get("notes") or "").strip()
+    store.market_ops_traffic_state_set(
+        us_percent=int(regional_weights["na_west"]) + int(regional_weights["na_east"]),
+        eu_percent=int(regional_weights["eu"]),
+        changed_by=changed_by,
+        notes=notes,
+        regional_weights=regional_weights,
+    )
+    applied = store.market_ops_traffic_state_get()
+    return jsonify(
+        {
+            "status": "applied",
+            "traffic": applied,
+            "note": "Traffic state persisted. Wire Terraform apply pipeline to enact globally.",
+        }
+    )
+
+
+@market_bp.route("/ops/serving/model-rollout", methods=["POST"])
+def ops_model_rollout():
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    body = request.json or {}
+    target = (body.get("target") or "").strip()
+    revision = (body.get("revision") or "").strip()
+    if target not in {
+        "base",
+        "specialist",
+        "supervisor",
+        "worker_security",
+        "worker_vendor_swap",
+        "worker_recovery",
+        "edge_gateway",
+        "tuning_loop",
+    }:
+        return _error("invalid rollout target", 400, "invalid_rollout_target")
+    if not revision:
+        return _error("revision required", 400, "missing_revision")
+    strategy = (body.get("strategy") or "canary").strip() or "canary"
+    requested_by = (body.get("requested_by") or "operator_panel").strip()
+    metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
+    rollout_id = _make_id("rollout")
+    store.market_ops_model_rollout_create(
+        rollout_id=rollout_id,
+        target=target,
+        revision=revision,
+        strategy=strategy,
+        requested_by=requested_by,
+        status="queued",
+        metadata=metadata,
+    )
+    rollout = store.market_ops_model_rollout_latest()
+    return jsonify(
+        {
+            "status": "queued",
+            "rollout": rollout,
+            "note": "Connect this endpoint to deployment automation for live rollout execution.",
+        }
+    )
+
+
+@market_bp.route("/ops/observability/langfuse", methods=["GET"])
+def ops_langfuse():
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    links = _ops_links()
+    latest_rollout = store.market_ops_model_rollout_latest()
+    recent_rollouts = store.market_ops_model_rollouts_list(limit=5)
+    return jsonify(
+        {
+            "status": "ok",
+            "links": links,
+            "hints": [
+                "Use trace ids to join marketplace execution runs and payouts.",
+                "Track model/adapter revisions in trace metadata for postmortems.",
+                "Track circuit-break events by region to tune edge fallback policies.",
+            ],
+            "last_rollout": latest_rollout,
+            "recent_rollouts": recent_rollouts,
+        }
+    )
+
+
+@market_bp.route("/ops/observability/runbook", methods=["GET"])
+def ops_observability_runbook():
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    return jsonify(
+        {
+            "status": "ok",
+            "slo_targets": {
+                "ops_action_queue_approval_minutes_p95": 15,
+                "ops_action_execution_minutes_p95": 20,
+                "drift_detection_interval_minutes": max(1, int(os.getenv("MARKET_OPS_DRIFT_INTERVAL_SEC", "1800")) // 60),
+            },
+            "dashboards": _ops_links(),
+            "runbooks": [
+                {
+                    "id": "ops-action-failure",
+                    "summary": "If component action fails, inspect action.command_trace/error_trace, then trigger rollback endpoint.",
+                },
+                {
+                    "id": "infra-drift-alert",
+                    "summary": "When drift alert fires, review persisted terraform diff, open approval-gated action, then apply.",
+                },
+            ],
+            "recent_component_actions": store.market_ops_component_actions_list(limit=10),
+            "recent_drift_runs": store.market_ops_drift_runs_list(limit=10),
+            "active_alerts": store.market_ops_alerts_list(limit=20),
+        }
+    )
+
+
+@market_bp.route("/ops/infra/drift", methods=["GET"])
+def ops_infra_drift():
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    infra_root = _infra_root()
+    snapshot = _ops_infra_drift_snapshot(infra_root)
+    return jsonify(snapshot)
+
+
+@market_bp.route("/ops/infra/drift/run", methods=["POST"])
+def ops_infra_drift_run():
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    body = request.json or {}
+    trigger = (body.get("trigger") or "manual").strip() or "manual"
+    runs = run_drift_once(trigger=trigger)
+    return jsonify({"status": "completed", "runs": runs, "active_alerts": store.market_ops_alerts_list(limit=20)})
+
+
+@market_bp.route("/ops/components", methods=["GET"])
+def ops_components():
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    return jsonify({"status": "ok", **_ops_component_snapshot()})
+
+
+@market_bp.route("/ops/components/action", methods=["POST"])
+def ops_components_action():
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    body = request.json or {}
+    component_id = (body.get("component_id") or "").strip()
+    action = (body.get("action") or "").strip().lower()
+    execution_mode = (body.get("execution_mode") or "dry_run").strip().lower() or "dry_run"
+    requested_by = (body.get("requested_by") or "operator_panel").strip()
+    notes = (body.get("notes") or "").strip()
+    requires_approval = bool(body.get("requires_approval", True))
+    if component_id not in {item["component_id"] for item in _OPS_COMPONENT_CATALOG}:
+        return _error("unknown component_id", 400, "invalid_component")
+    if action not in {"start", "stop", "restart", "scale_up", "scale_down", "enable", "disable"}:
+        return _error("invalid action", 400, "invalid_action")
+    if execution_mode not in {"dry_run", "apply"}:
+        return _error("execution_mode must be dry_run or apply", 400, "invalid_execution_mode")
+    action_id = _make_id("component_action")
+    desired_state = _ops_component_desired_state(action)
+    initial_status = "pending_approval" if requires_approval else "approved"
+    approved_by = ""
+    approved_at = 0.0
+    if not requires_approval:
+        approved_by = requested_by
+        approved_at = time.time()
+    store.market_ops_component_action_create(
+        action_id=action_id,
+        component_id=component_id,
+        action=action,
+        requested_by=requested_by,
+        status=initial_status,
+        execution_mode=execution_mode,
+        notes=notes,
+        metadata={"automation": "queued"},
+        approved_by=approved_by,
+        approved_at=approved_at,
+    )
+    store.market_ops_component_state_set(
+        component_id=component_id,
+        desired_state=desired_state,
+        last_action=action,
+        updated_by=requested_by,
+        notes=notes,
+        metadata={"last_action_id": action_id},
+    )
+    return jsonify(
+        {
+            "status": initial_status,
+            "action_id": action_id,
+            "component_state": store.market_ops_component_state_get(component_id),
+            "action": store.market_ops_component_action_get(action_id),
+        }
+    )
+
+
+@market_bp.route("/ops/components/action/<action_id>/approve", methods=["POST"])
+def ops_components_action_approve(action_id: str):
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    body = request.json or {}
+    actor = (body.get("approved_by") or "operator_panel").strip()
+    row = store.market_ops_component_action_get(action_id)
+    if not row:
+        return _error("action not found", 404, "action_not_found")
+    if row["status"] not in {"pending_approval", "approved"}:
+        return _error("action cannot be approved in current status", 409, "invalid_action_state")
+    updated = store.market_ops_component_action_update(
+        action_id,
+        status="approved",
+        approved_by=actor,
+        approved_at=time.time(),
+    )
+    return jsonify({"status": "approved", "action": updated})
+
+
+@market_bp.route("/ops/components/action/<action_id>/rollback", methods=["POST"])
+def ops_components_action_rollback(action_id: str):
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    prior = store.market_ops_component_action_get(action_id)
+    if not prior:
+        return _error("action not found", 404, "action_not_found")
+    if prior["status"] != "succeeded":
+        return _error("rollback requires a succeeded action", 409, "invalid_action_state")
+    body = request.json or {}
+    requested_by = (body.get("requested_by") or "operator_panel").strip()
+    rollback_action = _rollback_action_for(prior["action"])
+    rollback_id = _make_id("component_action")
+    store.market_ops_component_action_create(
+        action_id=rollback_id,
+        component_id=prior["component_id"],
+        action=rollback_action,
+        requested_by=requested_by,
+        status="approved",
+        execution_mode="apply",
+        notes=f"Rollback for {action_id}",
+        metadata={"rollback_reason": body.get("reason") or "", "source_action_id": action_id},
+        approved_by=requested_by,
+        approved_at=time.time(),
+        rollback_of_action_id=action_id,
+    )
+    store.market_ops_component_state_set(
+        component_id=prior["component_id"],
+        desired_state=_ops_component_desired_state(rollback_action),
+        last_action=rollback_action,
+        updated_by=requested_by,
+        notes=f"Rollback queued for {action_id}",
+        metadata={"last_action_id": rollback_id, "rollback_of_action_id": action_id},
+    )
+    return jsonify({"status": "rollback_queued", "action": store.market_ops_component_action_get(rollback_id)})
+
+
 @market_bp.route("/market/agents", methods=["POST"])
 def create_or_update_agent():
     body = request.json or {}
@@ -442,6 +1169,9 @@ def create_or_update_agent():
     display_name = (body.get("display_name") or "").strip()
     if not slug or not display_name:
         return jsonify({"error": "slug and display_name required"}), 400
+    operator_id = (body.get("operator_id") or "").strip()
+    if operator_id and not store.market_operator_get(operator_id):
+        return jsonify({"error": "operator_id not found"}), 400
     existing = next((a for a in store.market_agent_profiles_list() if a["slug"] == slug), None)
     agent_id = (body.get("id") or "").strip() or (existing["id"] if existing else _make_id("agent"))
     store.market_agent_profile_upsert(
@@ -470,6 +1200,44 @@ def create_or_update_agent():
     return jsonify({"status": "saved", "agent": store.market_agent_profile_get(agent_id)})
 
 
+@market_bp.route("/market/agents/<agent_id>/manifest", methods=["GET"])
+def get_agent_manifest(agent_id: str):
+    if not store.market_agent_profile_get(agent_id):
+        return jsonify({"error": "agent not found"}), 404
+    manifest = store.market_capability_manifest_get_by_agent(agent_id)
+    if not manifest:
+        return jsonify({"error": "manifest not found"}), 404
+    return jsonify({"manifest": manifest})
+
+
+@market_bp.route("/market/agents/<agent_id>/manifest", methods=["POST"])
+def create_or_update_agent_manifest(agent_id: str):
+    agent = store.market_agent_profile_get(agent_id)
+    if not agent:
+        return jsonify({"error": "agent not found"}), 404
+    body = request.json or {}
+    manifest_id = ((store.market_capability_manifest_get_by_agent(agent_id) or {}).get("id") or _make_id("manifest"))
+    store.market_capability_manifest_upsert(
+        manifest_id=manifest_id,
+        agent_id=agent_id,
+        operator_id=body.get("operator_id") or agent.get("operator_id", ""),
+        manifest_version=int(body.get("manifest_version") or 1),
+        job_classes=body.get("job_classes") or [],
+        languages=body.get("languages") or [],
+        package_managers=body.get("package_managers") or [],
+        frameworks=body.get("frameworks") or [],
+        ci_providers=body.get("ci_providers") or [],
+        max_change_scope=body.get("max_change_scope") or "medium",
+        allowed_file_classes=body.get("allowed_file_classes") or [],
+        requires_human_review=bool(body.get("requires_human_review", True)),
+        can_open_prs=bool(body.get("can_open_prs", False)),
+        preferred_budget_types=body.get("preferred_budget_types") or [],
+        signed_at=body.get("signed_at") or "",
+        metadata=body.get("metadata") or {},
+    )
+    return jsonify({"status": "saved", "manifest": store.market_capability_manifest_get_by_agent(agent_id)})
+
+
 @market_bp.route("/market/agents/seed", methods=["POST"])
 def seed_managed_agents():
     agents = _seed_managed_agents()
@@ -478,12 +1246,15 @@ def seed_managed_agents():
 
 @market_bp.route("/market/opportunities", methods=["GET"])
 def list_opportunities():
+    limit = request.args.get("limit", default=50, type=int)
+    offset = request.args.get("offset", default=0, type=int)
     return jsonify(
         {
             "opportunities": store.market_opportunities_list(
                 repo_full_name=request.args.get("repo"),
                 status=request.args.get("status"),
-                limit=request.args.get("limit", default=50, type=int),
+                limit=limit,
+                offset=offset,
             )
         }
     )
@@ -493,9 +1264,12 @@ def list_opportunities():
 def scan_repository_opportunities(repo_full_name: str):
     account = store.market_repository_account_get_by_repo(repo_full_name)
     if not account:
-        return jsonify({"error": f"repository_account missing for {repo_full_name}"}), 404
+        return _error(f"repository_account missing for {repo_full_name}", 404, "repository_not_found")
+    can_write, owner_error = _check_repo_owner_access(account)
+    if not can_write:
+        return _error(owner_error, 403, "owner_mismatch")
     if not account.get("local_path"):
-        return jsonify({"error": "repository_account local_path required"}), 400
+        return _error("repository_account local_path required", 400, "repository_path_required")
     agent = next((a for a in _seed_managed_agents() if a["slug"] == "ts-architect"), None)
     opportunities = discover_repo_opportunities(repo_path=account["local_path"])
     saved = []
@@ -528,22 +1302,50 @@ def scan_repository_opportunities(repo_full_name: str):
 def promote_opportunity(opportunity_id: str):
     opportunity = store.market_opportunity_get(opportunity_id)
     if not opportunity:
-        return jsonify({"error": "opportunity not found"}), 404
+        return _error("opportunity not found", 404, "opportunity_not_found")
     account = store.market_repository_account_get_by_repo(opportunity["repo_full_name"])
     if not account:
-        return jsonify({"error": "repository_account missing for opportunity"}), 404
+        return _error("repository_account missing for opportunity", 404, "repository_not_found")
+    can_write, owner_error = _check_repo_owner_access(account)
+    if not can_write:
+        return _error(owner_error, 403, "owner_mismatch")
     existing = store.market_job_get_by_source_event_key(f"opp:{opportunity_id}")
     if existing:
         return jsonify({"status": "existing", "job": existing})
     job_payload = _opportunity_to_job(account, opportunity)
     job_id = _make_id("job")
     store.market_job_upsert(job_id=job_id, **job_payload)
+    store.market_opportunity_upsert(
+        opportunity_id=opportunity["id"],
+        repository_account_id=opportunity["repository_account_id"],
+        repo_full_name=opportunity["repo_full_name"],
+        opportunity_type=opportunity["opportunity_type"],
+        title=opportunity["title"],
+        summary=opportunity["summary"],
+        pod=opportunity.get("pod", ""),
+        lane=opportunity.get("lane", ""),
+        severity=opportunity.get("severity", "medium"),
+        confidence=float(opportunity.get("confidence", 0.0)),
+        files=opportunity.get("files") or [],
+        evidence=opportunity.get("evidence") or {},
+        source_agent_id=opportunity.get("source_agent_id", ""),
+        status="promoted",
+    )
     return jsonify({"status": "promoted", "job": store.market_job_get(job_id)})
 
 
 @market_bp.route("/market/jobs", methods=["GET"])
 def list_jobs():
-    return jsonify({"jobs": store.market_jobs_list(repo_full_name=request.args.get("repo"), status=request.args.get("status"), limit=request.args.get("limit", default=50, type=int))})
+    return jsonify(
+        {
+            "jobs": store.market_jobs_list(
+                repo_full_name=request.args.get("repo"),
+                status=request.args.get("status"),
+                limit=request.args.get("limit", default=50, type=int),
+                offset=request.args.get("offset", default=0, type=int),
+            )
+        }
+    )
 
 
 @market_bp.route("/market/jobs", methods=["POST"])
@@ -553,10 +1355,45 @@ def create_job():
     job_class = (body.get("job_class") or "").strip()
     title = (body.get("title") or "").strip()
     if not repo_full_name or not job_class or not title:
-        return jsonify({"error": "repo_full_name, job_class, and title required"}), 400
+        return _error("repo_full_name, job_class, and title required", 400, "missing_required_fields")
     account = store.market_repository_account_get_by_repo(repo_full_name)
     if not account:
-        return jsonify({"error": f"repository_account missing for {repo_full_name}"}), 404
+        return _error(f"repository_account missing for {repo_full_name}", 404, "repository_not_found")
+    can_write, owner_error = _check_repo_owner_access(account)
+    if not can_write:
+        return _error(owner_error, 403, "owner_mismatch")
+
+    enabled_job_classes = set(account.get("enabled_job_classes") or [])
+    if enabled_job_classes and job_class not in enabled_job_classes:
+        return _error("job_class is not enabled for this repository", 400, "job_class_not_enabled")
+
+    risk_level = (body.get("risk_level") or "medium").strip()
+    if risk_level not in {"low", "medium", "high"}:
+        return _error("risk_level must be low, medium, or high", 400, "invalid_risk_level")
+
+    source_event_key = (body.get("source_event_key") or "").strip()
+    if source_event_key:
+        existing = store.market_job_get_by_source_event_key(source_event_key)
+        if existing:
+            return jsonify({"status": "existing", "job": existing})
+
+    budget_ceiling = int(body.get("budget_ceiling") or account.get("per_job_spend_cap") or 0)
+    if budget_ceiling < 0:
+        return _error("budget_ceiling must be non-negative", 400, "invalid_budget")
+    per_job_cap = int(account.get("per_job_spend_cap") or 0)
+    if per_job_cap > 0 and budget_ceiling > per_job_cap:
+        return _error("budget_ceiling exceeds repository per_job_spend_cap", 400, "budget_exceeds_cap")
+
+    metadata = body.get("metadata") or {}
+    required_trust = (metadata.get("required_trust_tier") or "").strip()
+    if not required_trust:
+        metadata = dict(metadata)
+        metadata["required_trust_tier"] = "critical" if risk_level == "high" else ("trusted" if risk_level == "medium" else "standard")
+
+    status = (body.get("status") or "open").strip()
+    if status not in _MUTATING_JOB_STATUSES:
+        return _error("job status must start as open or assigned", 400, "invalid_initial_job_status")
+
     job_id = _make_id("job")
     store.market_job_upsert(
         job_id=job_id,
@@ -566,13 +1403,13 @@ def create_job():
         trigger_source=body.get("trigger_source") or "manual",
         title=title,
         summary=body.get("summary") or "",
-        risk_level=body.get("risk_level") or "medium",
+        risk_level=risk_level,
         acceptance_policy=body.get("acceptance_policy") or "maintainer_accept_or_merge",
-        budget_ceiling=int(body.get("budget_ceiling") or account.get("per_job_spend_cap") or 0),
-        status=body.get("status") or "open",
+        budget_ceiling=budget_ceiling,
+        status=status,
         candidate_agents=body.get("candidate_agents") or [],
-        source_event_key=body.get("source_event_key") or "",
-        metadata=body.get("metadata") or {},
+        source_event_key=source_event_key,
+        metadata=metadata,
         expires_at=float(body.get("expires_at") or 0) or (time.time() + 7 * 24 * 3600),
     )
     emit("agent", f"Created market job for {repo_full_name}", data={"job_id": job_id, "job_class": job_class})
@@ -584,7 +1421,17 @@ def get_job(job_id: str):
     job = store.market_job_get(job_id)
     if not job:
         return jsonify({"error": "job not found"}), 404
-    return jsonify({"job": job, "plans": store.market_job_plans_list(job_id), "assignments": store.market_job_assignments_list(job_id), "submissions": store.market_submissions_list(job_id), "payouts": store.market_payout_ledger_list(job_id), "recommendations": store.market_job_recommendations_list(job_id), "runs": store.market_execution_runs_list(job_id), "invocations": store.market_agent_invocations_list(job_id)})
+    return jsonify({
+        "job": job,
+        "plans": store.market_job_plans_list(job_id),
+        "assignments": store.market_job_assignments_list(job_id),
+        "submissions": store.market_submissions_list(job_id),
+        "submission_reviews": store.market_submission_reviews_list_by_job(job_id),
+        "payouts": store.market_payout_ledger_list(job_id),
+        "recommendations": store.market_job_recommendations_list(job_id),
+        "runs": store.market_execution_runs_list(job_id),
+        "invocations": store.market_agent_invocations_list(job_id),
+    })
 
 
 @market_bp.route("/market/jobs/<job_id>/recommendations", methods=["POST"])
@@ -640,26 +1487,56 @@ def list_job_assignments(job_id: str):
 def create_job_assignment(job_id: str):
     job = store.market_job_get(job_id)
     if not job:
-        return jsonify({"error": "job not found"}), 404
+        return _error("job not found", 404, "job_not_found")
+    if job.get("status") not in _MUTATING_JOB_STATUSES:
+        return _error("job is not assignable in its current status", 409, "invalid_job_state")
+    account = store.market_repository_account_get_by_repo(job["repo_full_name"])
+    if not account:
+        return _error("repository_account missing for job", 404, "repository_not_found")
+    can_write, owner_error = _check_repo_owner_access(account)
+    if not can_write:
+        return _error(owner_error, 403, "owner_mismatch")
     body = request.json or {}
     recommendation_id = (body.get("recommendation_id") or "").strip()
     recommendation = store.market_job_recommendation_get(recommendation_id) if recommendation_id else None
     if recommendation_id and (not recommendation or recommendation.get("job_id") != job_id or not recommendation.get("policy_pass")):
-        return jsonify({"error": "invalid recommendation_id"}), 400
+        return _error("invalid recommendation_id", 400, "invalid_recommendation")
     agent_id = (body.get("agent_id") or "").strip() or (recommendation or {}).get("agent_id", "")
     specialist_id = (body.get("specialist_id") or "").strip() or (recommendation or {}).get("specialist_id", "")
     if not agent_id:
-        return jsonify({"error": "agent_id required"}), 400
+        return _error("agent_id required", 400, "agent_required")
+    agent = store.market_agent_profile_get(agent_id)
+    if not agent:
+        return _error("agent not found", 404, "agent_not_found")
+
+    direct_violations = _agent_policy_violations(job, account, agent)
+    if direct_violations and not recommendation:
+        return _error("; ".join(direct_violations), 400, "agent_policy_violation")
+
+    if recommendation and recommendation.get("agent_id") != agent_id:
+        return _error("recommendation agent_id mismatch", 400, "recommendation_agent_mismatch")
+
     plan_id = (body.get("plan_id") or "").strip()
-    if recommendation and recommendation.get("requires_plan") and not plan_id:
-        return jsonify({"error": "plan_id required for this recommendation"}), 400
+    requires_plan = bool(recommendation and recommendation.get("requires_plan")) or _plan_required(job, agent.get("lane", ""))
+    if requires_plan and not plan_id:
+        return _error("plan_id required for this assignment", 400, "plan_required")
     if plan_id:
         plan = store.market_job_plan_get(plan_id)
         if not plan or plan["job_id"] != job_id:
-            return jsonify({"error": "plan_id does not belong to job"}), 400
+            return _error("plan_id does not belong to job", 400, "invalid_plan")
+
+    assignments = store.market_job_assignments_list(job_id)
+    if any(
+        existing["agent_id"] == agent_id
+        and existing["status"] in {"active", "approved", "changes_requested"}
+        for existing in assignments
+    ):
+        return _error("agent already has an active assignment for this job", 409, "assignment_conflict")
+
     assignment_id = _make_id("assign")
     store.market_job_assignment_create(assignment_id=assignment_id, job_id=job_id, agent_id=agent_id, specialist_id=specialist_id, recommendation_id=recommendation_id, plan_id=plan_id, assigned_by=(body.get("assigned_by") or "").strip(), mode=body.get("mode") or "exclusive", status=body.get("status") or "active", lease_expires_at=time.time() + int(body.get("lease_seconds") or 3600))
-    _set_job_status(job, "assigned")
+    if not _set_job_status(job, "assigned"):
+        return _error("job status transition to assigned is not allowed", 409, "invalid_job_state")
     return jsonify({"status": "created", "assignment": store.market_job_assignments_list(job_id)[0]}), 201
 
 
@@ -681,18 +1558,46 @@ def list_job_invocations(job_id: str):
 def execute_job(job_id: str):
     job = store.market_job_get(job_id)
     if not job:
-        return jsonify({"error": "job not found"}), 404
+        return _error("job not found", 404, "job_not_found")
+    if job.get("status") not in _MUTATING_JOB_STATUSES:
+        return _error("job is not executable in its current status", 409, "invalid_job_state")
     account = store.market_repository_account_get_by_repo(job["repo_full_name"])
     if not account:
-        return jsonify({"error": "repository_account missing for job"}), 404
-    assignment_id = ((request.json or {}).get("assignment_id") or "").strip()
+        return _error("repository_account missing for job", 404, "repository_not_found")
+    can_write, owner_error = _check_repo_owner_access(account)
+    if not can_write:
+        return _error(owner_error, 403, "owner_mismatch")
+    body = request.json or {}
+    assignment_id = (body.get("assignment_id") or "").strip()
     assignment = next((a for a in store.market_job_assignments_list(job_id) if a["id"] == assignment_id), None) if assignment_id else None
     if not assignment:
-        return jsonify({"error": "assignment_id required"}), 400
+        return _error("assignment_id required", 400, "assignment_required")
+    if assignment.get("status") not in {"active", "approved", "changes_requested"}:
+        return _error("assignment is not executable", 409, "invalid_assignment_state")
+    mode = _validate_mode(body.get("mode") or "dry_run")
+    if mode is None:
+        return _error("mode must be dry_run or apply", 400, "invalid_mode")
+    force = bool(body.get("force", False))
+    idempotency_key = (body.get("idempotency_key") or "").strip()
+    runs = [r for r in store.market_execution_runs_list(job_id) if r.get("assignment_id") == assignment_id]
+    running = next((r for r in runs if r.get("status") == "running"), None)
+    if running:
+        return _error("assignment already has a running execution", 409, "execution_in_progress")
+    if idempotency_key:
+        replay = next((r for r in runs if (r.get("evidence") or {}).get("idempotency_key") == idempotency_key), None)
+        if replay:
+            submission = store.market_submission_get(replay.get("submission_id") or "") if replay.get("submission_id") else None
+            return jsonify({"status": "idempotent_replay", "run": replay, "submission": submission})
+    if not force:
+        latest = next((r for r in runs if r.get("status") in {"completed", "noop"} and r.get("mode") == mode), None)
+        if latest:
+            submission = store.market_submission_get(latest.get("submission_id") or "") if latest.get("submission_id") else None
+            return jsonify({"status": "reused_existing_run", "run": latest, "submission": submission})
     try:
-        run, submission = _execute_assignment(job, account, assignment, mode=((request.json or {}).get("mode") or "apply"))
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 400
+        run, submission = _execute_assignment(job, account, assignment, mode=mode, idempotency_key=idempotency_key)
+    except Exception:
+        current_app.logger.exception("market execution failed", extra={"job_id": job_id, "assignment_id": assignment_id})
+        return _error("execution failed; see gateway logs for details", 400, "execution_failed")
     return jsonify({"status": "executed", "run": run, "submission": submission})
 
 
@@ -700,28 +1605,39 @@ def execute_job(job_id: str):
 def autopilot_job(job_id: str):
     job = store.market_job_get(job_id)
     if not job:
-        return jsonify({"error": "job not found"}), 404
+        return _error("job not found", 404, "job_not_found")
+    if job.get("status") not in _MUTATING_JOB_STATUSES:
+        return _error("job is not executable in its current status", 409, "invalid_job_state")
     account = store.market_repository_account_get_by_repo(job["repo_full_name"])
     if not account:
-        return jsonify({"error": "repository_account missing for job"}), 404
+        return _error("repository_account missing for job", 404, "repository_not_found")
+    can_write, owner_error = _check_repo_owner_access(account)
+    if not can_write:
+        return _error(owner_error, 403, "owner_mismatch")
     if not account.get("local_path"):
-        return jsonify({"error": "repository_account local_path required"}), 400
+        return _error("repository_account local_path required", 400, "repository_path_required")
+    body = request.json or {}
+    mode = _validate_mode(body.get("mode") or "apply")
+    if mode is None:
+        return _error("mode must be dry_run or apply", 400, "invalid_mode")
     _seed_managed_agents()
     recommendations = _recommend_agents(job, account, store.market_agent_profiles_list(status="active"))
     store.market_job_recommendations_replace(job_id, recommendations)
     recommendation = next((r for r in recommendations if r["policy_pass"]), None)
     if not recommendation:
-        return jsonify({"error": "no eligible agent recommendation"}), 400
+        return _error("no eligible agent recommendation", 400, "no_eligible_recommendation")
     plan_summary, plan_steps = _default_plan(job, recommendation)
     plan_id = _make_id("plan")
     store.market_job_plan_create(plan_id=plan_id, job_id=job_id, agent_id=recommendation["agent_id"], operator_id="platform-router", summary=plan_summary, steps=plan_steps, estimated_cost=0, estimated_seconds=900, status="proposed")
     assignment_id = _make_id("assign")
     store.market_job_assignment_create(assignment_id=assignment_id, job_id=job_id, agent_id=recommendation["agent_id"], specialist_id=recommendation.get("specialist_id", ""), recommendation_id=recommendation["recommendation_id"], plan_id=plan_id if recommendation.get("requires_plan") else "", assigned_by="platform-router", mode="exclusive", status="active", lease_expires_at=time.time() + 3600)
-    _set_job_status(job, "assigned")
+    if not _set_job_status(job, "assigned"):
+        return _error("job status transition to assigned is not allowed", 409, "invalid_job_state")
     try:
-        run, submission = _execute_assignment(job, account, store.market_job_assignments_list(job_id)[0])
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 400
+        run, submission = _execute_assignment(job, account, store.market_job_assignments_list(job_id)[0], mode=mode)
+    except Exception:
+        current_app.logger.exception("market autopilot failed", extra={"job_id": job_id})
+        return _error("autopilot execution failed; see gateway logs for details", 400, "execution_failed")
     return jsonify({"status": "autopilot_complete", "recommendation": recommendation, "plan": store.market_job_plan_get(plan_id), "assignment": store.market_job_assignments_list(job_id)[0], "run": run, "submission": submission})
 
 
@@ -731,26 +1647,115 @@ def create_submission():
     job_id = (body.get("job_id") or "").strip()
     agent_id = (body.get("agent_id") or "").strip()
     if not job_id or not agent_id:
-        return jsonify({"error": "job_id and agent_id required"}), 400
-    if not store.market_job_get(job_id):
-        return jsonify({"error": "job not found"}), 404
+        return _error("job_id and agent_id required", 400, "missing_required_fields")
+    job = store.market_job_get(job_id)
+    if not job:
+        return _error("job not found", 404, "job_not_found")
+    account = store.market_repository_account_get_by_repo(job["repo_full_name"])
+    if not account:
+        return _error("repository_account missing for job", 404, "repository_not_found")
+    can_write, owner_error = _check_repo_owner_access(account)
+    if not can_write:
+        return _error(owner_error, 403, "owner_mismatch")
+    assignments = [a for a in store.market_job_assignments_list(job_id) if a["agent_id"] == agent_id]
+    if not assignments:
+        return _error("submission requires an assignment for this agent", 400, "assignment_required")
+    if not any(a["status"] in {"active", "approved", "changes_requested"} for a in assignments):
+        return _error("agent does not have an assignment in a submittable state", 409, "invalid_assignment_state")
     submission_id = _make_id("sub")
     store.market_submission_create(submission_id=submission_id, job_id=job_id, agent_id=agent_id, branch_name=body.get("branch_name") or "", pr_number=int(body.get("pr_number") or 0), pr_url=body.get("pr_url") or "", diff_summary=body.get("diff_summary") or "", evidence=body.get("evidence") or {}, status=body.get("status") or "submitted", acceptance_attribution=body.get("acceptance_attribution") or "")
     return jsonify({"status": "created", "submission": store.market_submission_get(submission_id)}), 201
+
+
+@market_bp.route("/market/submissions/<submission_id>/reviews", methods=["GET"])
+def list_submission_reviews(submission_id: str):
+    submission = store.market_submission_get(submission_id)
+    if not submission:
+        return jsonify({"error": "submission not found"}), 404
+    return jsonify({"submission": submission, "reviews": store.market_submission_reviews_list(submission_id)})
+
+
+@market_bp.route("/market/submissions/<submission_id>/reviews", methods=["POST"])
+def review_submission(submission_id: str):
+    submission = store.market_submission_get(submission_id)
+    if not submission:
+        return jsonify({"error": "submission not found"}), 404
+    body = request.json or {}
+    action = (body.get("action") or "").strip()
+    if action not in _SUBMISSION_REVIEW_ACTIONS:
+        return jsonify({"error": "action must be one of start_review, comment, changes_requested, approve"}), 400
+    review_id = _make_id("review")
+    payload = body.get("payload") or {}
+    summary = (body.get("summary") or "").strip()
+    notes = (body.get("notes") or "").strip()
+    store.market_submission_review_create(
+        review_id=review_id,
+        submission_id=submission_id,
+        job_id=submission["job_id"],
+        agent_id=submission["agent_id"],
+        reviewer_id=(body.get("reviewer_id") or "").strip(),
+        reviewer_role=(body.get("reviewer_role") or "maintainer").strip() or "maintainer",
+        action=action,
+        summary=summary,
+        notes=notes,
+        payload=payload,
+    )
+    evidence = dict(submission.get("evidence") or {})
+    review_history = evidence.get("review_history", [])
+    review_history.append(
+        {
+            "review_id": review_id,
+            "action": action,
+            "summary": summary,
+            "reviewer_id": (body.get("reviewer_id") or "").strip(),
+            "reviewer_role": (body.get("reviewer_role") or "maintainer").strip() or "maintainer",
+        }
+    )
+    evidence["review_history"] = review_history
+    if notes:
+        evidence["latest_review_notes"] = notes
+    next_status = _SUBMISSION_REVIEW_STATUS[action]
+    if next_status:
+        store.market_submission_update(submission_id, status=next_status, evidence=evidence)
+    else:
+        store.market_submission_update(submission_id, evidence=evidence)
+    if action == "changes_requested":
+        for assignment in [a for a in store.market_job_assignments_list(submission["job_id"]) if a["agent_id"] == submission["agent_id"]]:
+            store.market_job_assignment_update_status(assignment["id"], "changes_requested")
+    elif action == "approve":
+        for assignment in [a for a in store.market_job_assignments_list(submission["job_id"]) if a["agent_id"] == submission["agent_id"]]:
+            if assignment["status"] not in {"completed", "rejected"}:
+                store.market_job_assignment_update_status(assignment["id"], "approved")
+    return jsonify({
+        "status": "review_recorded",
+        "submission": store.market_submission_get(submission_id),
+        "review": store.market_submission_reviews_list(submission_id)[-1],
+        "reviews": store.market_submission_reviews_list(submission_id),
+    }), 201
 
 
 @market_bp.route("/market/submissions/<submission_id>/decision", methods=["POST"])
 def decide_submission(submission_id: str):
     submission = store.market_submission_get(submission_id)
     if not submission:
-        return jsonify({"error": "submission not found"}), 404
+        return _error("submission not found", 404, "submission_not_found")
     job = store.market_job_get(submission["job_id"])
     if not job:
-        return jsonify({"error": "job not found for submission"}), 404
+        return _error("job not found for submission", 404, "job_not_found")
+    account = store.market_repository_account_get_by_repo(job["repo_full_name"])
+    if not account:
+        return _error("repository_account missing for job", 404, "repository_not_found")
+    can_write, owner_error = _check_repo_owner_access(account)
+    if not can_write:
+        return _error(owner_error, 403, "owner_mismatch")
     body = request.json or {}
     decision = (body.get("decision") or "").strip()
     if decision not in {"accepted", "rejected"}:
-        return jsonify({"error": "decision must be accepted or rejected"}), 400
+        return _error("decision must be accepted or rejected", 400, "invalid_decision")
+    if _is_terminal_submission(submission):
+        if submission.get("status") != decision:
+            return _error("submission already has a terminal decision", 409, "terminal_submission")
+        return jsonify({"status": "already_decided", "job": job, "submission": submission, "payouts": store.market_payout_ledger_list(job["id"])})
     evidence = dict(submission.get("evidence") or {})
     if body.get("merged_by"):
         evidence["merged_by"] = body["merged_by"]
@@ -759,13 +1764,20 @@ def decide_submission(submission_id: str):
     store.market_submission_update(submission_id, status=decision, acceptance_attribution=(body.get("acceptance_attribution") or "").strip(), evidence=evidence)
     matching = [a for a in store.market_job_assignments_list(job["id"]) if a["agent_id"] == submission["agent_id"]]
     if decision == "accepted":
-        _set_job_status(job, "completed")
+        if not _set_job_status(job, "completed"):
+            return _error("job status transition to completed is not allowed", 409, "invalid_job_state")
         for assignment in matching:
             store.market_job_assignment_update_status(assignment["id"], "completed")
         if int(body.get("payout_amount") or 0) > 0:
             store.market_payout_ledger_create(payout_id=_make_id("pay"), job_id=job["id"], submission_id=submission_id, agent_id=submission["agent_id"], operator_id=(body.get("operator_id") or "").strip(), amount=int(body.get("payout_amount") or 0), currency=(body.get("currency") or "credits").strip(), funding_source=(body.get("funding_source") or "").strip(), status="approved", notes=(body.get("notes") or "").strip())
     else:
-        _set_job_status(job, "open")
+        other_accepted = [
+            row for row in store.market_submissions_list(job["id"])
+            if row["id"] != submission_id and row.get("status") == "accepted"
+        ]
+        if not other_accepted:
+            if not _set_job_status(job, "open"):
+                return _error("job status transition to open is not allowed", 409, "invalid_job_state")
         for assignment in matching:
             store.market_job_assignment_update_status(assignment["id"], "rejected")
     trace_id = (submission.get("evidence") or {}).get("langfuse_trace_id", "")

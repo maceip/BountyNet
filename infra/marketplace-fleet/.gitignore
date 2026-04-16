@@ -1,0 +1,7 @@
+.env
+axolotl/output/
+axolotl/cache/
+axolotl/datasets/*.jsonl
+terraform/**/.terraform/
+terraform/**/*.tfstate
+terraform/**/*.tfstate.*

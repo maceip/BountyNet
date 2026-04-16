@@ -7,6 +7,7 @@ include `/mcp` and pass wiring checks.
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -47,12 +48,269 @@ def test_health_on_asgi_stack(asgi_app, monkeypatch):
     assert isinstance(body, dict)
 
 
+def test_health_degraded_mode_without_rpc(asgi_app, monkeypatch):
+    def _raise_rpc_error():
+        raise RuntimeError("rpc unavailable")
+
+    monkeypatch.setattr(chain, "current_block", _raise_rpc_error)
+    monkeypatch.setenv("BOUNTYNET_HEALTH_ALLOW_DEGRADED", "1")
+    with TestClient(asgi_app) as client:
+        r = client.get("/health")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "degraded"
+    assert "rpc unavailable" in body["error"]
+
+
 def test_bounties_route_on_asgi_stack(asgi_app):
     with TestClient(asgi_app) as client:
         r = client.get("/bounties")
     assert r.status_code == 200
     data = r.json()
     assert "bounties" in data
+
+
+def test_auth_magic_link_session_contract(asgi_app):
+    with TestClient(asgi_app) as client:
+        requested = client.post("/auth/magic-link/request", json={"email": "admin@acme.test"})
+        assert requested.status_code == 202, requested.text
+        token = requested.json().get("dev_magic_link_token")
+        assert token
+
+        consumed = client.post(
+            "/auth/magic-link/consume",
+            json={"token": token, "device_fingerprint": "device-alpha"},
+        )
+        assert consumed.status_code == 200, consumed.text
+        body = consumed.json()
+        assert body["factor_type"] == "email_magic_link"
+        assert body["aal"] == 1
+        assert body["token"].startswith("bna_sess_")
+
+        me = client.get(
+            "/auth/session/me",
+            headers={
+                "Authorization": f"Bearer {body['token']}",
+                "X-BN-Device-Fingerprint": "device-alpha",
+            },
+        )
+        assert me.status_code == 200, me.text
+        me_body = me.json()
+        assert me_body["principal"]["id"] == body["principal_id"]
+        assert "viewer" in me_body["roles"]
+
+
+def _dev_factor_proof(factor_type: str, challenge_id: str, nonce: str, identifier: str) -> str:
+    secret = "test-factor-secret"
+    payload = f"{secret}:{factor_type}:{challenge_id}:{nonce}:{identifier.lower()}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def test_auth_factor_contracts_without_extra_deps(asgi_app):
+    factors = [
+        ("wallet_sol", "solana:7r3nTTEST111111111111111111111111111111"),
+        ("wallet_btc", "btc:bc1qtestnetaddress1111111111111111111111"),
+        ("passkey", "passkey:user-handle:alice"),
+        ("nfc_euid", "euid:de:city:1234567890"),
+    ]
+
+    with TestClient(asgi_app) as client:
+        for factor_type, identifier in factors:
+            challenge = client.post(
+                "/auth/challenge",
+                json={
+                    "factor_type": factor_type,
+                    "purpose": "login",
+                    "payload": {"identifier": identifier},
+                },
+            )
+            assert challenge.status_code == 201, challenge.text
+            challenge_body = challenge.json()
+            proof = _dev_factor_proof(
+                factor_type=factor_type,
+                challenge_id=challenge_body["challenge_id"],
+                nonce=challenge_body["nonce"],
+                identifier=identifier,
+            )
+            verified = client.post(
+                "/auth/verify",
+                json={
+                    "factor_type": factor_type,
+                    "challenge_id": challenge_body["challenge_id"],
+                    "identifier": identifier,
+                    "proof": proof,
+                    "device_fingerprint": f"device-{factor_type}",
+                },
+            )
+            assert verified.status_code == 200, verified.text
+            body = verified.json()
+            assert body["factor_type"] == factor_type
+            if factor_type == "nfc_euid":
+                assert body["aal"] == 3
+            else:
+                assert body["aal"] == 2
+            assert body["token"].startswith("bna_sess_")
+
+
+def test_ops_requires_admin_aal2_session(asgi_app):
+    from eth_account import Account
+    from eth_account.messages import encode_defunct
+
+    account = Account.create()
+    address = account.address.lower()
+
+    with TestClient(asgi_app) as client:
+        unauthorized = client.get("/ops/serving/topology")
+        assert unauthorized.status_code == 401, unauthorized.text
+
+        challenge = client.post(
+            "/auth/challenge",
+            json={
+                "factor_type": "wallet_eth",
+                "purpose": "login",
+                "payload": {"address": address},
+            },
+        )
+        assert challenge.status_code == 201, challenge.text
+        challenge_body = challenge.json()
+        message = challenge_body["message_template"]
+        signature = Account.sign_message(encode_defunct(text=message), account.key).signature.hex()
+
+        verified = client.post(
+            "/auth/verify",
+            json={
+                "factor_type": "wallet_eth",
+                "challenge_id": challenge_body["challenge_id"],
+                "address": address,
+                "signature": signature,
+                "device_fingerprint": "device-beta",
+            },
+        )
+        assert verified.status_code == 200, verified.text
+        token = verified.json()["token"]
+
+        blocked = client.get(
+            "/ops/serving/topology",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "X-BN-Device-Fingerprint": "device-beta",
+            },
+        )
+        assert blocked.status_code == 401, blocked.text
+
+        granted = client.post(
+            "/auth/bootstrap/admin",
+            json={"identifier_kind": "eth", "identifier_value": address},
+        )
+        assert granted.status_code == 200, granted.text
+
+        challenge2 = client.post(
+            "/auth/challenge",
+            json={
+                "factor_type": "wallet_eth",
+                "purpose": "login",
+                "payload": {"address": address},
+            },
+        )
+        message2 = challenge2.json()["message_template"]
+        signature2 = Account.sign_message(encode_defunct(text=message2), account.key).signature.hex()
+        verified2 = client.post(
+            "/auth/verify",
+            json={
+                "factor_type": "wallet_eth",
+                "challenge_id": challenge2.json()["challenge_id"],
+                "address": address,
+                "signature": signature2,
+                "device_fingerprint": "device-beta",
+            },
+        )
+        token2 = verified2.json()["token"]
+
+        authorized = client.get(
+            "/ops/serving/topology",
+            headers={
+                "Authorization": f"Bearer {token2}",
+                "X-BN-Device-Fingerprint": "device-beta",
+            },
+        )
+        assert authorized.status_code == 200, authorized.text
+        assert authorized.json()["status"] == "ok"
+
+
+def test_ops_component_action_approval_and_rollback(asgi_app, monkeypatch):
+    import gateway.routes.market as market
+    from gateway import store
+
+    monkeypatch.setattr(market, "_ops_authorized", lambda: True)
+
+    with TestClient(asgi_app) as client:
+        queued = client.post(
+            "/ops/components/action",
+            json={
+                "component_id": "global_do_dns",
+                "action": "enable",
+                "execution_mode": "dry_run",
+                "requested_by": "test-operator",
+                "requires_approval": True,
+            },
+        )
+        assert queued.status_code == 200, queued.text
+        action = queued.json()["action"]
+        assert queued.json()["status"] == "pending_approval"
+        assert action["execution_mode"] == "dry_run"
+
+        approved = client.post(
+            f"/ops/components/action/{action['id']}/approve",
+            json={"approved_by": "approver-1"},
+        )
+        assert approved.status_code == 200, approved.text
+        assert approved.json()["action"]["status"] == "approved"
+        assert approved.json()["action"]["approved_by"] == "approver-1"
+
+        # Simulate executor completion to validate rollback contract endpoint.
+        store.market_ops_component_action_update(action["id"], status="succeeded")
+        rollback = client.post(
+            f"/ops/components/action/{action['id']}/rollback",
+            json={"requested_by": "approver-1", "reason": "safety test"},
+        )
+        assert rollback.status_code == 200, rollback.text
+        rollback_body = rollback.json()["action"]
+        assert rollback.json()["status"] == "rollback_queued"
+        assert rollback_body["rollback_of_action_id"] == action["id"]
+        assert rollback_body["status"] == "approved"
+
+
+def test_ops_drift_run_and_runbook_contract(asgi_app, monkeypatch):
+    import gateway.routes.market as market
+
+    monkeypatch.setattr(market, "_ops_authorized", lambda: True)
+    monkeypatch.setattr(
+        market,
+        "run_drift_once",
+        lambda trigger="manual": [
+            {
+                "id": "drift_test_1",
+                "module_key": "digitalocean_edge",
+                "status": "ok",
+                "drift_detected": False,
+            }
+        ],
+    )
+
+    with TestClient(asgi_app) as client:
+        drift = client.post("/ops/infra/drift/run", json={"trigger": "contract-test"})
+        assert drift.status_code == 200, drift.text
+        body = drift.json()
+        assert body["status"] == "completed"
+        assert len(body["runs"]) == 1
+        assert body["runs"][0]["module_key"] == "digitalocean_edge"
+
+        runbook = client.get("/ops/observability/runbook")
+        assert runbook.status_code == 200, runbook.text
+        runbook_body = runbook.json()
+        assert runbook_body["status"] == "ok"
+        assert "slo_targets" in runbook_body
+        assert "runbooks" in runbook_body
 
 
 def test_market_repository_setup_and_list(asgi_app):
@@ -195,12 +453,19 @@ def test_market_submission_acceptance_and_payout(asgi_app):
         )
         assert repo_setup.status_code == 200, repo_setup.text
 
+        operator = client.post(
+            "/market/operators",
+            json={"slug": "trusted-patcher-ops", "display_name": "Trusted Patcher Ops"},
+        )
+        assert operator.status_code == 200, operator.text
+        operator_id = operator.json()["operator"]["id"]
+
         agent = client.post(
             "/market/agents",
             json={
                 "slug": "trusted-patcher",
                 "display_name": "Trusted Patcher",
-                "operator_id": "operator_7",
+                "operator_id": operator_id,
                 "supported_job_classes": ["security_update", "dependency_update"],
                 "supported_ecosystems": ["typescript"],
                 "pricing_profile": "per_accepted_change",
@@ -264,7 +529,7 @@ def test_market_submission_acceptance_and_payout(asgi_app):
                 "decision": "accepted",
                 "acceptance_attribution": "merged",
                 "merged_by": "octocat",
-                "operator_id": "operator_7",
+                "operator_id": operator_id,
                 "funding_source": "api_key_pool",
                 "currency": "credits",
                 "payout_amount": 1800,
@@ -290,6 +555,126 @@ def test_market_submission_acceptance_and_payout(asgi_app):
         assert payload["submissions"][0]["status"] == "accepted"
         assert payload["assignments"][0]["status"] == "completed"
         assert len(payload["payouts"]) == 1
+
+
+def test_market_submission_review_workflow(asgi_app):
+    with TestClient(asgi_app) as client:
+        repo_setup = client.post(
+            "/market/repositories/setup",
+            json={"installation_id": 108, "repos": ["acme/reviewed-repo"], "owner": "acme"},
+        )
+        assert repo_setup.status_code == 200, repo_setup.text
+
+        operator = client.post(
+            "/market/operators",
+            json={"slug": "review-ops", "display_name": "Review Ops"},
+        )
+        assert operator.status_code == 200, operator.text
+        operator_id = operator.json()["operator"]["id"]
+
+        agent = client.post(
+            "/market/agents",
+            json={
+                "slug": "reviewable-agent",
+                "display_name": "Reviewable Agent",
+                "operator_id": operator_id,
+                "supported_job_classes": ["dependency_update"],
+                "supported_ecosystems": ["typescript"],
+            },
+        )
+        assert agent.status_code == 200, agent.text
+        agent_body = agent.json()["agent"]
+
+        job = client.post(
+            "/market/jobs",
+            json={
+                "repo_full_name": "acme/reviewed-repo",
+                "job_class": "dependency_update",
+                "title": "Upgrade dependencies",
+                "summary": "Apply a scoped dependency patch.",
+            },
+        )
+        assert job.status_code == 201, job.text
+        job_id = job.json()["job"]["id"]
+
+        assignment = client.post(
+            f"/market/jobs/{job_id}/assignments",
+            json={"agent_id": agent_body["id"], "assigned_by": "router"},
+        )
+        assert assignment.status_code == 201, assignment.text
+
+        submission = client.post(
+            "/market/submissions",
+            json={
+                "job_id": job_id,
+                "agent_id": agent_body["id"],
+                "branch_name": "agent/reviewable-agent/upgrade-1",
+                "diff_summary": "Updates package versions and lockfile.",
+            },
+        )
+        assert submission.status_code == 201, submission.text
+        submission_id = submission.json()["submission"]["id"]
+
+        start_review = client.post(
+            f"/market/submissions/{submission_id}/reviews",
+            json={
+                "action": "start_review",
+                "reviewer_id": "maintainer_1",
+                "summary": "Maintainer started review.",
+            },
+        )
+        assert start_review.status_code == 201, start_review.text
+        assert start_review.json()["submission"]["status"] == "under_review"
+
+        changes_requested = client.post(
+            f"/market/submissions/{submission_id}/reviews",
+            json={
+                "action": "changes_requested",
+                "reviewer_id": "maintainer_1",
+                "summary": "Need to tighten the diff.",
+                "notes": "Please avoid unrelated lockfile churn.",
+            },
+        )
+        assert changes_requested.status_code == 201, changes_requested.text
+        assert changes_requested.json()["submission"]["status"] == "changes_requested"
+
+        approved = client.post(
+            f"/market/submissions/{submission_id}/reviews",
+            json={
+                "action": "approve",
+                "reviewer_id": "maintainer_2",
+                "summary": "Looks good after revision.",
+            },
+        )
+        assert approved.status_code == 201, approved.text
+        assert approved.json()["submission"]["status"] == "approved"
+        assert len(approved.json()["reviews"]) == 3
+
+        reviews = client.get(f"/market/submissions/{submission_id}/reviews")
+        assert reviews.status_code == 200, reviews.text
+        review_rows = reviews.json()["reviews"]
+        assert [row["action"] for row in review_rows] == ["start_review", "changes_requested", "approve"]
+
+        decision = client.post(
+            f"/market/submissions/{submission_id}/decision",
+            json={
+                "decision": "accepted",
+                "acceptance_attribution": "merged",
+                "operator_id": operator_id,
+                "funding_source": "platform_credits",
+                "currency": "credits",
+                "payout_amount": 900,
+            },
+        )
+        assert decision.status_code == 200, decision.text
+        assert decision.json()["submission"]["status"] == "accepted"
+
+        detail = client.get(f"/market/jobs/{job_id}")
+        assert detail.status_code == 200, detail.text
+        body = detail.json()
+        assert body["submission_reviews"]
+        assert [row["action"] for row in body["submission_reviews"]] == ["start_review", "changes_requested", "approve"]
+        assert body["submissions"][0]["status"] == "accepted"
 
 
 def test_market_agents_and_recommendations(asgi_app):
@@ -436,6 +821,88 @@ def test_market_seeded_specialists_and_presets(asgi_app):
         assert body["job_metadata_template"]["pod"] == "typescript"
         assert body["job_metadata_template"]["lane"] == "migration"
         assert body["job_metadata_template"]["required_trust_tier"] == "trusted"
+
+
+def test_market_operator_onboarding_and_manifest(asgi_app):
+    with TestClient(asgi_app) as client:
+        operator = client.post(
+            "/market/operators",
+            json={
+                "slug": "oxide-labs",
+                "display_name": "Oxide Labs",
+                "summary": "Builds Rust and CI maintenance agents.",
+                "contact_email": "ops@oxide.test",
+                "website_url": "https://oxide.test",
+            },
+        )
+        assert operator.status_code == 200, operator.text
+        operator_body = operator.json()["operator"]
+        assert operator_body["slug"] == "oxide-labs"
+        assert operator_body["onboarding_status"] == "draft"
+
+        onboarded = client.post(
+            f"/market/operators/{operator_body['id']}/onboard",
+            json={
+                "identity_anchor": "dynamic:oxide-user",
+                "wallet": "0x1111111111111111111111111111111111111111",
+                "ens_name": "oxide-labs.bountynet.eth",
+                "verification_status": "verified",
+            },
+        )
+        assert onboarded.status_code == 200, onboarded.text
+        onboarded_body = onboarded.json()["operator"]
+        assert onboarded_body["status"] == "active"
+        assert onboarded_body["identity_anchor"] == "dynamic:oxide-user"
+        assert onboarded_body["verification_status"] == "verified"
+
+        agent = client.post(
+            "/market/agents",
+            json={
+                "slug": "oxide-maintainer",
+                "display_name": "Oxide Maintainer",
+                "operator_id": operator_body["id"],
+                "supported_job_classes": ["dependency_update", "ci_repair"],
+                "supported_ecosystems": ["rust", "github_actions"],
+                "supported_budget_types": ["platform_credits"],
+                "agent_kind": "specialist",
+                "pod": "rust",
+                "lane": "maintenance",
+            },
+        )
+        assert agent.status_code == 200, agent.text
+        agent_body = agent.json()["agent"]
+        assert agent_body["operator_id"] == operator_body["id"]
+
+        manifest = client.post(
+            f"/market/agents/{agent_body['id']}/manifest",
+            json={
+                "operator_id": operator_body["id"],
+                "job_classes": ["dependency_update", "ci_repair"],
+                "languages": ["rust"],
+                "package_managers": ["cargo"],
+                "ci_providers": ["github_actions"],
+                "allowed_file_classes": ["Cargo.toml", "Cargo.lock", ".github/workflows/**"],
+                "requires_human_review": True,
+                "can_open_prs": True,
+                "preferred_budget_types": ["platform_credits"],
+                "signed_at": "2026-04-14T00:00:00Z",
+            },
+        )
+        assert manifest.status_code == 200, manifest.text
+        manifest_body = manifest.json()["manifest"]
+        assert manifest_body["agent_id"] == agent_body["id"]
+        assert manifest_body["languages"] == ["rust"]
+        assert manifest_body["can_open_prs"] is True
+
+        fetched_manifest = client.get(f"/market/agents/{agent_body['id']}/manifest")
+        assert fetched_manifest.status_code == 200, fetched_manifest.text
+        assert fetched_manifest.json()["manifest"]["operator_id"] == operator_body["id"]
+
+        fetched_operator = client.get(f"/market/operators/{operator_body['id']}")
+        assert fetched_operator.status_code == 200, fetched_operator.text
+        operator_detail = fetched_operator.json()["operator"]
+        assert operator_detail["summary_metrics"]["agent_count"] == 1
+        assert len(operator_detail["agents"]) == 1
 
 
 def test_market_runtime_status_exposes_agent_runtime_contract(asgi_app, monkeypatch):

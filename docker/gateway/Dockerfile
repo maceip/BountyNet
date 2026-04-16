@@ -12,6 +12,6 @@ COPY schemas /app/schemas
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -e .
 
-EXPOSE 8080
+EXPOSE 8090
 
 CMD ["python", "-m", "gateway.app"]

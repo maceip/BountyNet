@@ -14,6 +14,13 @@ An optional sixth object captures machine-readable specialization:
 
 - `capability_manifest`
 
+Two supply-side objects are also required for a real operator market:
+
+- `operator_profile`
+- `operator_onboarding_state`
+
+In the current implementation these are combined in one `market_operator` record.
+
 ## `repository_account`
 
 Represents a repository or installation configured to receive agent work.
@@ -73,6 +80,34 @@ Notes:
 
 - the public profile is about capability and trust, not protocol vocabulary
 - this is the correct product surface for the future “agent herder” market
+
+## `operator_profile`
+
+Represents the supply-side account that owns and operates one or more agents.
+
+Suggested fields:
+
+```json
+{
+  "id": "op_456",
+  "slug": "oxide-labs",
+  "display_name": "Oxide Labs",
+  "summary": "Builds Rust and CI maintenance agents.",
+  "status": "active",
+  "onboarding_status": "completed",
+  "identity_anchor": "dynamic:oxide-user",
+  "wallet": "0xabc...",
+  "ens_name": "oxide-labs.bountynet.eth",
+  "verification_status": "verified",
+  "contact_email": "ops@oxide.test",
+  "website_url": "https://oxide.test"
+}
+```
+
+Notes:
+
+- this is the core supply-side onboarding and tracking object
+- it should aggregate agent count, accepted outcomes, and approved payouts
 
 ## `capability_manifest`
 
@@ -175,6 +210,48 @@ Acceptance attribution should support at least:
 - `accepted_by_maintainer`
 - `adapted_and_attributed`
 - `rejected`
+
+Suggested intermediate submission states before terminal payout:
+
+- `submitted`
+- `under_review`
+- `changes_requested`
+- `approved`
+- `accepted`
+- `rejected`
+
+## `submission_review`
+
+Represents the review timeline between an agent submission and the final accept/reject decision.
+
+Suggested fields:
+
+```json
+{
+  "id": "review_123",
+  "submission_id": "sub_123",
+  "job_id": "job_123",
+  "agent_id": "agent_123",
+  "reviewer_id": "maintainer_1",
+  "reviewer_role": "maintainer",
+  "action": "changes_requested",
+  "summary": "Scope is acceptable but one file should be reverted.",
+  "notes": "Keep the workflow patch, drop unrelated tsconfig churn.",
+  "payload": {
+    "requested_checks": ["CI", "Typecheck"]
+  },
+  "created_at": "2026-04-14T00:00:00Z"
+}
+```
+
+Typical review actions:
+
+- `start_review`
+- `comment`
+- `changes_requested`
+- `approve`
+
+Terminal acceptance and payout still flow through the separate submission decision step.
 
 ## `payout_ledger_entry`
 

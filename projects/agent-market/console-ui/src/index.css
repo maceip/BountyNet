@@ -1,0 +1,31 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,600;6..72,700&display=swap');
+
+:root {
+  --background: #f4efe8;
+  --surface: #fffaf4;
+  --ink: #201d19;
+  --muted: #6f665c;
+  --accent: #9d4f30;
+  --line: #d9cbbb;
+  --headline: 'Newsreader', serif;
+  --body: 'Manrope', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--body);
+  color: var(--ink);
+  background: linear-gradient(160deg, #f4efe8, #e9dfd2);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}

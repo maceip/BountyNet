@@ -1,0 +1,125 @@
+services:
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    command:
+      - anvil
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8545"
+      - --chain-id
+      - "31337"
+      - --block-time
+      - "1"
+    ports:
+      - "8545:8545"
+
+  aws-model-node:
+    image: python:3.12-slim
+    working_dir: /app
+    command:
+      [
+        "python",
+        "/app/mock_openai_server.py",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--model",
+        "base-coder",
+      ]
+    volumes:
+      - ./mock_openai_server.py:/app/mock_openai_server.py:ro
+    ports:
+      - "8000:8000"
+
+  do-edge-redis:
+    image: redis:7
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+
+  do-edge-litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    command:
+      - "--config"
+      - "/app/config/litellm.config.yaml"
+      - "--port"
+      - "4000"
+    environment:
+      AWS_VLLM_API_BASE: "http://aws-model-node:8000"
+      AWS_VLLM_API_KEY: "local-vllm"
+      LITELLM_MASTER_KEY: "local-litellm-master-key"
+      LITELLM_SALT_KEY: "local-litellm-salt-key"
+      STORE_MODEL_IN_DB: "False"
+    volumes:
+      - ./litellm.config.yaml:/app/config/litellm.config.yaml:ro
+    ports:
+      - "4000:4000"
+    depends_on:
+      - aws-model-node
+      - do-edge-redis
+
+  oracle-tee:
+    build:
+      context: ../../services/oracle-tee
+      dockerfile: Dockerfile
+    environment:
+      ORACLE_PORT: "8095"
+      ORACLE_KEY: "0x59c6995e998f97a5a0044966f094538c5f4f9f95a8d83fdf2b2f3f6db2d0f5c2"
+      BOUNTYNET_LOG_LEVEL: "INFO"
+    ports:
+      - "8095:8095"
+
+  auth-verifier:
+    image: python:3.12-slim
+    working_dir: /app
+    command: ["/bin/sh", "-lc", "pip install --no-cache-dir flask eth-account && python adapter_service.py"]
+    environment:
+      BOUNTYNET_AUTH_ADAPTER_HOST: "0.0.0.0"
+      BOUNTYNET_AUTH_ADAPTER_PORT: "8099"
+      BOUNTYNET_AUTH_ADAPTER_DEV_SECRET: "adapter-dev-secret"
+    volumes:
+      - ../../services/auth-verifier:/app:ro
+    ports:
+      - "8099:8099"
+
+  gateway:
+    build:
+      context: ../..
+      dockerfile: docker/gateway/Dockerfile
+    command:
+      - "python"
+      - "-m"
+      - "gateway.app"
+    environment:
+      GATEWAY_PORT: "8090"
+      BOUNTYNET_DATA_DIR: "/var/lib/bountynet"
+      BOUNTYNET_DB_PATH: "/var/lib/bountynet/gateway.db"
+      BOUNTYNET_EVM_RPC: "http://anvil:8545"
+      BOUNTYNET_EVM_RPC_FALLBACK: "http://anvil:8545"
+      BOUNTYNET_HEALTH_ALLOW_DEGRADED: "1"
+      IDENTITY_REGISTRY: "0x0000000000000000000000000000000000000001"
+      AGENT_RUNTIME_PROVIDER: "litellm"
+      AGENT_RUNTIME_API_BASE: "http://do-edge-litellm:4000"
+      AGENT_RUNTIME_MODEL: "agents/default"
+      AGENT_RUNTIME_FALLBACK_MODEL: "aws-vllm/base-coder"
+      AGENT_RUNTIME_REASONING_EFFORT: "medium"
+      ORACLE_TEE_URL: "http://oracle-tee:8095"
+      BOUNTYNET_AUTH_PASSKEY_VERIFY_URL: "http://auth-verifier:8099/verify"
+      BOUNTYNET_AUTH_ETH_VERIFY_URL: "http://auth-verifier:8099/verify"
+      BOUNTYNET_AUTH_SOL_VERIFY_URL: "http://auth-verifier:8099/verify"
+      BOUNTYNET_AUTH_BTC_VERIFY_URL: "http://auth-verifier:8099/verify"
+      BOUNTYNET_AUTH_NFC_VERIFY_URL: "http://auth-verifier:8099/verify"
+    volumes:
+      - gateway_data:/var/lib/bountynet
+    ports:
+      - "8090:8090"
+    depends_on:
+      - anvil
+      - do-edge-litellm
+      - oracle-tee
+      - auth-verifier
+
+volumes:
+  gateway_data:

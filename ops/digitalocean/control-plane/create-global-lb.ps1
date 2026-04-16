@@ -3,9 +3,12 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$token = $env:DIGITALOCEAN_TOKEN
+$token = $env:DIGITAL_OCEAN_TOKEN
 if (-not $token) {
-  throw "DIGITALOCEAN_TOKEN is required"
+  $token = $env:DIGITALOCEAN_TOKEN
+}
+if (-not $token) {
+  throw "DIGITAL_OCEAN_TOKEN (or DIGITALOCEAN_TOKEN) is required"
 }
 
 $headers = @{ Authorization = "Bearer $token" }

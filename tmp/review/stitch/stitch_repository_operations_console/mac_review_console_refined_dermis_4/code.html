@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,700;0,6..72,800;1,6..72,400&amp;family=JetBrains+Mono:wght@300;400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "bellini-clay": "#D95D39",
+                "bellini-dark": "#7A2E1C",
+                "bellini-ink": "#1E0B07",
+                "bellini-cream": "#FDF3F0",
+                "bellini-rubber": "#C44D2D"
+            },
+            "fontFamily": {
+                "serif": ["'Newsreader'", "serif"],
+                "mono": ["'JetBrains Mono'", "monospace"],
+                "sans": ["'Inter'", "system-ui", "sans-serif"],
+            }
+          },
+        },
+      }
+    </script>
+<style type="text/tailwindcss">
+        @layer base {
+            body {
+                @apply bg-bellini-clay text-bellini-ink font-mono antialiased overflow-hidden selection:bg-bellini-ink selection:text-bellini-clay;
+            }
+        }.dermis-bg {
+            background-color: #D95D39;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(255,255,255,0.15) 0%, transparent 50%),
+                radial-gradient(circle at 0% 100%, rgba(0,0,0,0.1) 0%, transparent 50%);
+        }.panel-inset {
+            @apply bg-bellini-clay/40 rounded-[2rem] border border-bellini-dark/20;
+            box-shadow: 
+                inset 8px 8px 16px rgba(122, 46, 28, 0.2),
+                inset -8px -8px 16px rgba(255, 255, 255, 0.1);
+        }.button-dome {
+            @apply px-4 py-2 rounded-full font-bold uppercase tracking-widest text-[10px] transition-all duration-200 flex items-center justify-center;
+            background: linear-gradient(145deg, #e8643d, #c35433);
+            box-shadow: 
+                6px 6px 12px #b84f30, 
+                -6px -6px 12px #fa6b42;
+        }
+        .button-dome:active {
+            box-shadow: 
+                inset 4px 4px 8px #b84f30, 
+                inset -4px -4px 8px #fa6b42;
+            transform: scale(0.98);
+        }
+        .button-dome-danger {
+            @apply text-white;
+            background: linear-gradient(145deg, #ff4e4e, #d42a2a);
+            box-shadow: 4px 4px 10px #b84f30, -2px -2px 8px rgba(255,255,255,0.2);
+        }
+        .button-dome-success {
+            @apply text-white;
+            background: linear-gradient(145deg, #2ecc71, #27ae60);
+            box-shadow: 4px 4px 10px #b84f30, -2px -2px 8px rgba(255,255,255,0.2);
+        }.header-serif {
+            @apply font-serif italic font-extrabold tracking-tight;
+        }::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { @apply bg-bellini-dark/30 rounded-full; }
+        ::-webkit-scrollbar-thumb:hover { @apply bg-bellini-dark/50; }
+        .intelligence-well {
+            @apply bg-bellini-clay/20 rounded-[2.5rem] border border-bellini-dark/30 overflow-hidden flex flex-col;
+            box-shadow: 
+                inset 20px 20px 60px rgba(122, 46, 28, 0.15),
+                inset -20px -20px 60px rgba(255, 255, 255, 0.05);
+        }
+        .log-entry {
+            @apply border-l-2 border-transparent pl-4 py-2 transition-colors duration-200 hover:bg-white/5;
+        }
+        .log-entry.active {
+            @apply border-bellini-ink bg-white/10;
+        }
+        .data-gauge {
+            @apply h-1 bg-bellini-ink/10 rounded-full overflow-hidden flex items-center;
+        }
+        .data-gauge-fill {
+            @apply h-full bg-bellini-ink transition-all duration-1000 ease-out;
+        }
+        .dense-ribbon-item {
+            @apply px-4 py-2 border-r border-bellini-dark/10 flex-shrink-0 flex flex-col justify-center transition-colors;
+        }
+        .dense-ribbon-item:hover {
+            @apply bg-white/10;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen dermis-bg p-4 gap-4">
+<header class="flex items-center justify-between px-6 py-2">
+<div class="flex items-center gap-8">
+<div class="flex flex-col">
+<span class="header-serif text-3xl leading-none">MAC</span>
+<span class="text-[8px] font-bold uppercase tracking-[0.3em] opacity-60">Modernist Atelier Console</span>
+</div>
+<nav class="flex gap-6 text-[10px] font-bold uppercase tracking-widest opacity-80">
+<a class="hover:text-bellini-ink/60 border-b-2 border-bellini-ink" href="#">Registry</a>
+<a class="hover:text-bellini-ink/60" href="#">Process</a>
+<a class="hover:text-bellini-ink/60" href="#">History</a>
+<a class="hover:text-bellini-ink/60" href="#">Studio</a>
+</nav>
+</div>
+<div class="flex items-center gap-8 text-[9px] font-bold uppercase">
+<div class="flex flex-col items-end">
+<span class="opacity-50">Curator Active</span>
+<span>CURATOR_01</span>
+</div>
+<div class="h-8 w-[1px] bg-bellini-dark/20"></div>
+<div class="flex flex-col">
+<span class="opacity-50">Engine Load</span>
+<span class="text-bellini-dark">14.2% NOMINAL</span>
+</div>
+<div class="w-3 h-3 rounded-full bg-bellini-ink animate-pulse"></div>
+</div>
+</header>
+<section class="h-20 panel-inset overflow-hidden flex items-stretch">
+<div class="w-48 flex-shrink-0 flex flex-col justify-center items-center border-r border-bellini-dark/20 bg-bellini-dark/5">
+<h2 class="header-serif text-xl leading-none">Pending</h2>
+<span class="text-[8px] font-black opacity-60 uppercase mt-1">Dispatch Queue</span>
+</div>
+<div class="flex-1 overflow-x-auto flex items-stretch no-scrollbar">
+<div class="dense-ribbon-item bg-bellini-ink text-bellini-clay min-w-[160px]">
+<div class="flex justify-between items-center mb-1">
+<span class="text-[9px] font-black opacity-50">#988-C</span>
+<span class="text-[8px] px-1 bg-bellini-clay text-bellini-ink rounded-sm">ACTIVE</span>
+</div>
+<div class="text-[12px] font-bold truncate">MERC-OS</div>
+<div class="text-[8px] opacity-70 uppercase">IN_INSPEC</div>
+</div>
+<div class="dense-ribbon-item min-w-[140px]">
+<div class="flex justify-between items-center mb-1">
+<span class="text-[9px] font-black opacity-50">#992-A</span>
+<span class="text-[8px] px-1 bg-red-800 text-white rounded-sm">CRITICAL</span>
+</div>
+<div class="text-[12px] font-bold truncate">SYN-4</div>
+<div class="text-[8px] opacity-40 uppercase">Awaiting Action</div>
+</div>
+<div class="dense-ribbon-item min-w-[120px]">
+<div class="text-[9px] font-black opacity-50 mb-1">#985-F</div>
+<div class="text-[12px] font-bold truncate">BIO-CUR</div>
+<div class="text-[8px] opacity-40 uppercase">PENDING</div>
+</div>
+<div class="dense-ribbon-item min-w-[120px]">
+<div class="text-[9px] font-black opacity-50 mb-1">#982-X</div>
+<div class="text-[12px] font-bold truncate">VOID-6</div>
+<div class="text-[8px] opacity-40 uppercase">STALLED</div>
+</div>
+<script>
+                for(let i=0; i<8; i++) {
+                    document.write(`
+                    <div class="dense-ribbon-item min-w-[100px] opacity-40">
+                        <div class="text-[9px] font-black opacity-50 mb-1">#${980-i}-Z</div>
+                        <div class="text-[12px] font-bold truncate">AUTO</div>
+                        <div class="text-[8px] opacity-40 uppercase">IDLE</div>
+                    </div>
+                    `);
+                }
+            </script>
+</div>
+</section>
+<main class="flex-1 flex flex-col gap-4 overflow-hidden">
+<div class="flex items-center justify-between px-2">
+<div class="flex flex-col">
+<h1 class="header-serif text-4xl">Mercury Shift</h1>
+<p class="text-[10px] font-bold opacity-60 tracking-widest mt-1">INSTANCE ID: 88201-B / PROTOCOL ARCHIVE</p>
+</div>
+<div class="flex gap-4">
+<button class="button-dome button-dome-danger">Reject Feedback</button>
+<button class="button-dome button-dome-success">Accept Merge</button>
+</div>
+</div>
+<section class="flex-1 flex gap-4 overflow-hidden">
+<!-- Log & Trace Column -->
+<div class="flex-1 intelligence-well flex flex-col">
+<div class="bg-bellini-ink/5 px-8 py-4 border-b border-bellini-dark/10 flex justify-between items-center">
+<h3 class="header-serif text-xl">Event Trace</h3>
+<div class="flex gap-4 text-[9px] font-bold uppercase tracking-widest">
+<span class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-bellini-dark"></span> Active Stream</span>
+<span class="opacity-40">Filters: Trace, Error</span>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto p-6 space-y-1">
+<!-- Nested Event 1 -->
+<div class="log-entry active">
+<div class="flex items-baseline gap-3">
+<span class="text-[9px] font-mono opacity-40 shrink-0">08:12:44.002</span>
+<span class="text-[10px] font-bold uppercase tracking-tighter text-bellini-dark">Core_Auth</span>
+<span class="text-[11px] font-medium leading-tight">Handshake initiated for Mercury_Shift node 88201-B</span>
+</div>
+<div class="ml-12 mt-2 pl-4 border-l border-bellini-dark/10 space-y-1">
+<div class="flex items-center gap-3 text-[10px] opacity-70">
+<span class="w-1.5 h-1.5 rounded-full bg-bellini-ink"></span>
+<span>Key rotation detected: Buffer_092</span>
+</div>
+<div class="flex items-center gap-3 text-[10px] opacity-70">
+<span class="w-1.5 h-1.5 rounded-full bg-bellini-ink"></span>
+<span>Integrity verified by Curator_01</span>
+</div>
+</div>
+</div>
+<!-- Warning Entry -->
+<div class="log-entry">
+<div class="flex items-baseline gap-3">
+<span class="text-[9px] font-mono opacity-40 shrink-0">08:12:44.215</span>
+<span class="text-[10px] font-bold uppercase tracking-tighter text-bellini-clay">Net_Alert</span>
+<span class="text-[11px] font-medium leading-tight">Latency jitter in sector 7; attempting mitigation</span>
+</div>
+</div>
+<!-- Standard Entry -->
+<div class="log-entry">
+<div class="flex items-baseline gap-3">
+<span class="text-[9px] font-mono opacity-40 shrink-0">08:12:44.890</span>
+<span class="text-[10px] font-bold uppercase tracking-tighter text-bellini-ink">Sys_Link</span>
+<span class="text-[11px] font-medium leading-tight">Synchronizing 12,404 parity blocks across distributed nodes</span>
+</div>
+</div>
+<!-- Success Entry -->
+<div class="log-entry">
+<div class="flex items-baseline gap-3">
+<span class="text-[9px] font-mono opacity-40 shrink-0">08:12:45.102</span>
+<span class="text-[10px] font-bold uppercase tracking-tighter text-green-800">State_Final</span>
+<span class="text-[11px] font-bold leading-tight">MERGE_READY: Protocol sequence 99-A validated.</span>
+</div>
+</div>
+<!-- Filler Logs -->
+<script>
+                for(let i=0; i<15; i++) {
+                    document.write(`
+                    <div class="log-entry opacity-40">
+                        <div class="flex items-baseline gap-3">
+                            <span class="text-[9px] font-mono opacity-40 shrink-0">08:12:${45+i}.000</span>
+                            <span class="text-[10px] font-bold uppercase tracking-tighter">Daemon_${i}</span>
+                            <span class="text-[11px] font-medium leading-tight italic opacity-60">Heartbeat signal nominal...</span>
+                        </div>
+                    </div>
+                    `);
+                }
+            </script>
+</div>
+</div>
+<!-- Performance Telemetry Side Column -->
+<div class="w-80 flex flex-col gap-4">
+<div class="intelligence-well flex-1 p-6 flex flex-col">
+<h3 class="header-serif text-lg mb-6">Performance Telemetry</h3>
+<div class="space-y-8">
+<!-- Gauge 1 -->
+<div class="space-y-2">
+<div class="flex justify-between items-baseline">
+<span class="text-[10px] font-bold uppercase tracking-widest opacity-60">Memory Pressure</span>
+<span class="text-xs font-black">42.8 GB</span>
+</div>
+<div class="data-gauge">
+<div class="data-gauge-fill" style="width: 68%"></div>
+</div>
+<div class="flex justify-between text-[8px] font-bold opacity-30">
+<span>MIN: 12GB</span>
+<span>PEAK: 56GB</span>
+</div>
+</div>
+<!-- Gauge 2 -->
+<div class="space-y-2">
+<div class="flex justify-between items-baseline">
+<span class="text-[10px] font-bold uppercase tracking-widest opacity-60">Throughput</span>
+<span class="text-xs font-black text-bellini-dark">1.2 TB/s</span>
+</div>
+<div class="data-gauge">
+<div class="data-gauge-fill bg-bellini-dark" style="width: 45%"></div>
+</div>
+<div class="flex justify-between text-[8px] font-bold opacity-30">
+<span>NOMINAL RANGE</span>
+<span>0.8 - 2.1 TB/S</span>
+</div>
+</div>
+<!-- Technical Viz Placeholder -->
+<div class="flex-1 flex flex-col justify-end">
+<div class="border-t border-bellini-dark/10 pt-4">
+<div class="text-[9px] font-bold uppercase tracking-widest opacity-40 mb-4 text-center">Node Distribution</div>
+<div class="flex justify-between items-end h-24 gap-1">
+<script>
+                                for(let i=0; i<12; i++) {
+                                    const h = Math.floor(Math.random() * 60) + 20;
+                                    document.write(`<div class="w-2 bg-bellini-ink/20 rounded-t-sm" style="height: ${h}%"></div>`);
+                                }
+                            </script>
+</div>
+<div class="flex justify-between text-[8px] font-mono mt-2 opacity-30">
+<span>WEST_01</span>
+<span>EAST_04</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Impact Summary Plate -->
+<div class="panel-inset p-5 h-24 flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-[9px] font-black uppercase opacity-40">Composite Integrity</span>
+<span class="header-serif text-3xl">99.98%</span>
+</div>
+<div class="w-12 h-12 rounded-full border-4 border-bellini-ink/10 flex items-center justify-center">
+<div class="w-8 h-8 rounded-full border-2 border-bellini-dark border-dashed animate-spin"></div>
+</div>
+</div>
+</div>
+</section>
+<div class="grid grid-cols-2 gap-4 h-32">
+<div class="panel-inset p-5 flex flex-col">
+<div class="text-[9px] font-black uppercase mb-2 opacity-40">Rationale / Analysis</div>
+<div class="flex-1 flex flex-col justify-center">
+<p class="font-serif text-lg leading-tight italic text-bellini-ink">
+    "Implementing Mercury-Shift allows for non-static encryption buffer re-calc every 450ms, mitigating 14% vulnerability in Doc_Vault."
+</p>
+</div>
+<div class="flex gap-2 mt-2">
+<span class="px-2 py-0.5 bg-bellini-dark text-white rounded text-[8px] font-bold uppercase tracking-widest">SEC+</span>
+<span class="px-2 py-0.5 bg-bellini-dark text-white rounded text-[8px] font-bold uppercase tracking-widest">PERF++</span>
+</div>
+</div>
+<div class="panel-inset p-5 flex gap-6">
+<div class="flex-1 flex flex-col justify-between">
+<div class="text-[9px] font-black uppercase opacity-40">System Context</div>
+<div class="flex-1 flex items-center gap-12">
+<div class="flex flex-col">
+<span class="text-[8px] font-bold opacity-50 uppercase">Active Threads</span>
+<span class="text-xl font-black">2,411</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[8px] font-bold opacity-50 uppercase">Sync Delay</span>
+<span class="text-xl font-black">0.04ms</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[8px] font-bold opacity-50 uppercase">Encryption</span>
+<span class="text-xl font-black">AES-Q</span>
+</div>
+</div>
+</div>
+<div class="w-32 flex flex-col justify-end border-l border-bellini-dark/10 pl-6">
+<pre class="text-[7px] leading-tight opacity-40 font-mono">┌───────────────┐
+│ TELEMETRY_VIS │
+│   . . . /\ . .│
+│  . . . /  \ . │
+│ . . . /    \ .│
+└───────────────┘</pre>
+</div>
+</div>
+</div>
+</main>
+<footer class="h-8 bg-bellini-ink rounded-full flex items-center px-6 text-[8px] font-black uppercase tracking-widest text-bellini-clay shadow-2xl overflow-hidden">
+<div class="flex items-center gap-4 whitespace-nowrap animate-marquee">
+<span>System State: Stable</span>
+<span class="opacity-30">|</span>
+<span>Port: 88201</span>
+<span class="opacity-30">|</span>
+<span>Atelier Build: 4.2.1</span>
+<span class="opacity-30">|</span>
+<span>Security: Active Matrix</span>
+<span class="opacity-30">|</span>
+<span class="bg-bellini-clay text-bellini-ink px-2 rounded-full">Integrity Check Complete</span>
+<span class="opacity-30">|</span>
+<span>Syncing Nodes...</span>
+</div>
+</footer>
+<style>
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+            display: inline-flex;
+            animation: marquee 30s linear infinite;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</body></html>

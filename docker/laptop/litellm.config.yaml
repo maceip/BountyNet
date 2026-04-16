@@ -1,0 +1,28 @@
+model_list:
+  - model_name: agents/default
+    litellm_params:
+      model: openai/base-coder
+      api_base: os.environ/AWS_VLLM_API_BASE
+      api_key: os.environ/AWS_VLLM_API_KEY
+
+  - model_name: aws-vllm/base-coder
+    litellm_params:
+      model: openai/base-coder
+      api_base: os.environ/AWS_VLLM_API_BASE
+      api_key: os.environ/AWS_VLLM_API_KEY
+
+  # Keep production-style fallback model names, but route locally.
+  - model_name: openrouter/anthropic/claude-sonnet-4.5
+    litellm_params:
+      model: openai/base-coder
+      api_base: os.environ/AWS_VLLM_API_BASE
+      api_key: os.environ/AWS_VLLM_API_KEY
+
+router_settings:
+  fallbacks:
+    - agents/default: ["aws-vllm/base-coder", "openrouter/anthropic/claude-sonnet-4.5"]
+
+litellm_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  salt_key: os.environ/LITELLM_SALT_KEY
+  json_logs: true

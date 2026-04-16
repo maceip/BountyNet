@@ -5,9 +5,12 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $regions = Get-Content (Join-Path $root "regions.json") | ConvertFrom-Json
-$token = $env:DIGITALOCEAN_TOKEN
+$token = $env:DIGITAL_OCEAN_TOKEN
 if (-not $token) {
-  throw "DIGITALOCEAN_TOKEN is required"
+  $token = $env:DIGITALOCEAN_TOKEN
+}
+if (-not $token) {
+  throw "DIGITAL_OCEAN_TOKEN (or DIGITALOCEAN_TOKEN) is required"
 }
 
 foreach ($region in $regions) {

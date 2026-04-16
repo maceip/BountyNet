@@ -1,0 +1,25 @@
+langfuse:
+  nextauth:
+    url: http://langfuse.local
+    secret: replace-with-strong-secret
+  salt: replace-with-random-salt
+  encryptionKey: replace-with-strong-key
+  telemetry:
+    enabled: false
+
+postgresql:
+  enabled: true
+  auth:
+    username: langfuse
+    password: langfuse
+    database: langfuse
+
+redis:
+  enabled: true
+
+clickhouse:
+  enabled: true
+  auth:
+    username: langfuse
+    password: langfuse
+    database: langfuse

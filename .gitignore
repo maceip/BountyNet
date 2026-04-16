@@ -83,6 +83,25 @@ vendor/
 coverage/
 *.log
 
+# ── Terraform / IaC local artifacts ───────────────────────
+**/.terraform/
+**/.terragrunt-cache/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfplan.*
+plan.out
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+# Keep lockfiles committed for provider reproducibility
+!.terraform.lock.hcl
+
 # Generated oracle deployment dumps (operator machines)
 services/oracle-tee/*deployment*.json
 

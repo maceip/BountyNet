@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,700;0,6..72,800;1,6..72,400&amp;family=JetBrains+Mono:wght@300;400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "bellini-clay": "#D95D39",
+                "bellini-dark": "#7A2E1C",
+                "bellini-ink": "#1E0B07",
+                "bellini-cream": "#FDF3F0",
+                "bellini-rubber": "#C44D2D"
+            },
+            "fontFamily": {
+                "serif": ["'Newsreader'", "serif"],
+                "mono": ["'JetBrains Mono'", "monospace"],
+            }
+          },
+        },
+      }
+    </script>
+<style type="text/tailwindcss">
+        @layer base {
+            body {
+                @apply bg-bellini-clay text-bellini-ink font-mono antialiased overflow-hidden selection:bg-bellini-ink selection:text-bellini-clay;
+            }
+        }
+        
+        /* Molded Rubber Effect */
+        .dermis-bg {
+            background-color: #D95D39;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(255,255,255,0.15) 0%, transparent 50%),
+                radial-gradient(circle at 0% 100%, rgba(0,0,0,0.1) 0%, transparent 50%);
+        }
+
+        /* Tactile Inset Panels */
+        .panel-inset {
+            @apply bg-bellini-clay/40 rounded-[2.5rem] border border-bellini-dark/20;
+            box-shadow: 
+                inset 8px 8px 16px rgba(122, 46, 28, 0.2),
+                inset -8px -8px 16px rgba(255, 255, 255, 0.1);
+        }
+
+        /* Tactile Dome Buttons */
+        .button-dome {
+            @apply px-4 py-2 rounded-full font-bold uppercase tracking-widest text-[10px] transition-all duration-200 flex items-center justify-center;
+            background: linear-gradient(145deg, #e8643d, #c35433);
+            box-shadow: 
+                6px 6px 12px #b84f30, 
+                -6px -6px 12px #fa6b42;
+        }
+        .button-dome:active {
+            box-shadow: 
+                inset 4px 4px 8px #b84f30, 
+                inset -4px -4px 8px #fa6b42;
+            transform: scale(0.98);
+        }
+        .button-dome-danger {
+            @apply text-white;
+            background: linear-gradient(145deg, #ff4e4e, #d42a2a);
+            box-shadow: 6px 6px 12px #b84f30, -2px -2px 8px rgba(255,255,255,0.2);
+        }
+        .button-dome-success {
+            @apply text-white;
+            background: linear-gradient(145deg, #2ecc71, #27ae60);
+            box-shadow: 6px 6px 12px #b84f30, -2px -2px 8px rgba(255,255,255,0.2);
+        }
+
+        /* Newsreader Headers */
+        .header-serif {
+            @apply font-serif italic font-extrabold tracking-tight;
+        }
+
+        /* Soft Fleshy Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { @apply bg-bellini-dark/30 rounded-full; }
+        ::-webkit-scrollbar-thumb:hover { @apply bg-bellini-dark/50; }
+
+        .terminal-viewport {
+            @apply bg-bellini-ink rounded-[2rem] border-[12px] border-bellini-dark/10 overflow-hidden;
+            box-shadow: inset 0 20px 40px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen dermis-bg p-4 gap-4">
+<!-- Header Branding -->
+<header class="flex items-center justify-between px-6 py-2">
+<div class="flex items-center gap-8">
+<div class="flex flex-col">
+<span class="header-serif text-3xl leading-none">MAC</span>
+<span class="text-[8px] font-bold uppercase tracking-[0.3em] opacity-60">Modernist Atelier Console</span>
+</div>
+<nav class="flex gap-6 text-[10px] font-bold uppercase tracking-widest opacity-80">
+<a class="hover:text-bellini-ink/60 border-b-2 border-bellini-ink" href="#">Registry</a>
+<a class="hover:text-bellini-ink/60" href="#">Process</a>
+<a class="hover:text-bellini-ink/60" href="#">History</a>
+<a class="hover:text-bellini-ink/60" href="#">Studio</a>
+</nav>
+</div>
+<div class="flex items-center gap-8 text-[9px] font-bold uppercase">
+<div class="flex flex-col items-end">
+<span class="opacity-50">Curator Active</span>
+<span>CURATOR_01</span>
+</div>
+<div class="h-8 w-[1px] bg-bellini-dark/20"></div>
+<div class="flex flex-col">
+<span class="opacity-50">Engine Load</span>
+<span class="text-bellini-dark">14.2% NOMINAL</span>
+</div>
+<div class="w-3 h-3 rounded-full bg-bellini-ink animate-pulse"></div>
+</div>
+</header>
+<div class="flex flex-1 gap-6 overflow-hidden">
+<!-- Sidebar: Dispatch Queue -->
+<aside class="w-[340px] flex flex-col panel-inset p-6 gap-4">
+<div class="flex justify-between items-end border-b border-bellini-dark/10 pb-2">
+<h2 class="header-serif text-2xl">Pending</h2>
+<span class="text-[9px] font-bold opacity-60">QTY: 04</span>
+</div>
+<div class="flex-1 overflow-y-auto">
+<table class="w-full text-left text-[11px]">
+<thead class="text-bellini-dark opacity-50 uppercase text-[9px] font-black">
+<tr>
+<th class="pb-3 px-2">Ref.</th>
+<th class="pb-3 px-2">Origin</th>
+<th class="pb-3 px-2 text-right">State</th>
+</tr>
+</thead>
+<tbody class="space-y-2">
+<tr class="group cursor-pointer">
+<td class="p-2 opacity-60">#992-A</td>
+<td class="p-2 font-bold">SYN-4</td>
+<td class="p-2 text-right"><span class="bg-red-800 text-white px-1.5 py-0.5 rounded-sm text-[9px]">CRITICAL</span></td>
+</tr>
+<tr class="cursor-pointer bg-bellini-ink text-bellini-clay rounded-xl shadow-lg">
+<td class="p-3 font-bold rounded-l-xl">#988-C</td>
+<td class="p-3 font-bold">MERC-OS</td>
+<td class="p-3 text-right font-black rounded-r-xl">IN_INSPEC</td>
+</tr>
+<tr class="group cursor-pointer hover:bg-white/10 transition-colors">
+<td class="p-2 opacity-60">#985-F</td>
+<td class="p-2 font-bold">BIO-CUR</td>
+<td class="p-2 text-right opacity-40">PENDING</td>
+</tr>
+<tr class="group cursor-pointer hover:bg-white/10 transition-colors">
+<td class="p-2 opacity-60">#982-X</td>
+<td class="p-2 font-bold">VOID-6</td>
+<td class="p-2 text-right opacity-40">STALLED</td>
+</tr>
+<script>
+                            for(let i=0; i<15; i++) {
+                                document.write(`
+                                <tr class="opacity-20">
+                                    <td class="p-2">#${980-i}-Z</td>
+                                    <td class="p-2">AUTO</td>
+                                    <td class="p-2 text-right">IDLE</td>
+                                </tr>
+                                `);
+                            }
+                        </script>
+</tbody>
+</table>
+</div>
+</aside>
+<!-- Main Workspace -->
+<main class="flex-1 flex flex-col gap-6 overflow-hidden">
+<!-- Review Header -->
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<h1 class="header-serif text-4xl">Mercury Shift</h1>
+<p class="text-[10px] font-bold opacity-60 tracking-widest mt-1">INSTANCE ID: 88201-B / PROTOCOL ARCHIVE</p>
+</div>
+<div class="flex gap-4">
+<button class="button-dome button-dome-danger">Reject Feedback</button>
+<button class="button-dome button-dome-success">Accept Merge</button>
+</div>
+</div>
+<div class="flex flex-1 gap-6 overflow-hidden">
+<!-- Rationale & Telemetry -->
+<section class="w-72 flex flex-col gap-6">
+<div class="panel-inset p-6">
+<div class="text-[10px] font-black uppercase mb-3 opacity-40">Rationale / Analysis</div>
+<p class="font-serif text-lg leading-tight italic text-bellini-ink">
+                            "Current ingress patterns suggest 14% vulnerability in Doc_Vault. Implementing Mercury-Shift allows for non-static encryption buffer re-calc every 450ms."
+                        </p>
+<div class="flex flex-wrap gap-2 mt-4">
+<span class="px-2 py-0.5 bg-bellini-dark text-white rounded text-[8px] font-bold">SEC+</span>
+<span class="px-2 py-0.5 bg-bellini-dark text-white rounded text-[8px] font-bold">PERF++</span>
+</div>
+</div>
+<div class="flex-1 panel-inset p-6 flex flex-col gap-6">
+<div class="text-[10px] font-black uppercase opacity-40">Impact Telemetry</div>
+<div class="space-y-4">
+<div class="space-y-2">
+<div class="flex justify-between text-[10px] font-bold">
+<span>System Load</span>
+<span class="text-red-800">+2.4%</span>
+</div>
+<div class="h-2 bg-bellini-dark/10 rounded-full overflow-hidden p-0.5 shadow-inner">
+<div class="h-full bg-bellini-ink rounded-full" style="width: 24%"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-[10px] font-bold">
+<span>Enc Depth</span>
+<span class="text-green-800">x4.5</span>
+</div>
+<div class="h-2 bg-bellini-dark/10 rounded-full overflow-hidden p-0.5 shadow-inner">
+<div class="h-full bg-green-700 rounded-full" style="width: 85%"></div>
+</div>
+</div>
+</div>
+<div class="mt-auto border-t border-bellini-dark/10 pt-4">
+<pre class="text-[7px] leading-tight opacity-40 font-mono">┌───────────────┐
+│ TELEMETRY_VIS │
+│   . . . /\ . .│
+│  . . . /  \ . │
+│ . . . /    \ .│
+└───────────────┘</pre>
+</div>
+</div>
+</section>
+<!-- Code View: The "Terminal Viewport" -->
+<section class="flex-1 terminal-viewport flex flex-col shadow-2xl">
+<div class="bg-bellini-dark/20 px-6 py-2 flex justify-between items-center text-[10px] font-bold border-b border-white/5">
+<div class="flex gap-4">
+<span class="text-bellini-cream/50">SOURCE: vault_controller_v8.arch</span>
+<span class="text-bellini-cream/50">LINES 102-111</span>
+</div>
+<div class="flex gap-2">
+<div class="w-2 h-2 rounded-full bg-red-500/30"></div>
+<div class="w-2 h-2 rounded-full bg-yellow-500/30"></div>
+<div class="w-2 h-2 rounded-full bg-green-500/30"></div>
+</div>
+</div>
+<div class="flex-1 p-8 overflow-auto font-mono text-[13px] leading-relaxed text-white/90">
+<div class="space-y-1">
+<div class="flex gap-6">
+<span class="text-white/20 w-8 text-right select-none">102</span>
+<span>class <span class="text-bellini-clay font-bold">VaultIntegrityLayer</span> {</span>
+</div>
+<div class="flex gap-6">
+<span class="text-white/20 w-8 text-right select-none">103</span>
+<span class="pl-4">private const <span class="text-blue-400">LATENCY_LIMIT</span> = 120;</span>
+</div>
+<div class="flex gap-6 bg-red-900/40 -mx-8 px-8 border-l-4 border-red-500">
+<span class="text-white/30 w-8 text-right select-none">104</span>
+<span class="pl-4 opacity-60">- static final encryption_buffer = new Buffer(STATIC_KEY);</span>
+</div>
+<div class="flex gap-6 bg-green-900/40 -mx-8 px-8 border-l-4 border-green-500">
+<span class="text-white/30 w-8 text-right select-none">104</span>
+<span class="pl-4">+ volatile encryption_buffer = new ShiftBuffer(INTERVAL_MS);</span>
+</div>
+<div class="flex gap-6">
+<span class="text-white/20 w-8 text-right select-none">105</span>
+<span class="pl-4"></span>
+</div>
+<div class="flex gap-6">
+<span class="text-white/20 w-8 text-right select-none">106</span>
+<span class="pl-4"><span class="text-orange-400">async function</span> authorize(token) {</span>
+</div>
+<div class="flex gap-6 text-green-400/80">
+<span class="text-green-500/30 w-8 text-right select-none">107</span>
+<span class="pl-8">+ await this.encryption_buffer.prime();</span>
+</div>
+<div class="flex gap-6 text-green-400/80">
+<span class="text-green-500/30 w-8 text-right select-none">108</span>
+<span class="pl-8">+ const shift_key = this.encryption_buffer.getFragment();</span>
+</div>
+<div class="flex gap-6">
+<span class="text-white/20 w-8 text-right select-none">109</span>
+<span class="pl-8">return <span class="text-bellini-clay">validate</span>(token, shift_key);</span>
+</div>
+<div class="flex gap-6">
+<span class="text-white/20 w-8 text-right select-none">110</span>
+<span class="pl-4">}</span>
+</div>
+<div class="flex gap-6">
+<span class="text-white/20 w-8 text-right select-none">111</span>
+<span>}</span>
+</div>
+</div>
+<div class="mt-12 pt-8 border-t border-white/5 font-mono text-[10px] space-y-1">
+<div class="flex gap-3 text-white/40">
+<span>[08:12:44]</span>
+<span>MERC-OS: ESTABLISHING SHIFT_BUFFER_T...</span>
+</div>
+<div class="flex gap-3 text-green-400">
+<span>[08:12:45]</span>
+<span class="font-bold">SUCCESS: PRIMED. READY FOR MERGE.</span>
+</div>
+<div class="flex gap-3 text-white/80">
+<span>[08:12:45]</span>
+<span class="flex items-center gap-1">_ <span class="w-1.5 h-3 bg-bellini-clay animate-pulse"></span></span>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+</div>
+<!-- Status Bar Footer -->
+<footer class="h-8 bg-bellini-ink rounded-full flex items-center px-6 text-[8px] font-black uppercase tracking-widest text-bellini-clay shadow-2xl overflow-hidden">
+<div class="flex items-center gap-4 whitespace-nowrap animate-marquee">
+<span>System State: Stable</span>
+<span class="opacity-30">|</span>
+<span>Port: 88201</span>
+<span class="opacity-30">|</span>
+<span>Atelier Build: 4.2.1</span>
+<span class="opacity-30">|</span>
+<span>Security: Active Matrix</span>
+<span class="opacity-30">|</span>
+<span class="bg-bellini-clay text-bellini-ink px-2 rounded-full">Integrity Check Complete</span>
+<span class="opacity-30">|</span>
+<span>Syncing Nodes...</span>
+</div>
+</footer>
+<style>
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+            display: inline-flex;
+            animation: marquee 30s linear infinite;
+        }
+    </style>
+</body></html>

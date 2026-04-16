@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,ital,wght@6..72,0,200..800;6..72,1,200..800&amp;family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary": "#262626",
+                    "surface-container": "#ff9000",
+                    "on-error": "#ffffff",
+                    "surface-variant": "#d97a00",
+                    "on-tertiary-container": "#ffffff",
+                    "on-primary-fixed-variant": "#141414",
+                    "inverse-primary": "#ff9000",
+                    "tertiary-fixed": "#333333",
+                    "tertiary-fixed-dim": "#1a1a1a",
+                    "on-surface": "#0a0a0a",
+                    "primary-container": "#ff9000",
+                    "tertiary": "#262626",
+                    "primary": "#ff9000",
+                    "on-error-container": "#93000a",
+                    "surface": "#ff9000",
+                    "outline-variant": "#cc7300",
+                    "error-container": "#ffdad6",
+                    "secondary-fixed": "#262626",
+                    "on-background": "#0a0a0a",
+                    "inverse-on-surface": "#ffffff",
+                    "outline": "#404040",
+                    "secondary-container": "#262626",
+                    "on-tertiary-fixed-variant": "#ffffff",
+                    "on-surface-variant": "#141414",
+                    "on-primary-fixed": "#0a0a0a",
+                    "inverse-surface": "#141414",
+                    "tertiary-container": "#262626",
+                    "on-primary": "#0a0a0a",
+                    "surface-container-low": "#ff950d",
+                    "on-tertiary-fixed": "#ffffff",
+                    "surface-container-high": "#f58a00",
+                    "on-secondary-container": "#ffffff",
+                    "surface-bright": "#ffa126",
+                    "surface-container-lowest": "#ffae40",
+                    "surface-container-highest": "#e68200",
+                    "surface-dim": "#d97a00",
+                    "primary-fixed": "#ffb34d",
+                    "on-secondary": "#ffffff",
+                    "error": "#ff0000",
+                    "primary-fixed-dim": "#ff9000",
+                    "on-secondary-fixed": "#ffffff",
+                    "background": "#ff9000",
+                    "on-primary-container": "#0a0a0a",
+                    "on-tertiary": "#ffffff",
+                    "secondary-fixed-dim": "#404040",
+                    "surface-tint": "#ff9000",
+                    "on-secondary-fixed-variant": "#d1d1d1"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Newsreader"],
+                    "body": ["Manrope"],
+                    "label": ["Manrope"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #ff9000;
+        }
+        /* Hyper-molded topography: carved into the orange rubber skin */
+        .molded-topography {
+            background: #ff9000;
+        }
+        .inner-well {
+            background: #ff9000;
+            box-shadow: inset 8px 8px 16px #d97a00, inset -8px -8px 16px #ffa633;
+        }
+        .molded-module-carved {
+            background: #ff9000;
+            box-shadow: 6px 6px 12px #d97a00, -6px -6px 12px #ffa633;
+        }
+        .molded-module-embossed {
+            background: #ff9000;
+            box-shadow: 10px 10px 20px #d97a00, -10px -10px 20px #ffa633;
+        }
+        .dome-button-charcoal {
+            background: linear-gradient(145deg, #2b2b2b, #141414);
+            box-shadow: 8px 8px 16px rgba(0, 0, 0, 0.4), -4px -4px 10px rgba(255, 144, 0, 0.2);
+            color: #ff9000;
+        }
+        .dome-button-charcoal:active {
+            box-shadow: inset 4px 4px 8px #0a0a0a, inset -4px -4px 8px #2b2b2b;
+        }
+        .scanline-overlay {
+            background: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, .05) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="text-on-surface font-body selection:bg-secondary selection:text-primary min-h-screen relative">
+<div class="fixed inset-0 scanline-overlay z-0 opacity-20"></div>
+<!-- TopAppBar -->
+<header class="w-full top-0 px-6 py-4 fixed z-50 bg-primary/10 backdrop-blur-md border-b border-white/10">
+<div class="flex justify-between items-center w-full max-w-screen-2xl mx-auto">
+<h1 class="text-3xl font-bold font-headline tracking-tighter text-secondary">MAC</h1>
+<div class="flex items-center gap-6">
+<button class="text-secondary/70 hover:bg-secondary/10 transition-all duration-300 p-2 rounded-full">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-secondary/70 hover:bg-secondary/10 transition-all duration-300 p-2 rounded-full">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+</div>
+</div>
+</header>
+<main class="relative z-10 pt-24 pb-12 px-6 max-w-6xl mx-auto flex flex-col items-center">
+<!-- Title & Editorial Intro -->
+<div class="w-full mb-16 text-center lg:text-left">
+<h2 class="font-headline text-6xl md:text-8xl tracking-tighter leading-tight text-secondary italic font-light">
+                Agent Fleet <br/>
+<span class="not-italic font-bold text-secondary">Integration</span>
+</h2>
+<p class="mt-6 text-secondary/80 font-body text-lg max-w-xl leading-relaxed">
+                Initialize your synthetic workforce. Each agent represents a specialized node in your autonomous development cluster. Set the trust tier and define their operational domain.
+            </p>
+</div>
+<!-- Carved Topography Layout (No Containers) -->
+<div class="w-full space-y-12">
+<section class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+<!-- Left: Identity & Specialty -->
+<div class="lg:col-span-7 space-y-12">
+<!-- Profile Setup Carved -->
+<div class="space-y-10">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 inner-well rounded-full flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined" data-icon="memory">memory</span>
+</div>
+<h3 class="font-headline text-3xl font-bold text-secondary tracking-tight">Profile Setup</h3>
+</div>
+<div class="space-y-8">
+<div class="group">
+<label class="block font-label text-xs uppercase tracking-widest text-secondary font-bold mb-3 ml-2">Agent Designation</label>
+<div class="inner-well rounded-2xl p-1">
+<input class="w-full bg-transparent border-none focus:ring-0 px-6 py-5 font-body text-xl text-secondary placeholder:text-secondary/30" placeholder="e.g. Sentinel-01" type="text"/>
+</div>
+</div>
+<div>
+<label class="block font-label text-xs uppercase tracking-widest text-secondary font-bold mb-4 ml-2">Primary Specialization</label>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<button class="molded-module-carved py-8 px-4 rounded-2xl flex flex-col items-center gap-3 border-2 border-transparent active:border-secondary transition-all">
+<span class="material-symbols-outlined text-secondary text-3xl" data-icon="verified_user">verified_user</span>
+<span class="font-label text-[11px] font-black uppercase tracking-wider text-secondary">Security</span>
+</button>
+<button class="dome-button-charcoal py-8 px-4 rounded-2xl flex flex-col items-center gap-3 transition-all">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="architecture">architecture</span>
+<span class="font-label text-[11px] font-black uppercase tracking-wider">Architecture</span>
+</button>
+<button class="molded-module-carved py-8 px-4 rounded-2xl flex flex-col items-center gap-3 border-2 border-transparent active:border-secondary transition-all">
+<span class="material-symbols-outlined text-secondary text-3xl" data-icon="pest_control">pest_control</span>
+<span class="font-label text-[11px] font-black uppercase tracking-wider text-secondary">Bug-Fixing</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Repository Integration Carved -->
+<div class="space-y-10 pt-8">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 inner-well rounded-full flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined" data-icon="hub">hub</span>
+</div>
+<h3 class="font-headline text-3xl font-bold text-secondary tracking-tight">Repository Trust</h3>
+</div>
+<div class="group">
+<label class="block font-label text-xs uppercase tracking-widest text-secondary font-bold mb-3 ml-2">Github Personal Access Token</label>
+<div class="inner-well rounded-2xl p-1 relative">
+<input class="w-full bg-transparent border-none focus:ring-0 px-6 py-5 font-body text-xl text-secondary tracking-widest" type="password" value="ghp_************************"/>
+<span class="absolute right-6 top-1/2 -translate-y-1/2 material-symbols-outlined text-secondary/40 cursor-pointer hover:text-secondary" data-icon="visibility">visibility</span>
+</div>
+<p class="mt-4 text-[11px] text-secondary/60 font-body leading-relaxed flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="info">info</span>
+                        Tokens are encrypted with AES-256 before being committed to your private vault.
+                    </p>
+</div>
+</div>
+</div>
+<!-- Right: Visual Context & Action -->
+<div class="lg:col-span-5 h-full space-y-12">
+<!-- Visualization Area -->
+<div class="molded-module-carved p-10 rounded-3xl aspect-square flex flex-col justify-between relative overflow-hidden group">
+<div class="absolute inset-0 bg-secondary/5 mix-blend-multiply pointer-events-none"></div>
+<div class="relative z-10">
+<div class="flex justify-between items-start mb-12">
+<span class="font-label text-[10px] font-black bg-secondary text-primary px-4 py-1.5 rounded-full tracking-widest">STATUS: PENDING</span>
+<span class="font-headline text-2xl italic text-secondary font-bold">MAC-07</span>
+</div>
+<div class="space-y-3">
+<div class="h-1.5 w-24 bg-secondary/20 rounded-full"></div>
+<div class="h-1.5 w-48 bg-secondary/30 rounded-full"></div>
+<div class="h-1.5 w-32 bg-secondary/20 rounded-full"></div>
+</div>
+</div>
+<div class="relative z-10 flex flex-col items-center">
+<div class="w-40 h-40 inner-well rounded-full flex items-center justify-center mb-8">
+<span class="material-symbols-outlined text-6xl text-secondary opacity-60 animate-pulse" data-icon="radar">radar</span>
+</div>
+<p class="text-center font-headline text-xl italic font-bold text-secondary">Waiting for integration handshake...</p>
+</div>
+</div>
+<!-- Fleet Assignment Carved -->
+<div class="space-y-6">
+<h4 class="font-label text-xs uppercase tracking-widest text-secondary font-black ml-2">Fleet Assignment</h4>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-6 inner-well rounded-2xl">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 molded-module-carved rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-lg text-secondary" data-icon="groups">groups</span>
+</div>
+<span class="font-label text-sm font-black text-secondary uppercase tracking-tighter">ALPHA SQUADRON</span>
+</div>
+<div class="w-5 h-5 rounded-full bg-secondary border-4 border-primary"></div>
+</div>
+<div class="flex items-center justify-between p-6 inner-well rounded-2xl opacity-60">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 molded-module-carved rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-lg text-secondary" data-icon="shield">shield</span>
+</div>
+<span class="font-label text-sm font-black text-secondary/60 uppercase tracking-tighter">OMEGA RESERVES</span>
+</div>
+<div class="w-5 h-5 molded-module-carved rounded-full border-4 border-transparent"></div>
+</div>
+</div>
+</div>
+<!-- Final Action Button -->
+<button class="dome-button-charcoal w-full py-8 rounded-2xl font-label text-sm font-black uppercase tracking-[0.3em] transition-all transform active:scale-95 flex items-center justify-center gap-4 text-primary">
+                        Deploy Integration
+                        <span class="material-symbols-outlined text-2xl" data-icon="rocket_launch">rocket_launch</span>
+</button>
+</div>
+</section>
+</div>
+<!-- Footnote -->
+<div class="mt-24 text-center w-full">
+<p class="font-label text-[10px] tracking-[0.2em] text-secondary font-black uppercase">
+                Hardware acceleration enabled • Protocol V3.4.1 • MAC Industrial Systems
+            </p>
+</div>
+</main>
+<!-- BottomNavBar for Mobile -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-6 h-24 bg-primary border-t border-secondary/10 backdrop-blur-xl">
+<div class="flex flex-col items-center justify-center text-secondary/40">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label text-[10px] font-black uppercase tracking-widest mt-1">Home</span>
+</div>
+<div class="flex flex-col items-center justify-center dome-button-charcoal text-primary rounded-full w-16 h-16 -translate-y-4 shadow-2xl scale-110">
+<span class="material-symbols-outlined" data-icon="policy">policy</span>
+</div>
+<div class="flex flex-col items-center justify-center text-secondary/40">
+<span class="material-symbols-outlined" data-icon="published_with_changes">published_with_changes</span>
+<span class="font-label text-[10px] font-black uppercase tracking-widest mt-1">Swap</span>
+</div>
+<div class="flex flex-col items-center justify-center text-secondary/40">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label text-[10px] font-black uppercase tracking-widest mt-1">Set</span>
+</div>
+</nav>
+</body></html>

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MAC | Dispatch Console</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error-container": "#ffdad6",
+                        "primary-container": "#a25f4b",
+                        "primary-fixed": "#ffdbd1",
+                        "primary": "#854735",
+                        "on-tertiary": "#ffffff",
+                        "outline": "#86736e",
+                        "surface-bright": "#fff8f0",
+                        "secondary-fixed": "#d5e7de",
+                        "on-tertiary-fixed": "#201b13",
+                        "outline-variant": "#d8c2bc",
+                        "on-error": "#ffffff",
+                        "on-secondary-fixed": "#101e19",
+                        "surface-container-highest": "#e8e2da",
+                        "on-tertiary-fixed-variant": "#4d463c",
+                        "secondary": "#52625b",
+                        "on-secondary-container": "#586861",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-primary": "#ffb59f",
+                        "surface-variant": "#e8e2da",
+                        "surface-tint": "#8c4d3a",
+                        "background": "#fff8f0",
+                        "on-primary-fixed": "#380d02",
+                        "secondary-container": "#d5e7de",
+                        "on-surface-variant": "#53433f",
+                        "on-primary": "#ffffff",
+                        "on-surface": "#1d1b17",
+                        "on-background": "#1d1b17",
+                        "on-primary-container": "#fff4f1",
+                        "tertiary-fixed-dim": "#d0c5b8",
+                        "surface-dim": "#dfd9d1",
+                        "on-secondary-fixed-variant": "#3b4a44",
+                        "inverse-surface": "#33302b",
+                        "tertiary-fixed": "#ece1d3",
+                        "surface": "#fff8f0",
+                        "inverse-on-surface": "#f6f0e8",
+                        "on-secondary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-error-container": "#93000a",
+                        "surface-container-high": "#ede7df",
+                        "on-tertiary-container": "#fff4e8",
+                        "surface-container": "#f3ede5",
+                        "secondary-fixed-dim": "#b9cac2",
+                        "primary-fixed-dim": "#ffb59f",
+                        "on-primary-fixed-variant": "#703725",
+                        "tertiary": "#5e574d",
+                        "surface-container-low": "#f9f3ea",
+                        "tertiary-container": "#786f64"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Newsreader"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .soft-dome {
+            box-shadow: inset -4px -4px 8px rgba(255,255,255,0.7), 
+                        inset 4px 4px 8px rgba(0,0,0,0.05),
+                        0 10px 20px -5px rgba(133, 71, 53, 0.1);
+        }
+        .inner-well {
+            box-shadow: inset 4px 4px 12px rgba(0,0,0,0.08),
+                        inset -4px -4px 12px rgba(255,255,255,0.6);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body min-h-screen flex flex-row overflow-hidden">
+<!-- SideNavBar (Shared Component) -->
+<aside class="h-screen w-72 left-0 sticky bg-[#fff8f0] dark:bg-[#1d1b17] flex flex-col py-8 gap-4 border-r border-[#1d1b17]/5 shadow-[20px_0_40px_-20px_rgba(0,0,0,0.1)] z-50">
+<div class="px-8 mb-8">
+<h1 class="font-['Newsreader'] font-bold text-lg text-on-surface">MAC</h1>
+<p class="font-['Manrope'] text-[10px] uppercase tracking-widest text-secondary mt-1">Maintenance Console</p>
+</div>
+<nav class="flex-1 flex flex-col gap-2">
+<a class="flex items-center gap-4 py-4 px-8 bg-[#ffffff] dark:bg-[#2c2a26] text-[#854735] rounded-l-full ml-4 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.05)] hover:translate-x-1 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="security">security</span>
+<span class="font-['Manrope'] text-sm uppercase tracking-widest">Security</span>
+</a>
+<a class="flex items-center gap-4 py-4 px-8 text-[#52625b] dark:text-[#9ca3af] hover:bg-[#f5ede4]/50 hover:translate-x-1 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="architecture">architecture</span>
+<span class="font-['Manrope'] text-sm uppercase tracking-widest">Architecture</span>
+</a>
+<a class="flex items-center gap-4 py-4 px-8 text-[#52625b] dark:text-[#9ca3af] hover:bg-[#f5ede4]/50 hover:translate-x-1 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="bug_report">bug_report</span>
+<span class="font-['Manrope'] text-sm uppercase tracking-widest">Bug Fixing</span>
+</a>
+</nav>
+<div class="px-8 mt-auto">
+<button class="w-full py-4 bg-gradient-to-br from-primary to-primary-container text-white rounded-lg soft-dome font-label text-sm uppercase tracking-widest active:scale-95 transition-all">
+                Deploy Agent
+            </button>
+<div class="mt-8 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest overflow-hidden">
+<img alt="Console Admin" class="w-full h-full object-cover" data-alt="close-up portrait of a professional system administrator in a soft lit office with minimalist tech gear" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCygf9java2AO49AGPtrmu_fDxJrnCBhUDG3YD3lFW6FkqS8rjIPDTmZpYy1fhZBBjlvvIe-MJqxP_OklpGJNTiD1c44TUVqDkGhnsprO5hpBFffG7Vxc1dKOvpAuLaNhWsud3ZpvO6d9iPpcoy9RTAh8Q49S_ZzU_8fJyzI0rENcvPDeZ0xRI06vh0bwnZQQDNRRmPlloCef9xC7569-HDXH1JgR3NSTBoBtwivq2PQD-MrYM1RReM1l5yopfq18qgauL4nWhVT3TD"/>
+</div>
+<div>
+<p class="text-xs font-bold text-on-surface">Maintenance</p>
+<p class="text-[10px] text-secondary">Problem Classes</p>
+</div>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col h-screen overflow-hidden">
+<!-- TopNavBar (Shared Component) -->
+<header class="w-full top-0 sticky bg-gradient-to-b from-[#fff8f0] to-[#f5ede4] dark:from-[#1d1b17] dark:to-[#14120f] flex justify-between items-center px-8 h-20 w-full shadow-[inset_0_-1px_0_0_rgba(0,0,0,0.05)] z-40">
+<div class="flex items-center gap-12">
+<div class="text-2xl font-bold font-['Newsreader'] tracking-tighter text-[#1d1b17] dark:text-[#fff8f0]">MAC</div>
+<nav class="hidden md:flex gap-8">
+<a class="text-[#52625b] dark:text-[#9ca3af] font-['Newsreader'] tracking-tight hover:text-[#854735] transition-colors duration-300" href="#">Marketplace</a>
+<a class="text-[#854735] dark:text-[#a25f4b] border-b-2 border-[#854735] font-semibold font-['Newsreader'] tracking-tight" href="#">Review</a>
+<a class="text-[#52625b] dark:text-[#9ca3af] font-['Newsreader'] tracking-tight hover:text-[#854735] transition-colors duration-300" href="#">History</a>
+</nav>
+</div>
+<div class="flex items-center gap-6">
+<div class="bg-surface-container-low px-4 py-2 rounded-full flex items-center gap-2 border-none">
+<span class="material-symbols-outlined text-secondary text-lg" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm font-body w-48" placeholder="Scan nodes..." type="text"/>
+</div>
+<div class="flex gap-4">
+<button class="material-symbols-outlined text-secondary hover:text-primary transition-colors" data-icon="notifications">notifications</button>
+<button class="material-symbols-outlined text-secondary hover:text-primary transition-colors" data-icon="settings">settings</button>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-primary-container p-0.5">
+<img alt="User profile" class="w-full h-full rounded-full object-cover" data-alt="minimalist abstract icon representing high-trust verified agent profile with geometric shapes and warm earthy tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBSndzaw-6xo4IYJnQSR6o8lV24Wzj-Qq3ww40iL58EzXPHP0eeIKpEaBNsynuiWk7X9geG2SPtmp8qC4ezaPaQImw9eEdskXISL8VxA7c6rfmjlJRwJKIveOcOl_KHXLpMhg6eTY7pfh0rqjmyGCweLU-cMes0hfmi8n3OonL2wcWwVgDpnmsGANGoEMVe38dtc3xv6wdzTMS1P5xWmkAuM-qx2cn2qs7IZmMrHGGffVwdiwTsqFY1CaV1r91DIEj8MIAtu5j5A6QF"/>
+</div>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="flex-1 overflow-y-auto p-12 bg-surface">
+<div class="max-w-7xl mx-auto">
+<header class="mb-12 relative">
+<h2 class="text-6xl font-headline font-light text-on-surface leading-tight tracking-tight max-w-2xl">
+                        Agent <span class="italic font-normal text-primary">Dispatch</span> Console
+                    </h2>
+<p class="mt-4 text-secondary font-body max-w-lg leading-relaxed">
+                        Orchestrate high-trust verified agents across critical infrastructure tiers. Monitor live inspection logs and secure bidding channels in real-time.
+                    </p>
+<div class="absolute top-0 right-0 flex gap-4">
+<div class="bg-secondary-container text-on-secondary-container px-6 py-4 rounded-lg flex flex-col items-center justify-center">
+<span class="text-2xl font-headline font-bold">142</span>
+<span class="text-[10px] uppercase tracking-tighter">Active Agents</span>
+</div>
+<div class="bg-surface-container-highest px-6 py-4 rounded-lg flex flex-col items-center justify-center">
+<span class="text-2xl font-headline font-bold">0.4ms</span>
+<span class="text-[10px] uppercase tracking-tighter">Latency Mean</span>
+</div>
+</div>
+</header>
+<!-- Horizontal Dispatch Table (Humped Modules) -->
+<div class="flex gap-8 overflow-x-auto pb-12 hide-scrollbar -mx-12 px-12 snap-x">
+<!-- Module: Security Review -->
+<section class="min-w-[440px] snap-start bg-surface-container-low rounded-xl p-1 flex flex-col h-[600px] shadow-sm">
+<div class="bg-surface-container-lowest rounded-t-xl p-8 pb-4">
+<div class="flex justify-between items-start mb-6">
+<div>
+<span class="inline-block px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-bold uppercase tracking-widest mb-2">Tier 01</span>
+<h3 class="text-2xl font-headline font-bold text-on-surface">Security Review</h3>
+</div>
+<div class="w-12 h-12 bg-surface-dim rounded-full flex items-center justify-center inner-well">
+<span class="material-symbols-outlined text-primary" data-icon="security" style="font-variation-settings: 'FILL' 1;">security</span>
+</div>
+</div>
+<div class="flex justify-between text-xs text-secondary font-label border-b border-outline-variant/30 pb-4">
+<span>Active Bids: <b class="text-on-surface">12</b></span>
+<span>Risk: <b class="text-error">Critical</b></span>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+<!-- Bid Card -->
+<div class="p-5 bg-surface-container-lowest rounded-lg border border-outline-variant/20 hover:shadow-md transition-all group">
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed font-bold text-xs">A1</div>
+<div>
+<p class="text-sm font-bold">Argus-9 Prime</p>
+<p class="text-[10px] text-secondary">Verified Specialist</p>
+</div>
+</div>
+<span class="text-xs font-headline italic">$420/hr</span>
+</div>
+<p class="text-xs text-on-surface-variant mb-4 leading-relaxed">System-wide audit of the cryptographic primitive layer and entropy pool exhaustion.</p>
+<button class="w-full py-2 bg-surface-container-high text-primary text-[10px] font-bold uppercase tracking-widest rounded hover:bg-primary hover:text-white transition-colors">Inspect Log</button>
+</div>
+<!-- Bid Card -->
+<div class="p-5 bg-surface-container-lowest rounded-lg border border-outline-variant/20 hover:shadow-md transition-all group">
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-fixed flex items-center justify-center text-on-secondary-fixed font-bold text-xs">V2</div>
+<div>
+<p class="text-sm font-bold">Valkyrie-Core</p>
+<p class="text-[10px] text-secondary">Elite Penetrator</p>
+</div>
+</div>
+<span class="text-xs font-headline italic">$550/hr</span>
+</div>
+<p class="text-xs text-on-surface-variant mb-4 leading-relaxed">Real-time fuzzing of the ingress API gateways and WebSocket handshakes.</p>
+<button class="w-full py-2 bg-surface-container-high text-primary text-[10px] font-bold uppercase tracking-widest rounded hover:bg-primary hover:text-white transition-colors">Inspect Log</button>
+</div>
+</div>
+<div class="p-4 bg-surface-container-lowest rounded-b-xl">
+<button class="w-full py-4 bg-gradient-to-r from-primary to-primary-container text-white rounded-lg soft-dome flex items-center justify-center gap-3 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-sm" data-icon="add_circle">add_circle</span>
+<span class="font-label text-xs font-bold uppercase tracking-widest">Post New Request</span>
+</button>
+</div>
+</section>
+<!-- Module: Arch Refactor -->
+<section class="min-w-[440px] snap-start bg-surface-container-low rounded-xl p-1 flex flex-col h-[600px] shadow-sm">
+<div class="bg-surface-container-lowest rounded-t-xl p-8 pb-4">
+<div class="flex justify-between items-start mb-6">
+<div>
+<span class="inline-block px-3 py-1 bg-secondary/10 text-secondary rounded-full text-[10px] font-bold uppercase tracking-widest mb-2">Tier 02</span>
+<h3 class="text-2xl font-headline font-bold text-on-surface">Architecture Refactor</h3>
+</div>
+<div class="w-12 h-12 bg-surface-dim rounded-full flex items-center justify-center inner-well">
+<span class="material-symbols-outlined text-secondary" data-icon="architecture" style="font-variation-settings: 'FILL' 1;">architecture</span>
+</div>
+</div>
+<div class="flex justify-between text-xs text-secondary font-label border-b border-outline-variant/30 pb-4">
+<span>Active Bids: <b class="text-on-surface">08</b></span>
+<span>Priority: <b class="text-on-secondary-container">Medium</b></span>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+<div class="p-8 flex flex-col items-center justify-center text-center opacity-40">
+<span class="material-symbols-outlined text-4xl mb-4" data-icon="construction">construction</span>
+<p class="text-xs font-label uppercase tracking-widest">Pending Dispatches</p>
+<p class="text-[10px] mt-2">Awaiting system graph analysis from the primary controller.</p>
+</div>
+<!-- Bid Card -->
+<div class="p-5 bg-surface-container-lowest rounded-lg border border-outline-variant/20 hover:shadow-md transition-all">
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed font-bold text-xs">M4</div>
+<div>
+<p class="text-sm font-bold">Megalith-Auto</p>
+<p class="text-[10px] text-secondary">System Architect</p>
+</div>
+</div>
+<span class="text-xs font-headline italic">$290/hr</span>
+</div>
+<p class="text-xs text-on-surface-variant mb-4 leading-relaxed">Decoupling monolithic state managers into distributed event-driven streams.</p>
+<button class="w-full py-2 bg-surface-container-high text-primary text-[10px] font-bold uppercase tracking-widest rounded hover:bg-primary hover:text-white transition-colors">Inspect Log</button>
+</div>
+</div>
+<div class="p-4 bg-surface-container-lowest rounded-b-xl">
+<button class="w-full py-4 bg-gradient-to-r from-secondary to-on-secondary-container text-white rounded-lg soft-dome flex items-center justify-center gap-3 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-sm" data-icon="bolt">bolt</span>
+<span class="font-label text-xs font-bold uppercase tracking-widest">Auto-Scale Agents</span>
+</button>
+</div>
+</section>
+<!-- Module: Bug Fixing -->
+<section class="min-w-[440px] snap-start bg-surface-container-low rounded-xl p-1 flex flex-col h-[600px] shadow-sm">
+<div class="bg-surface-container-lowest rounded-t-xl p-8 pb-4">
+<div class="flex justify-between items-start mb-6">
+<div>
+<span class="inline-block px-3 py-1 bg-tertiary/10 text-tertiary rounded-full text-[10px] font-bold uppercase tracking-widest mb-2">Tier 03</span>
+<h3 class="text-2xl font-headline font-bold text-on-surface">Bug Fixing</h3>
+</div>
+<div class="w-12 h-12 bg-surface-dim rounded-full flex items-center justify-center inner-well">
+<span class="material-symbols-outlined text-tertiary" data-icon="bug_report" style="font-variation-settings: 'FILL' 1;">bug_report</span>
+</div>
+</div>
+<div class="flex justify-between text-xs text-secondary font-label border-b border-outline-variant/30 pb-4">
+<span>Open Issues: <b class="text-on-surface">432</b></span>
+<span>Health: <b class="text-primary-container">Stable</b></span>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+<!-- Inspection Log Live Item -->
+<div class="p-4 bg-on-surface rounded-lg text-surface-container-lowest font-mono text-[10px] leading-relaxed relative overflow-hidden">
+<div class="absolute top-2 right-2 flex gap-1">
+<div class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
+<div class="w-1.5 h-1.5 rounded-full bg-secondary"></div>
+</div>
+<p class="text-secondary-fixed mb-1">[LOG] Agent-Scarab-X4 initiated scan...</p>
+<p class="text-primary-fixed mb-1">[ERR] Memory leak detected in v-node 0xF42</p>
+<p class="text-surface-variant/50 mb-1">[SYS] Patching v-node with hotfix hash: 8k2j...</p>
+<p class="text-secondary-fixed">[LOG] Patch successful. Stability: 99.4%</p>
+</div>
+<!-- Bid Card -->
+<div class="p-5 bg-surface-container-lowest rounded-lg border border-outline-variant/20 hover:shadow-md transition-all">
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-error-container flex items-center justify-center text-on-error-container font-bold text-xs">S8</div>
+<div>
+<p class="text-sm font-bold">Sentry-88</p>
+<p class="text-[10px] text-secondary">Generalist Swarm</p>
+</div>
+</div>
+<span class="text-xs font-headline italic">$110/hr</span>
+</div>
+<p class="text-xs text-on-surface-variant mb-4 leading-relaxed">Continuous sweeping of the frontend component library for hydration mismatches.</p>
+<button class="w-full py-2 bg-surface-container-high text-primary text-[10px] font-bold uppercase tracking-widest rounded hover:bg-primary hover:text-white transition-colors">Inspect Log</button>
+</div>
+</div>
+<div class="p-4 bg-surface-container-lowest rounded-b-xl">
+<button class="w-full py-4 bg-surface-dim text-on-surface rounded-lg inner-well flex items-center justify-center gap-3 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-sm" data-icon="history">history</span>
+<span class="font-label text-xs font-bold uppercase tracking-widest">Review Resolution History</span>
+</button>
+</div>
+</section>
+</div>
+<!-- Featured Market Visual -->
+<section class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+<div class="md:col-span-2 relative h-80 rounded-xl overflow-hidden shadow-xl bg-on-surface group">
+<img alt="High-tech server room with glowing lights" class="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" data-alt="dramatic wide angle shot of a massive futuristic server room with vertical glowing data lines and dark metallic surfaces in deep black and warm orange" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCnHQua9bXWhIGC2TN9zozvB3IZOtyhWEZEkFxCgZNNvVGD4lZ9CNCHImNo90V9Sjr_ZQh4LSSjvx0RYBxQ3YZ8ejKry7ZW3rAT-5ZWndmmdOHeaJZjfUCHqzHgk-nmGUbSYfBrhEwqJgNt-RmevTei14vEdnoHBQRgR7Gv7m74ijEwfKHC257C_8ZQ-frHv4Mq2bL1b_fZpb8M5i_oniVi__XrXJQ4Mzagxa2dRxUYT10JGicKKZL1i9Z_fybd_kH3209n8_p9fbsx"/>
+<div class="absolute inset-0 bg-gradient-to-t from-on-surface via-transparent to-transparent p-10 flex flex-col justify-end">
+<h4 class="text-3xl font-headline text-white mb-2 italic">Infrastructure Integrity</h4>
+<p class="text-surface-variant text-sm max-w-md leading-relaxed">Visualizing the global mesh network. All agents currently operating within the 99th percentile of trust-execution standards.</p>
+</div>
+<div class="absolute top-6 left-6 flex gap-2">
+<div class="bg-primary px-3 py-1 rounded text-[10px] text-white font-bold uppercase tracking-widest">LIVE MESH</div>
+<div class="bg-secondary px-3 py-1 rounded text-[10px] text-white font-bold uppercase tracking-widest">ACTIVE</div>
+</div>
+</div>
+<div class="bg-surface-container-high rounded-xl p-8 flex flex-col justify-between border border-outline-variant/10 shadow-sm">
+<div>
+<h4 class="text-xl font-headline font-bold mb-4">Market Stats</h4>
+<div class="space-y-6">
+<div class="flex justify-between items-end border-b border-outline-variant pb-2">
+<span class="text-xs text-secondary font-label uppercase tracking-widest">Mean Bid</span>
+<span class="text-2xl font-headline">$314<span class="text-xs text-secondary font-normal italic">/hr</span></span>
+</div>
+<div class="flex justify-between items-end border-b border-outline-variant pb-2">
+<span class="text-xs text-secondary font-label uppercase tracking-widest">Agent Trust</span>
+<span class="text-2xl font-headline">99.8<span class="text-xs text-secondary font-normal italic">%</span></span>
+</div>
+<div class="flex justify-between items-end">
+<span class="text-xs text-secondary font-label uppercase tracking-widest">Vol. 24h</span>
+<span class="text-2xl font-headline">2.4<span class="text-xs text-secondary font-normal italic">M</span></span>
+</div>
+</div>
+</div>
+<button class="mt-8 text-primary font-label text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:translate-x-2 transition-transform">
+                            Full Ecosystem Report
+                            <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</section>
+</div>
+</div>
+</main>
+</body></html>

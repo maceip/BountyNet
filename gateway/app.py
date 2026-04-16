@@ -33,6 +33,7 @@ from gateway.routes.chatgpt_connect import chatgpt_bp
 from gateway.routes.resources import resources_bp
 from gateway.routes.log_ingest import log_ingest_bp
 from gateway.routes.market import market_bp
+from gateway.auth_stack import auth_stack_bp
 
 app.register_blueprint(ens_bp)
 app.register_blueprint(github_bp)
@@ -46,10 +47,15 @@ app.register_blueprint(chatgpt_bp)
 app.register_blueprint(resources_bp)
 app.register_blueprint(log_ingest_bp)
 app.register_blueprint(market_bp)
+app.register_blueprint(auth_stack_bp)
 
 from gateway.store import init_db
 
 init_db()
+
+from gateway.ops_runtime import start_background_services
+
+start_background_services()
 
 # Emit startup event
 from gateway.events import emit

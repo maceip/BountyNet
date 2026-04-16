@@ -12,6 +12,7 @@ import pytest
 def _gateway_test_env() -> None:
     os.environ.setdefault("BOUNTYNET_DEV_SKIP_JWT_VERIFICATION", "1")
     os.environ.setdefault("BOUNTYNET_DEV_SKIP_GITHUB_WEBHOOK_VERIFY", "1")
+    os.environ.setdefault("BOUNTYNET_AUTH_DEV_FACTOR_SECRET", "test-factor-secret")
     fd, path = tempfile.mkstemp(suffix="-gateway-test.db")
     os.close(fd)
     os.environ["BOUNTYNET_DB_PATH"] = path

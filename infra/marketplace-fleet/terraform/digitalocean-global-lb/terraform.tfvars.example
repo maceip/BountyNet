@@ -1,0 +1,9 @@
+project             = "bountynet-marketplace"
+primary_region      = "nyc3"
+backup_region       = "sfo3"
+primary_droplet_tag = "bountynet-edge-na-east"
+backup_droplet_tag  = "bountynet-edge-na-west"
+entry_port          = 443
+target_port         = 4000
+healthcheck_port    = 4000
+

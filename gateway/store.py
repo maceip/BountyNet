@@ -171,6 +171,24 @@ def init_db() -> None:
                     updated_at REAL DEFAULT 0
                 );
 
+                CREATE TABLE IF NOT EXISTS market_operators (
+                    id TEXT PRIMARY KEY,
+                    slug TEXT NOT NULL UNIQUE,
+                    display_name TEXT NOT NULL,
+                    summary TEXT DEFAULT '',
+                    status TEXT DEFAULT 'pending',
+                    onboarding_status TEXT DEFAULT 'draft',
+                    identity_anchor TEXT DEFAULT '',
+                    wallet TEXT DEFAULT '',
+                    ens_name TEXT DEFAULT '',
+                    verification_status TEXT DEFAULT 'unverified',
+                    contact_email TEXT DEFAULT '',
+                    website_url TEXT DEFAULT '',
+                    metadata_json TEXT DEFAULT '{}',
+                    created_at REAL DEFAULT 0,
+                    updated_at REAL DEFAULT 0
+                );
+
                 CREATE TABLE IF NOT EXISTS market_agent_profiles (
                     id TEXT PRIMARY KEY,
                     slug TEXT NOT NULL UNIQUE,
@@ -195,6 +213,28 @@ def init_db() -> None:
                     status TEXT DEFAULT 'active',
                     created_at REAL DEFAULT 0,
                     updated_at REAL DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS market_capability_manifests (
+                    id TEXT PRIMARY KEY,
+                    agent_id TEXT NOT NULL UNIQUE,
+                    operator_id TEXT DEFAULT '',
+                    manifest_version INTEGER DEFAULT 1,
+                    job_classes_json TEXT DEFAULT '[]',
+                    languages_json TEXT DEFAULT '[]',
+                    package_managers_json TEXT DEFAULT '[]',
+                    frameworks_json TEXT DEFAULT '[]',
+                    ci_providers_json TEXT DEFAULT '[]',
+                    max_change_scope TEXT DEFAULT 'medium',
+                    allowed_file_classes_json TEXT DEFAULT '[]',
+                    requires_human_review INTEGER DEFAULT 1,
+                    can_open_prs INTEGER DEFAULT 0,
+                    preferred_budget_types_json TEXT DEFAULT '[]',
+                    signed_at TEXT DEFAULT '',
+                    metadata_json TEXT DEFAULT '{}',
+                    created_at REAL DEFAULT 0,
+                    updated_at REAL DEFAULT 0,
+                    FOREIGN KEY (agent_id) REFERENCES market_agent_profiles(id)
                 );
 
                 CREATE TABLE IF NOT EXISTS market_specialists (
@@ -255,6 +295,26 @@ def init_db() -> None:
                     updated_at REAL DEFAULT 0,
                     FOREIGN KEY (job_id) REFERENCES market_jobs(id)
                 );
+
+                CREATE TABLE IF NOT EXISTS market_submission_reviews (
+                    id TEXT PRIMARY KEY,
+                    submission_id TEXT NOT NULL,
+                    job_id TEXT NOT NULL,
+                    agent_id TEXT NOT NULL,
+                    reviewer_id TEXT DEFAULT '',
+                    reviewer_role TEXT DEFAULT 'maintainer',
+                    action TEXT NOT NULL,
+                    summary TEXT DEFAULT '',
+                    notes TEXT DEFAULT '',
+                    payload_json TEXT DEFAULT '{}',
+                    created_at REAL DEFAULT 0,
+                    FOREIGN KEY (submission_id) REFERENCES market_submissions(id)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_market_submission_reviews_submission
+                    ON market_submission_reviews (submission_id, created_at);
+                CREATE INDEX IF NOT EXISTS idx_market_submission_reviews_job
+                    ON market_submission_reviews (job_id, created_at);
 
                 CREATE TABLE IF NOT EXISTS market_job_plans (
                     id TEXT PRIMARY KEY,
@@ -393,6 +453,215 @@ def init_db() -> None:
 
                 CREATE INDEX IF NOT EXISTS idx_market_agent_invocations_job
                 ON market_agent_invocations (job_id, created_at);
+
+                CREATE TABLE IF NOT EXISTS market_ops_traffic_state (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    us_percent INTEGER DEFAULT 50,
+                    eu_percent INTEGER DEFAULT 50,
+                    regional_weights_json TEXT DEFAULT '{}',
+                    changed_by TEXT DEFAULT '',
+                    notes TEXT DEFAULT '',
+                    updated_at REAL DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS market_ops_model_rollouts (
+                    id TEXT PRIMARY KEY,
+                    target TEXT NOT NULL,
+                    revision TEXT NOT NULL,
+                    strategy TEXT DEFAULT 'canary',
+                    requested_by TEXT DEFAULT '',
+                    status TEXT DEFAULT 'queued',
+                    metadata_json TEXT DEFAULT '{}',
+                    created_at REAL DEFAULT 0,
+                    updated_at REAL DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS market_ops_component_state (
+                    component_id TEXT PRIMARY KEY,
+                    desired_state TEXT DEFAULT 'running',
+                    last_action TEXT DEFAULT '',
+                    updated_by TEXT DEFAULT '',
+                    notes TEXT DEFAULT '',
+                    metadata_json TEXT DEFAULT '{}',
+                    updated_at REAL DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS market_ops_component_actions (
+                    id TEXT PRIMARY KEY,
+                    component_id TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    requested_by TEXT DEFAULT '',
+                    status TEXT DEFAULT 'queued',
+                    notes TEXT DEFAULT '',
+                    metadata_json TEXT DEFAULT '{}',
+                    created_at REAL DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS market_ops_drift_runs (
+                    id TEXT PRIMARY KEY,
+                    module_key TEXT NOT NULL,
+                    module_path TEXT NOT NULL,
+                    trigger TEXT DEFAULT 'scheduled',
+                    status TEXT DEFAULT 'queued',
+                    exit_code INTEGER DEFAULT 0,
+                    drift_detected INTEGER DEFAULT 0,
+                    stdout_text TEXT DEFAULT '',
+                    stderr_text TEXT DEFAULT '',
+                    diff_summary_json TEXT DEFAULT '{}',
+                    created_at REAL DEFAULT 0,
+                    started_at REAL DEFAULT 0,
+                    finished_at REAL DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS market_ops_alerts (
+                    id TEXT PRIMARY KEY,
+                    alert_type TEXT NOT NULL,
+                    severity TEXT DEFAULT 'info',
+                    source TEXT DEFAULT '',
+                    message TEXT DEFAULT '',
+                    metadata_json TEXT DEFAULT '{}',
+                    acknowledged INTEGER DEFAULT 0,
+                    created_at REAL DEFAULT 0,
+                    acknowledged_at REAL DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS auth_principals (
+                    id TEXT PRIMARY KEY,
+                    status TEXT DEFAULT 'active',
+                    display_name TEXT DEFAULT '',
+                    created_at REAL DEFAULT 0,
+                    updated_at REAL DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS auth_identifiers (
+                    id TEXT PRIMARY KEY,
+                    principal_id TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    value_norm TEXT NOT NULL,
+                    verified_at REAL DEFAULT 0,
+                    metadata_json TEXT DEFAULT '{}',
+                    created_at REAL DEFAULT 0,
+                    updated_at REAL DEFAULT 0,
+                    UNIQUE(kind, value_norm),
+                    FOREIGN KEY (principal_id) REFERENCES auth_principals(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS auth_credentials (
+                    id TEXT PRIMARY KEY,
+                    principal_id TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    public_data_json TEXT DEFAULT '{}',
+                    status TEXT DEFAULT 'active',
+                    created_at REAL DEFAULT 0,
+                    last_used_at REAL DEFAULT 0,
+                    FOREIGN KEY (principal_id) REFERENCES auth_principals(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS auth_devices (
+                    id TEXT PRIMARY KEY,
+                    principal_id TEXT NOT NULL,
+                    device_label TEXT DEFAULT '',
+                    device_pubkey TEXT DEFAULT '',
+                    device_fingerprint_hash TEXT DEFAULT '',
+                    trust_level TEXT DEFAULT 'standard',
+                    attestation_type TEXT DEFAULT '',
+                    attestation_json TEXT DEFAULT '{}',
+                    created_at REAL DEFAULT 0,
+                    last_seen_at REAL DEFAULT 0,
+                    FOREIGN KEY (principal_id) REFERENCES auth_principals(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS auth_challenges (
+                    id TEXT PRIMARY KEY,
+                    principal_hint TEXT DEFAULT '',
+                    factor_type TEXT NOT NULL,
+                    purpose TEXT DEFAULT 'login',
+                    nonce TEXT NOT NULL,
+                    payload_json TEXT DEFAULT '{}',
+                    ip_hash TEXT DEFAULT '',
+                    ua_hash TEXT DEFAULT '',
+                    expires_at REAL DEFAULT 0,
+                    consumed_at REAL DEFAULT 0,
+                    created_at REAL DEFAULT 0
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_auth_challenges_exp
+                ON auth_challenges (expires_at, consumed_at);
+
+                CREATE TABLE IF NOT EXISTS auth_sessions (
+                    id TEXT PRIMARY KEY,
+                    principal_id TEXT NOT NULL,
+                    device_id TEXT DEFAULT '',
+                    device_fingerprint_hash TEXT DEFAULT '',
+                    session_secret_hash TEXT NOT NULL,
+                    csrf_secret_hash TEXT DEFAULT '',
+                    aal INTEGER DEFAULT 1,
+                    roles_json TEXT DEFAULT '[]',
+                    issued_at REAL DEFAULT 0,
+                    expires_at REAL DEFAULT 0,
+                    rotated_from TEXT DEFAULT '',
+                    revoked_at REAL DEFAULT 0,
+                    created_at REAL DEFAULT 0,
+                    updated_at REAL DEFAULT 0,
+                    FOREIGN KEY (principal_id) REFERENCES auth_principals(id)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_auth_sessions_secret
+                ON auth_sessions (session_secret_hash);
+
+                CREATE TABLE IF NOT EXISTS auth_session_events (
+                    id TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL,
+                    event TEXT NOT NULL,
+                    meta_json TEXT DEFAULT '{}',
+                    ts REAL DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS auth_magic_links (
+                    id TEXT PRIMARY KEY,
+                    principal_id TEXT DEFAULT '',
+                    email_norm TEXT NOT NULL,
+                    token_hash TEXT NOT NULL,
+                    ip_hash TEXT DEFAULT '',
+                    expires_at REAL DEFAULT 0,
+                    used_at REAL DEFAULT 0,
+                    created_at REAL DEFAULT 0
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_auth_magic_links_token
+                ON auth_magic_links (token_hash, expires_at, used_at);
+
+                CREATE TABLE IF NOT EXISTS auth_credential_bindings (
+                    id TEXT PRIMARY KEY,
+                    principal_id TEXT NOT NULL,
+                    credential_id TEXT NOT NULL,
+                    bound_by_session TEXT DEFAULT '',
+                    bound_at REAL DEFAULT 0,
+                    UNIQUE(principal_id, credential_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS auth_authorizations (
+                    id TEXT PRIMARY KEY,
+                    principal_id TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    scope TEXT DEFAULT '*',
+                    granted_by TEXT DEFAULT '',
+                    granted_at REAL DEFAULT 0,
+                    expires_at REAL DEFAULT 0,
+                    metadata_json TEXT DEFAULT '{}',
+                    FOREIGN KEY (principal_id) REFERENCES auth_principals(id)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_auth_authorizations_principal
+                ON auth_authorizations (principal_id, role, scope, expires_at);
+
+                CREATE TABLE IF NOT EXISTS auth_rate_limits (
+                    id TEXT PRIMARY KEY,
+                    key TEXT NOT NULL UNIQUE,
+                    count INTEGER DEFAULT 0,
+                    window_start REAL DEFAULT 0,
+                    updated_at REAL DEFAULT 0
+                );
                 """
             )
             _ensure_column(conn, "market_repository_accounts", "local_path", "TEXT DEFAULT ''")
@@ -406,6 +675,15 @@ def init_db() -> None:
             _ensure_column(conn, "market_agent_profiles", "specialist_id", "TEXT DEFAULT ''")
             _ensure_column(conn, "market_payout_ledger", "funding_source", "TEXT DEFAULT ''")
             _ensure_column(conn, "market_payout_ledger", "notes", "TEXT DEFAULT ''")
+            _ensure_column(conn, "market_ops_traffic_state", "regional_weights_json", "TEXT DEFAULT '{}'")
+            _ensure_column(conn, "market_ops_component_actions", "execution_mode", "TEXT DEFAULT 'dry_run'")
+            _ensure_column(conn, "market_ops_component_actions", "approved_by", "TEXT DEFAULT ''")
+            _ensure_column(conn, "market_ops_component_actions", "approved_at", "REAL DEFAULT 0")
+            _ensure_column(conn, "market_ops_component_actions", "started_at", "REAL DEFAULT 0")
+            _ensure_column(conn, "market_ops_component_actions", "finished_at", "REAL DEFAULT 0")
+            _ensure_column(conn, "market_ops_component_actions", "command_trace", "TEXT DEFAULT ''")
+            _ensure_column(conn, "market_ops_component_actions", "error_trace", "TEXT DEFAULT ''")
+            _ensure_column(conn, "market_ops_component_actions", "rollback_of_action_id", "TEXT DEFAULT ''")
             conn.commit()
         finally:
             conn.close()
@@ -1046,6 +1324,151 @@ def _json_loads(raw: str, default: Any) -> Any:
         return default
 
 
+def _row_to_market_operator(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "slug": row["slug"],
+        "display_name": row["display_name"],
+        "summary": row["summary"] or "",
+        "status": row["status"] or "pending",
+        "onboarding_status": row["onboarding_status"] or "draft",
+        "identity_anchor": row["identity_anchor"] or "",
+        "wallet": row["wallet"] or "",
+        "ens_name": row["ens_name"] or "",
+        "verification_status": row["verification_status"] or "unverified",
+        "contact_email": row["contact_email"] or "",
+        "website_url": row["website_url"] or "",
+        "metadata": _json_loads(row["metadata_json"], {}),
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def market_operator_upsert(
+    operator_id: str,
+    slug: str,
+    display_name: str,
+    summary: str = "",
+    status: str = "pending",
+    onboarding_status: str = "draft",
+    identity_anchor: str = "",
+    wallet: str = "",
+    ens_name: str = "",
+    verification_status: str = "unverified",
+    contact_email: str = "",
+    website_url: str = "",
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    now = time.time()
+    metadata = metadata or {}
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO market_operators (
+                    id, slug, display_name, summary, status, onboarding_status, identity_anchor,
+                    wallet, ens_name, verification_status, contact_email, website_url,
+                    metadata_json, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    slug = excluded.slug,
+                    display_name = excluded.display_name,
+                    summary = excluded.summary,
+                    status = excluded.status,
+                    onboarding_status = excluded.onboarding_status,
+                    identity_anchor = excluded.identity_anchor,
+                    wallet = excluded.wallet,
+                    ens_name = excluded.ens_name,
+                    verification_status = excluded.verification_status,
+                    contact_email = excluded.contact_email,
+                    website_url = excluded.website_url,
+                    metadata_json = excluded.metadata_json,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    operator_id,
+                    slug,
+                    display_name,
+                    summary,
+                    status,
+                    onboarding_status,
+                    identity_anchor,
+                    wallet,
+                    ens_name,
+                    verification_status,
+                    contact_email,
+                    website_url,
+                    json.dumps(metadata),
+                    now,
+                    now,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def market_operator_get(operator_id: str) -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute("SELECT * FROM market_operators WHERE id = ?", (operator_id,)).fetchone()
+            return _row_to_market_operator(row) if row else None
+        finally:
+            c.close()
+
+
+def market_operator_get_by_slug(slug: str) -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute("SELECT * FROM market_operators WHERE slug = ?", (slug,)).fetchone()
+            return _row_to_market_operator(row) if row else None
+        finally:
+            c.close()
+
+
+def market_operators_list(status: str | None = None) -> list[dict[str, Any]]:
+    with _lock:
+        c = _connect()
+        try:
+            if status:
+                rows = c.execute("SELECT * FROM market_operators WHERE status = ? ORDER BY display_name, slug", (status,)).fetchall()
+            else:
+                rows = c.execute("SELECT * FROM market_operators ORDER BY display_name, slug").fetchall()
+            return [_row_to_market_operator(row) for row in rows]
+        finally:
+            c.close()
+
+
+def market_operator_summary(operator_id: str) -> dict[str, Any]:
+    with _lock:
+        c = _connect()
+        try:
+            agent_count = c.execute("SELECT COUNT(*) AS n FROM market_agent_profiles WHERE operator_id = ?", (operator_id,)).fetchone()["n"]
+            accepted_submissions = c.execute(
+                """
+                SELECT COUNT(*) AS n
+                FROM market_submissions s
+                JOIN market_agent_profiles a ON a.id = s.agent_id
+                WHERE a.operator_id = ? AND s.status = 'accepted'
+                """,
+                (operator_id,),
+            ).fetchone()["n"]
+            total_payout = c.execute(
+                "SELECT COALESCE(SUM(amount), 0) AS total FROM market_payout_ledger WHERE operator_id = ? AND status IN ('approved','paid','settled')",
+                (operator_id,),
+            ).fetchone()["total"]
+            return {
+                "agent_count": int(agent_count or 0),
+                "accepted_submissions": int(accepted_submissions or 0),
+                "approved_payout_total": int(total_payout or 0),
+            }
+        finally:
+            c.close()
+
+
 def _row_to_market_repository_account(row: sqlite3.Row) -> dict[str, Any]:
     return {
         "id": row["id"],
@@ -1091,7 +1514,7 @@ def market_repository_account_upsert(
     status: str = "active",
 ) -> None:
     now = time.time()
-    enabled_job_classes = enabled_job_classes or ["ci_repair", "dependency_update", "test_repair"]
+    enabled_job_classes = enabled_job_classes or ["ci_repair", "dependency_update", "security_update", "test_repair", "config_remediation", "type_repair", "codemod"]
     blocked_paths = blocked_paths or []
     required_checks = required_checks or []
     budget_priority = budget_priority or ["platform_credits"]
@@ -1343,6 +1766,112 @@ def market_agent_profiles_list(
             c.close()
 
 
+def _row_to_market_capability_manifest(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "agent_id": row["agent_id"],
+        "operator_id": row["operator_id"] or "",
+        "manifest_version": row["manifest_version"] or 1,
+        "job_classes": _json_loads(row["job_classes_json"], []),
+        "languages": _json_loads(row["languages_json"], []),
+        "package_managers": _json_loads(row["package_managers_json"], []),
+        "frameworks": _json_loads(row["frameworks_json"], []),
+        "ci_providers": _json_loads(row["ci_providers_json"], []),
+        "max_change_scope": row["max_change_scope"] or "medium",
+        "allowed_file_classes": _json_loads(row["allowed_file_classes_json"], []),
+        "requires_human_review": bool(row["requires_human_review"]),
+        "can_open_prs": bool(row["can_open_prs"]),
+        "preferred_budget_types": _json_loads(row["preferred_budget_types_json"], []),
+        "signed_at": row["signed_at"] or "",
+        "metadata": _json_loads(row["metadata_json"], {}),
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def market_capability_manifest_upsert(
+    manifest_id: str,
+    agent_id: str,
+    operator_id: str = "",
+    manifest_version: int = 1,
+    job_classes: list[str] | None = None,
+    languages: list[str] | None = None,
+    package_managers: list[str] | None = None,
+    frameworks: list[str] | None = None,
+    ci_providers: list[str] | None = None,
+    max_change_scope: str = "medium",
+    allowed_file_classes: list[str] | None = None,
+    requires_human_review: bool = True,
+    can_open_prs: bool = False,
+    preferred_budget_types: list[str] | None = None,
+    signed_at: str = "",
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO market_capability_manifests (
+                    id, agent_id, operator_id, manifest_version, job_classes_json, languages_json,
+                    package_managers_json, frameworks_json, ci_providers_json, max_change_scope,
+                    allowed_file_classes_json, requires_human_review, can_open_prs,
+                    preferred_budget_types_json, signed_at, metadata_json, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(agent_id) DO UPDATE SET
+                    operator_id = excluded.operator_id,
+                    manifest_version = excluded.manifest_version,
+                    job_classes_json = excluded.job_classes_json,
+                    languages_json = excluded.languages_json,
+                    package_managers_json = excluded.package_managers_json,
+                    frameworks_json = excluded.frameworks_json,
+                    ci_providers_json = excluded.ci_providers_json,
+                    max_change_scope = excluded.max_change_scope,
+                    allowed_file_classes_json = excluded.allowed_file_classes_json,
+                    requires_human_review = excluded.requires_human_review,
+                    can_open_prs = excluded.can_open_prs,
+                    preferred_budget_types_json = excluded.preferred_budget_types_json,
+                    signed_at = excluded.signed_at,
+                    metadata_json = excluded.metadata_json,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    manifest_id,
+                    agent_id,
+                    operator_id,
+                    manifest_version,
+                    json.dumps(job_classes or []),
+                    json.dumps(languages or []),
+                    json.dumps(package_managers or []),
+                    json.dumps(frameworks or []),
+                    json.dumps(ci_providers or []),
+                    max_change_scope,
+                    json.dumps(allowed_file_classes or []),
+                    1 if requires_human_review else 0,
+                    1 if can_open_prs else 0,
+                    json.dumps(preferred_budget_types or []),
+                    signed_at,
+                    json.dumps(metadata or {}),
+                    now,
+                    now,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def market_capability_manifest_get_by_agent(agent_id: str) -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute("SELECT * FROM market_capability_manifests WHERE agent_id = ?", (agent_id,)).fetchone()
+            return _row_to_market_capability_manifest(row) if row else None
+        finally:
+            c.close()
+
+
 def _row_to_market_specialist(row: sqlite3.Row) -> dict[str, Any]:
     return {
         "id": row["id"],
@@ -1569,6 +2098,7 @@ def market_jobs_list(
     repo_full_name: str | None = None,
     status: str | None = None,
     limit: int = 50,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     with _lock:
         c = _connect()
@@ -1584,8 +2114,9 @@ def market_jobs_list(
                 params.append(status)
             if where:
                 query += " WHERE " + " AND ".join(where)
-            query += " ORDER BY created_at DESC LIMIT ?"
+            query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
             params.append(limit)
+            params.append(max(0, int(offset or 0)))
             rows = c.execute(query, params).fetchall()
             return [_row_to_market_job(row) for row in rows]
         finally:
@@ -1606,6 +2137,22 @@ def _row_to_market_submission(row: sqlite3.Row) -> dict[str, Any]:
         "acceptance_attribution": row["acceptance_attribution"] or "",
         "submitted_at": row["submitted_at"],
         "updated_at": row["updated_at"],
+    }
+
+
+def _row_to_market_submission_review(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "submission_id": row["submission_id"],
+        "job_id": row["job_id"],
+        "agent_id": row["agent_id"],
+        "reviewer_id": row["reviewer_id"] or "",
+        "reviewer_role": row["reviewer_role"] or "maintainer",
+        "action": row["action"],
+        "summary": row["summary"] or "",
+        "notes": row["notes"] or "",
+        "payload": _json_loads(row["payload_json"], {}),
+        "created_at": row["created_at"],
     }
 
 
@@ -1654,6 +2201,50 @@ def market_submission_create(
             c.close()
 
 
+def market_submission_review_create(
+    review_id: str,
+    submission_id: str,
+    job_id: str,
+    agent_id: str,
+    *,
+    reviewer_id: str = "",
+    reviewer_role: str = "maintainer",
+    action: str,
+    summary: str = "",
+    notes: str = "",
+    payload: dict[str, Any] | None = None,
+) -> None:
+    now = time.time()
+    payload = payload or {}
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO market_submission_reviews (
+                    id, submission_id, job_id, agent_id, reviewer_id, reviewer_role,
+                    action, summary, notes, payload_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    review_id,
+                    submission_id,
+                    job_id,
+                    agent_id,
+                    reviewer_id,
+                    reviewer_role,
+                    action,
+                    summary,
+                    notes,
+                    json.dumps(payload),
+                    now,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
 def market_submissions_list(job_id: str) -> list[dict[str, Any]]:
     with _lock:
         c = _connect()
@@ -1663,6 +2254,32 @@ def market_submissions_list(job_id: str) -> list[dict[str, Any]]:
                 (job_id,),
             ).fetchall()
             return [_row_to_market_submission(row) for row in rows]
+        finally:
+            c.close()
+
+
+def market_submission_reviews_list(submission_id: str) -> list[dict[str, Any]]:
+    with _lock:
+        c = _connect()
+        try:
+            rows = c.execute(
+                "SELECT * FROM market_submission_reviews WHERE submission_id = ? ORDER BY created_at ASC",
+                (submission_id,),
+            ).fetchall()
+            return [_row_to_market_submission_review(row) for row in rows]
+        finally:
+            c.close()
+
+
+def market_submission_reviews_list_by_job(job_id: str) -> list[dict[str, Any]]:
+    with _lock:
+        c = _connect()
+        try:
+            rows = c.execute(
+                "SELECT * FROM market_submission_reviews WHERE job_id = ? ORDER BY created_at ASC",
+                (job_id,),
+            ).fetchall()
+            return [_row_to_market_submission_review(row) for row in rows]
         finally:
             c.close()
 
@@ -1683,6 +2300,10 @@ def market_submission_update(
     status: str | None = None,
     acceptance_attribution: str | None = None,
     evidence: dict[str, Any] | None = None,
+    branch_name: str | None = None,
+    pr_number: int | None = None,
+    pr_url: str | None = None,
+    diff_summary: str | None = None,
 ) -> None:
     now = time.time()
     with _lock:
@@ -1698,13 +2319,22 @@ def market_submission_update(
                 else (current["acceptance_attribution"] or "")
             )
             next_evidence = evidence if evidence is not None else _json_loads(current["evidence_json"], {})
+            next_branch_name = branch_name if branch_name is not None else (current["branch_name"] or "")
+            next_pr_number = pr_number if pr_number is not None else int(current["pr_number"] or 0)
+            next_pr_url = pr_url if pr_url is not None else (current["pr_url"] or "")
+            next_diff_summary = diff_summary if diff_summary is not None else (current["diff_summary"] or "")
             c.execute(
                 """
                 UPDATE market_submissions
-                SET status = ?, acceptance_attribution = ?, evidence_json = ?, updated_at = ?
+                SET branch_name = ?, pr_number = ?, pr_url = ?, diff_summary = ?,
+                    status = ?, acceptance_attribution = ?, evidence_json = ?, updated_at = ?
                 WHERE id = ?
                 """,
                 (
+                    next_branch_name,
+                    next_pr_number,
+                    next_pr_url,
+                    next_diff_summary,
                     next_status,
                     next_acceptance_attribution,
                     json.dumps(next_evidence),
@@ -1828,6 +2458,7 @@ def market_job_assignment_create(
     lease_expires_at: float = 0,
 ) -> None:
     now = time.time()
+    plan_fk = plan_id or None
     with _lock:
         c = _connect()
         try:
@@ -1844,7 +2475,7 @@ def market_job_assignment_create(
                     agent_id,
                     specialist_id,
                     recommendation_id,
-                    plan_id,
+                    plan_fk,
                     assigned_by,
                     mode,
                     status,
@@ -2269,6 +2900,7 @@ def market_opportunities_list(
     repo_full_name: str | None = None,
     status: str | None = None,
     limit: int = 50,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     with _lock:
         c = _connect()
@@ -2284,8 +2916,9 @@ def market_opportunities_list(
                 params.append(status)
             if where:
                 query += " WHERE " + " AND ".join(where)
-            query += " ORDER BY created_at DESC LIMIT ?"
+            query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
             params.append(limit)
+            params.append(max(0, int(offset or 0)))
             rows = c.execute(query, params).fetchall()
             return [_row_to_market_opportunity(row) for row in rows]
         finally:
@@ -2443,5 +3076,1120 @@ def market_agent_invocations_list(job_id: str) -> list[dict[str, Any]]:
                 (job_id,),
             ).fetchall()
             return [_row_to_market_agent_invocation(row) for row in rows]
+        finally:
+            c.close()
+
+
+def market_ops_traffic_state_set(
+    us_percent: int,
+    eu_percent: int,
+    changed_by: str = "",
+    notes: str = "",
+    regional_weights: dict[str, int] | None = None,
+) -> None:
+    now = time.time()
+    normalized_weights = {
+        "na_west": 0,
+        "na_east": 0,
+        "eu": 0,
+        "asia": 0,
+        "australia": 0,
+    }
+    if isinstance(regional_weights, dict):
+        for key in normalized_weights:
+            if key in regional_weights:
+                normalized_weights[key] = int(regional_weights.get(key) or 0)
+    else:
+        normalized_weights["na_west"] = int(us_percent or 0)
+        normalized_weights["eu"] = int(eu_percent or 0)
+
+    aggregated_us = int(normalized_weights["na_west"]) + int(normalized_weights["na_east"])
+    aggregated_eu = int(normalized_weights["eu"])
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO market_ops_traffic_state (
+                    id, us_percent, eu_percent, regional_weights_json, changed_by, notes, updated_at
+                )
+                VALUES (1, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    us_percent = excluded.us_percent,
+                    eu_percent = excluded.eu_percent,
+                    regional_weights_json = excluded.regional_weights_json,
+                    changed_by = excluded.changed_by,
+                    notes = excluded.notes,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    aggregated_us,
+                    aggregated_eu,
+                    json.dumps(normalized_weights),
+                    changed_by,
+                    notes,
+                    now,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def market_ops_traffic_state_get() -> dict[str, Any]:
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute(
+                """
+                SELECT us_percent, eu_percent, regional_weights_json, changed_by, notes, updated_at
+                FROM market_ops_traffic_state
+                WHERE id = 1
+                """
+            ).fetchone()
+            if not row:
+                return {
+                    "us_percent": 50,
+                    "eu_percent": 50,
+                    "regional_weights": {
+                        "na_west": 20,
+                        "na_east": 20,
+                        "eu": 30,
+                        "asia": 20,
+                        "australia": 10,
+                    },
+                    "changed_by": "",
+                    "notes": "",
+                    "updated_at": 0,
+                }
+            regional_weights = _json_loads(row["regional_weights_json"], {})
+            if not isinstance(regional_weights, dict) or not regional_weights:
+                regional_weights = {
+                    "na_west": int(row["us_percent"] or 0),
+                    "na_east": 0,
+                    "eu": int(row["eu_percent"] or 0),
+                    "asia": 0,
+                    "australia": 0,
+                }
+            return {
+                "us_percent": int(row["us_percent"] or 0),
+                "eu_percent": int(row["eu_percent"] or 0),
+                "regional_weights": {
+                    "na_west": int(regional_weights.get("na_west") or 0),
+                    "na_east": int(regional_weights.get("na_east") or 0),
+                    "eu": int(regional_weights.get("eu") or 0),
+                    "asia": int(regional_weights.get("asia") or 0),
+                    "australia": int(regional_weights.get("australia") or 0),
+                },
+                "changed_by": row["changed_by"] or "",
+                "notes": row["notes"] or "",
+                "updated_at": float(row["updated_at"] or 0),
+            }
+        finally:
+            c.close()
+
+
+def market_ops_model_rollout_create(
+    rollout_id: str,
+    target: str,
+    revision: str,
+    strategy: str = "canary",
+    requested_by: str = "",
+    status: str = "queued",
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    now = time.time()
+    metadata = metadata or {}
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO market_ops_model_rollouts (
+                    id, target, revision, strategy, requested_by, status, metadata_json, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    rollout_id,
+                    target,
+                    revision,
+                    strategy,
+                    requested_by,
+                    status,
+                    json.dumps(metadata),
+                    now,
+                    now,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def market_ops_model_rollouts_list(limit: int = 20) -> list[dict[str, Any]]:
+    safe_limit = max(1, min(int(limit or 20), 100))
+    with _lock:
+        c = _connect()
+        try:
+            rows = c.execute(
+                """
+                SELECT id, target, revision, strategy, requested_by, status, metadata_json, created_at, updated_at
+                FROM market_ops_model_rollouts
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (safe_limit,),
+            ).fetchall()
+            return [
+                {
+                    "id": row["id"],
+                    "target": row["target"] or "",
+                    "revision": row["revision"] or "",
+                    "strategy": row["strategy"] or "canary",
+                    "requested_by": row["requested_by"] or "",
+                    "status": row["status"] or "queued",
+                    "metadata": _json_loads(row["metadata_json"], {}),
+                    "created_at": float(row["created_at"] or 0),
+                    "updated_at": float(row["updated_at"] or 0),
+                }
+                for row in rows
+            ]
+        finally:
+            c.close()
+
+
+def market_ops_model_rollout_latest() -> dict[str, Any] | None:
+    items = market_ops_model_rollouts_list(limit=1)
+    return items[0] if items else None
+
+
+def market_ops_component_state_set(
+    component_id: str,
+    desired_state: str,
+    last_action: str,
+    updated_by: str = "",
+    notes: str = "",
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    now = time.time()
+    metadata = metadata or {}
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO market_ops_component_state (
+                    component_id, desired_state, last_action, updated_by, notes, metadata_json, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(component_id) DO UPDATE SET
+                    desired_state = excluded.desired_state,
+                    last_action = excluded.last_action,
+                    updated_by = excluded.updated_by,
+                    notes = excluded.notes,
+                    metadata_json = excluded.metadata_json,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    component_id,
+                    desired_state,
+                    last_action,
+                    updated_by,
+                    notes,
+                    json.dumps(metadata),
+                    now,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def market_ops_component_state_get(component_id: str) -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute(
+                """
+                SELECT component_id, desired_state, last_action, updated_by, notes, metadata_json, updated_at
+                FROM market_ops_component_state
+                WHERE component_id = ?
+                """,
+                (component_id,),
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "component_id": row["component_id"],
+                "desired_state": row["desired_state"] or "running",
+                "last_action": row["last_action"] or "",
+                "updated_by": row["updated_by"] or "",
+                "notes": row["notes"] or "",
+                "metadata": _json_loads(row["metadata_json"], {}),
+                "updated_at": float(row["updated_at"] or 0),
+            }
+        finally:
+            c.close()
+
+
+def market_ops_component_states_list() -> list[dict[str, Any]]:
+    with _lock:
+        c = _connect()
+        try:
+            rows = c.execute(
+                """
+                SELECT component_id, desired_state, last_action, updated_by, notes, metadata_json, updated_at
+                FROM market_ops_component_state
+                ORDER BY component_id ASC
+                """
+            ).fetchall()
+            return [
+                {
+                    "component_id": row["component_id"],
+                    "desired_state": row["desired_state"] or "running",
+                    "last_action": row["last_action"] or "",
+                    "updated_by": row["updated_by"] or "",
+                    "notes": row["notes"] or "",
+                    "metadata": _json_loads(row["metadata_json"], {}),
+                    "updated_at": float(row["updated_at"] or 0),
+                }
+                for row in rows
+            ]
+        finally:
+            c.close()
+
+
+def market_ops_component_action_create(
+    action_id: str,
+    component_id: str,
+    action: str,
+    requested_by: str = "",
+    status: str = "queued",
+    execution_mode: str = "dry_run",
+    notes: str = "",
+    metadata: dict[str, Any] | None = None,
+    approved_by: str = "",
+    approved_at: float = 0.0,
+    rollback_of_action_id: str = "",
+) -> None:
+    metadata = metadata or {}
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO market_ops_component_actions (
+                    id, component_id, action, requested_by, status, execution_mode, notes, metadata_json,
+                    approved_by, approved_at, rollback_of_action_id, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    action_id,
+                    component_id,
+                    action,
+                    requested_by,
+                    status,
+                    execution_mode,
+                    notes,
+                    json.dumps(metadata),
+                    approved_by,
+                    approved_at,
+                    rollback_of_action_id,
+                    now,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def _market_ops_component_action_row(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "component_id": row["component_id"] or "",
+        "action": row["action"] or "",
+        "requested_by": row["requested_by"] or "",
+        "status": row["status"] or "queued",
+        "execution_mode": row["execution_mode"] or "dry_run",
+        "notes": row["notes"] or "",
+        "metadata": _json_loads(row["metadata_json"], {}),
+        "approved_by": row["approved_by"] or "",
+        "approved_at": float(row["approved_at"] or 0),
+        "started_at": float(row["started_at"] or 0),
+        "finished_at": float(row["finished_at"] or 0),
+        "command_trace": row["command_trace"] or "",
+        "error_trace": row["error_trace"] or "",
+        "rollback_of_action_id": row["rollback_of_action_id"] or "",
+        "created_at": float(row["created_at"] or 0),
+    }
+
+
+def market_ops_component_action_get(action_id: str) -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute(
+                """
+                SELECT
+                    id, component_id, action, requested_by, status, execution_mode, notes, metadata_json,
+                    approved_by, approved_at, started_at, finished_at, command_trace, error_trace,
+                    rollback_of_action_id, created_at
+                FROM market_ops_component_actions
+                WHERE id = ?
+                """,
+                (action_id,),
+            ).fetchone()
+            if not row:
+                return None
+            return _market_ops_component_action_row(row)
+        finally:
+            c.close()
+
+
+def market_ops_component_action_update(
+    action_id: str,
+    *,
+    status: str | None = None,
+    approved_by: str | None = None,
+    approved_at: float | None = None,
+    started_at: float | None = None,
+    finished_at: float | None = None,
+    command_trace: str | None = None,
+    error_trace: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            current = c.execute(
+                """
+                SELECT
+                    id, component_id, action, requested_by, status, execution_mode, notes, metadata_json,
+                    approved_by, approved_at, started_at, finished_at, command_trace, error_trace,
+                    rollback_of_action_id, created_at
+                FROM market_ops_component_actions
+                WHERE id = ?
+                """,
+                (action_id,),
+            ).fetchone()
+            if not current:
+                return None
+            c.execute(
+                """
+                UPDATE market_ops_component_actions
+                SET status = ?, approved_by = ?, approved_at = ?, started_at = ?, finished_at = ?,
+                    command_trace = ?, error_trace = ?, metadata_json = ?
+                WHERE id = ?
+                """,
+                (
+                    status if status is not None else (current["status"] or "queued"),
+                    approved_by if approved_by is not None else (current["approved_by"] or ""),
+                    float(approved_at if approved_at is not None else (current["approved_at"] or 0)),
+                    float(started_at if started_at is not None else (current["started_at"] or 0)),
+                    float(finished_at if finished_at is not None else (current["finished_at"] or 0)),
+                    command_trace if command_trace is not None else (current["command_trace"] or ""),
+                    error_trace if error_trace is not None else (current["error_trace"] or ""),
+                    json.dumps(metadata if metadata is not None else _json_loads(current["metadata_json"], {})),
+                    action_id,
+                ),
+            )
+            c.commit()
+            return market_ops_component_action_get(action_id)
+        finally:
+            c.close()
+
+
+def market_ops_component_action_next_approved() -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute(
+                """
+                SELECT
+                    id, component_id, action, requested_by, status, execution_mode, notes, metadata_json,
+                    approved_by, approved_at, started_at, finished_at, command_trace, error_trace,
+                    rollback_of_action_id, created_at
+                FROM market_ops_component_actions
+                WHERE status IN ('approved', 'queued')
+                ORDER BY created_at ASC
+                LIMIT 1
+                """
+            ).fetchone()
+            if not row:
+                return None
+            return _market_ops_component_action_row(row)
+        finally:
+            c.close()
+
+
+def market_ops_component_actions_list(limit: int = 20) -> list[dict[str, Any]]:
+    safe_limit = max(1, min(int(limit or 20), 100))
+    with _lock:
+        c = _connect()
+        try:
+            rows = c.execute(
+                """
+                SELECT
+                    id, component_id, action, requested_by, status, execution_mode, notes, metadata_json,
+                    approved_by, approved_at, started_at, finished_at, command_trace, error_trace,
+                    rollback_of_action_id, created_at
+                FROM market_ops_component_actions
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (safe_limit,),
+            ).fetchall()
+            return [_market_ops_component_action_row(row) for row in rows]
+        finally:
+            c.close()
+
+
+def market_ops_drift_run_create(
+    run_id: str,
+    module_key: str,
+    module_path: str,
+    trigger: str = "scheduled",
+    status: str = "queued",
+) -> None:
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO market_ops_drift_runs (
+                    id, module_key, module_path, trigger, status, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (run_id, module_key, module_path, trigger, status, now),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def market_ops_drift_run_update(
+    run_id: str,
+    *,
+    status: str | None = None,
+    exit_code: int | None = None,
+    drift_detected: bool | None = None,
+    stdout_text: str | None = None,
+    stderr_text: str | None = None,
+    diff_summary: dict[str, Any] | None = None,
+    started_at: float | None = None,
+    finished_at: float | None = None,
+) -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            current = c.execute(
+                """
+                SELECT
+                    id, module_key, module_path, trigger, status, exit_code, drift_detected, stdout_text,
+                    stderr_text, diff_summary_json, created_at, started_at, finished_at
+                FROM market_ops_drift_runs
+                WHERE id = ?
+                """,
+                (run_id,),
+            ).fetchone()
+            if not current:
+                return None
+            c.execute(
+                """
+                UPDATE market_ops_drift_runs
+                SET status = ?, exit_code = ?, drift_detected = ?, stdout_text = ?, stderr_text = ?,
+                    diff_summary_json = ?, started_at = ?, finished_at = ?
+                WHERE id = ?
+                """,
+                (
+                    status if status is not None else (current["status"] or "queued"),
+                    int(exit_code if exit_code is not None else (current["exit_code"] or 0)),
+                    int(drift_detected if drift_detected is not None else bool(current["drift_detected"])),
+                    stdout_text if stdout_text is not None else (current["stdout_text"] or ""),
+                    stderr_text if stderr_text is not None else (current["stderr_text"] or ""),
+                    json.dumps(diff_summary if diff_summary is not None else _json_loads(current["diff_summary_json"], {})),
+                    float(started_at if started_at is not None else (current["started_at"] or 0)),
+                    float(finished_at if finished_at is not None else (current["finished_at"] or 0)),
+                    run_id,
+                ),
+            )
+            c.commit()
+            return market_ops_drift_run_get(run_id)
+        finally:
+            c.close()
+
+
+def market_ops_drift_run_get(run_id: str) -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute(
+                """
+                SELECT
+                    id, module_key, module_path, trigger, status, exit_code, drift_detected, stdout_text,
+                    stderr_text, diff_summary_json, created_at, started_at, finished_at
+                FROM market_ops_drift_runs
+                WHERE id = ?
+                """,
+                (run_id,),
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "id": row["id"],
+                "module_key": row["module_key"] or "",
+                "module_path": row["module_path"] or "",
+                "trigger": row["trigger"] or "scheduled",
+                "status": row["status"] or "queued",
+                "exit_code": int(row["exit_code"] or 0),
+                "drift_detected": bool(row["drift_detected"]),
+                "stdout_text": row["stdout_text"] or "",
+                "stderr_text": row["stderr_text"] or "",
+                "diff_summary": _json_loads(row["diff_summary_json"], {}),
+                "created_at": float(row["created_at"] or 0),
+                "started_at": float(row["started_at"] or 0),
+                "finished_at": float(row["finished_at"] or 0),
+            }
+        finally:
+            c.close()
+
+
+def market_ops_drift_runs_list(limit: int = 20) -> list[dict[str, Any]]:
+    safe_limit = max(1, min(int(limit or 20), 200))
+    with _lock:
+        c = _connect()
+        try:
+            rows = c.execute(
+                """
+                SELECT
+                    id, module_key, module_path, trigger, status, exit_code, drift_detected, stdout_text,
+                    stderr_text, diff_summary_json, created_at, started_at, finished_at
+                FROM market_ops_drift_runs
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (safe_limit,),
+            ).fetchall()
+            return [
+                {
+                    "id": row["id"],
+                    "module_key": row["module_key"] or "",
+                    "module_path": row["module_path"] or "",
+                    "trigger": row["trigger"] or "scheduled",
+                    "status": row["status"] or "queued",
+                    "exit_code": int(row["exit_code"] or 0),
+                    "drift_detected": bool(row["drift_detected"]),
+                    "stdout_text": row["stdout_text"] or "",
+                    "stderr_text": row["stderr_text"] or "",
+                    "diff_summary": _json_loads(row["diff_summary_json"], {}),
+                    "created_at": float(row["created_at"] or 0),
+                    "started_at": float(row["started_at"] or 0),
+                    "finished_at": float(row["finished_at"] or 0),
+                }
+                for row in rows
+            ]
+        finally:
+            c.close()
+
+
+def market_ops_alert_create(
+    alert_id: str,
+    alert_type: str,
+    severity: str,
+    source: str,
+    message: str,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    metadata = metadata or {}
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO market_ops_alerts (
+                    id, alert_type, severity, source, message, metadata_json, acknowledged, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 0, ?)
+                """,
+                (alert_id, alert_type, severity, source, message, json.dumps(metadata), now),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def market_ops_alerts_list(limit: int = 20, include_acknowledged: bool = False) -> list[dict[str, Any]]:
+    safe_limit = max(1, min(int(limit or 20), 200))
+    with _lock:
+        c = _connect()
+        try:
+            if include_acknowledged:
+                rows = c.execute(
+                    """
+                    SELECT id, alert_type, severity, source, message, metadata_json, acknowledged, created_at, acknowledged_at
+                    FROM market_ops_alerts
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                    """,
+                    (safe_limit,),
+                ).fetchall()
+            else:
+                rows = c.execute(
+                    """
+                    SELECT id, alert_type, severity, source, message, metadata_json, acknowledged, created_at, acknowledged_at
+                    FROM market_ops_alerts
+                    WHERE acknowledged = 0
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                    """,
+                    (safe_limit,),
+                ).fetchall()
+            return [
+                {
+                    "id": row["id"],
+                    "alert_type": row["alert_type"] or "",
+                    "severity": row["severity"] or "info",
+                    "source": row["source"] or "",
+                    "message": row["message"] or "",
+                    "metadata": _json_loads(row["metadata_json"], {}),
+                    "acknowledged": bool(row["acknowledged"]),
+                    "created_at": float(row["created_at"] or 0),
+                    "acknowledged_at": float(row["acknowledged_at"] or 0),
+                }
+                for row in rows
+            ]
+        finally:
+            c.close()
+
+
+def auth_principal_create(
+    principal_id: str,
+    status: str = "active",
+    display_name: str = "",
+) -> None:
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO auth_principals (id, status, display_name, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    status = excluded.status,
+                    display_name = excluded.display_name,
+                    updated_at = excluded.updated_at
+                """,
+                (principal_id, status, display_name, now, now),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def auth_principal_get(principal_id: str) -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute(
+                "SELECT id, status, display_name, created_at, updated_at FROM auth_principals WHERE id = ?",
+                (principal_id,),
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "id": row["id"],
+                "status": row["status"] or "active",
+                "display_name": row["display_name"] or "",
+                "created_at": float(row["created_at"] or 0),
+                "updated_at": float(row["updated_at"] or 0),
+            }
+        finally:
+            c.close()
+
+
+def auth_identifier_upsert(
+    identifier_id: str,
+    principal_id: str,
+    kind: str,
+    value_norm: str,
+    verified_at: float = 0.0,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    now = time.time()
+    metadata = metadata or {}
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO auth_identifiers (
+                    id, principal_id, kind, value_norm, verified_at, metadata_json, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(kind, value_norm) DO UPDATE SET
+                    principal_id = excluded.principal_id,
+                    verified_at = excluded.verified_at,
+                    metadata_json = excluded.metadata_json,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    identifier_id,
+                    principal_id,
+                    kind,
+                    value_norm,
+                    verified_at,
+                    json.dumps(metadata),
+                    now,
+                    now,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def auth_identifier_get(kind: str, value_norm: str) -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute(
+                """
+                SELECT id, principal_id, kind, value_norm, verified_at, metadata_json, created_at, updated_at
+                FROM auth_identifiers
+                WHERE kind = ? AND value_norm = ?
+                """,
+                (kind, value_norm),
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "id": row["id"],
+                "principal_id": row["principal_id"],
+                "kind": row["kind"] or "",
+                "value_norm": row["value_norm"] or "",
+                "verified_at": float(row["verified_at"] or 0),
+                "metadata": _json_loads(row["metadata_json"], {}),
+                "created_at": float(row["created_at"] or 0),
+                "updated_at": float(row["updated_at"] or 0),
+            }
+        finally:
+            c.close()
+
+
+def auth_challenge_create(
+    challenge_id: str,
+    factor_type: str,
+    purpose: str,
+    nonce: str,
+    principal_hint: str = "",
+    payload: dict[str, Any] | None = None,
+    ip_hash: str = "",
+    ua_hash: str = "",
+    expires_at: float = 0.0,
+) -> None:
+    now = time.time()
+    payload = payload or {}
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO auth_challenges (
+                    id, principal_hint, factor_type, purpose, nonce, payload_json,
+                    ip_hash, ua_hash, expires_at, consumed_at, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+                """,
+                (
+                    challenge_id,
+                    principal_hint,
+                    factor_type,
+                    purpose,
+                    nonce,
+                    json.dumps(payload),
+                    ip_hash,
+                    ua_hash,
+                    expires_at,
+                    now,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def auth_challenge_get(challenge_id: str) -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute(
+                """
+                SELECT id, principal_hint, factor_type, purpose, nonce, payload_json,
+                       ip_hash, ua_hash, expires_at, consumed_at, created_at
+                FROM auth_challenges WHERE id = ?
+                """,
+                (challenge_id,),
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "id": row["id"],
+                "principal_hint": row["principal_hint"] or "",
+                "factor_type": row["factor_type"] or "",
+                "purpose": row["purpose"] or "",
+                "nonce": row["nonce"] or "",
+                "payload": _json_loads(row["payload_json"], {}),
+                "ip_hash": row["ip_hash"] or "",
+                "ua_hash": row["ua_hash"] or "",
+                "expires_at": float(row["expires_at"] or 0),
+                "consumed_at": float(row["consumed_at"] or 0),
+                "created_at": float(row["created_at"] or 0),
+            }
+        finally:
+            c.close()
+
+
+def auth_challenge_consume(challenge_id: str) -> bool:
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            updated = c.execute(
+                """
+                UPDATE auth_challenges
+                SET consumed_at = ?
+                WHERE id = ? AND consumed_at = 0
+                """,
+                (now, challenge_id),
+            ).rowcount
+            c.commit()
+            return bool(updated)
+        finally:
+            c.close()
+
+
+def auth_magic_link_create(
+    magic_id: str,
+    principal_id: str,
+    email_norm: str,
+    token_hash: str,
+    ip_hash: str = "",
+    expires_at: float = 0.0,
+) -> None:
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO auth_magic_links (id, principal_id, email_norm, token_hash, ip_hash, expires_at, used_at, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, 0, ?)
+                """,
+                (magic_id, principal_id, email_norm, token_hash, ip_hash, expires_at, now),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def auth_magic_link_use(token_hash: str) -> dict[str, Any] | None:
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute(
+                """
+                SELECT id, principal_id, email_norm, token_hash, ip_hash, expires_at, used_at, created_at
+                FROM auth_magic_links
+                WHERE token_hash = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (token_hash,),
+            ).fetchone()
+            if not row:
+                return None
+            if float(row["used_at"] or 0) > 0:
+                return None
+            if float(row["expires_at"] or 0) <= now:
+                return None
+            c.execute("UPDATE auth_magic_links SET used_at = ? WHERE id = ?", (now, row["id"]))
+            c.commit()
+            return {
+                "id": row["id"],
+                "principal_id": row["principal_id"] or "",
+                "email_norm": row["email_norm"] or "",
+                "created_at": float(row["created_at"] or 0),
+                "expires_at": float(row["expires_at"] or 0),
+            }
+        finally:
+            c.close()
+
+
+def auth_session_create(
+    session_id: str,
+    principal_id: str,
+    session_secret_hash: str,
+    device_fingerprint_hash: str = "",
+    device_id: str = "",
+    csrf_secret_hash: str = "",
+    aal: int = 1,
+    roles: list[str] | None = None,
+    expires_at: float = 0.0,
+    rotated_from: str = "",
+) -> None:
+    now = time.time()
+    roles = roles or ["viewer"]
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO auth_sessions (
+                    id, principal_id, device_id, device_fingerprint_hash, session_secret_hash,
+                    csrf_secret_hash, aal, roles_json, issued_at, expires_at, rotated_from,
+                    revoked_at, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+                """,
+                (
+                    session_id,
+                    principal_id,
+                    device_id,
+                    device_fingerprint_hash,
+                    session_secret_hash,
+                    csrf_secret_hash,
+                    int(aal),
+                    json.dumps(roles),
+                    now,
+                    expires_at,
+                    rotated_from,
+                    now,
+                    now,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def auth_session_get_by_secret_hash(session_secret_hash: str) -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute(
+                """
+                SELECT id, principal_id, device_id, device_fingerprint_hash, session_secret_hash,
+                       csrf_secret_hash, aal, roles_json, issued_at, expires_at, rotated_from,
+                       revoked_at, created_at, updated_at
+                FROM auth_sessions
+                WHERE session_secret_hash = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (session_secret_hash,),
+            ).fetchone()
+            if not row:
+                return None
+            return {
+                "id": row["id"],
+                "principal_id": row["principal_id"],
+                "device_id": row["device_id"] or "",
+                "device_fingerprint_hash": row["device_fingerprint_hash"] or "",
+                "session_secret_hash": row["session_secret_hash"] or "",
+                "csrf_secret_hash": row["csrf_secret_hash"] or "",
+                "aal": int(row["aal"] or 1),
+                "roles": _json_loads(row["roles_json"], ["viewer"]),
+                "issued_at": float(row["issued_at"] or 0),
+                "expires_at": float(row["expires_at"] or 0),
+                "rotated_from": row["rotated_from"] or "",
+                "revoked_at": float(row["revoked_at"] or 0),
+                "created_at": float(row["created_at"] or 0),
+                "updated_at": float(row["updated_at"] or 0),
+            }
+        finally:
+            c.close()
+
+
+def auth_session_revoke(session_id: str) -> None:
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                UPDATE auth_sessions
+                SET revoked_at = ?, updated_at = ?
+                WHERE id = ? AND revoked_at = 0
+                """,
+                (now, now, session_id),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def auth_authorization_grant(
+    authz_id: str,
+    principal_id: str,
+    role: str,
+    scope: str = "*",
+    granted_by: str = "",
+    expires_at: float = 0.0,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    now = time.time()
+    metadata = metadata or {}
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO auth_authorizations (
+                    id, principal_id, role, scope, granted_by, granted_at, expires_at, metadata_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    authz_id,
+                    principal_id,
+                    role,
+                    scope,
+                    granted_by,
+                    now,
+                    expires_at,
+                    json.dumps(metadata),
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def auth_authorizations_list(principal_id: str) -> list[dict[str, Any]]:
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            rows = c.execute(
+                """
+                SELECT id, principal_id, role, scope, granted_by, granted_at, expires_at, metadata_json
+                FROM auth_authorizations
+                WHERE principal_id = ? AND (expires_at = 0 OR expires_at > ?)
+                ORDER BY granted_at DESC
+                """,
+                (principal_id, now),
+            ).fetchall()
+            return [
+                {
+                    "id": row["id"],
+                    "principal_id": row["principal_id"],
+                    "role": row["role"] or "",
+                    "scope": row["scope"] or "*",
+                    "granted_by": row["granted_by"] or "",
+                    "granted_at": float(row["granted_at"] or 0),
+                    "expires_at": float(row["expires_at"] or 0),
+                    "metadata": _json_loads(row["metadata_json"], {}),
+                }
+                for row in rows
+            ]
         finally:
             c.close()

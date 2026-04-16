@@ -1,0 +1,19 @@
+project    = "bountynet-marketplace"
+domain_name = "bountynet.ai"
+hostname    = "llm"
+record_ttl  = 30
+
+do_edge_origins = {
+  na_west   = "203.0.113.10"
+  na_east   = "203.0.113.11"
+  eu        = "198.51.100.20"
+  asia      = "198.51.100.21"
+  australia = "198.51.100.22"
+}
+
+primary_global_lb_ip = "203.0.113.100"
+backup_global_lb_ip  = "203.0.113.101"
+backup_hostname      = "llm-backup"
+
+include_aws_anycast_alias = false
+aws_global_accelerator_dns = "a1234567890abcdef.awsglobalaccelerator.com"

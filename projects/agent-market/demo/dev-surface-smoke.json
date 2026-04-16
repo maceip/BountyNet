@@ -1,0 +1,73 @@
+{
+  "mock_rpc_url": "http://127.0.0.1:57865",
+  "health": {
+    "status_code": 200,
+    "body": {
+      "chain_block": 42,
+      "escrow": "",
+      "evm_rpc_source": "primary",
+      "identity": "0x0000000000000000000000000000000000000001",
+      "registered_agents": 0,
+      "status": "ok",
+      "storage_db": "C:\\Users\\mac\\BountyNet\\projects\\agent-market\\demo\\dev-surface-smoke.db"
+    }
+  },
+  "events_count": 1,
+  "mcp_preflight": 204,
+  "magic_link_session": {
+    "aal": 1,
+    "roles": [
+      "viewer"
+    ]
+  },
+  "factor_results": {
+    "wallet_sol": {
+      "aal": 2
+    },
+    "wallet_btc": {
+      "aal": 2
+    },
+    "passkey": {
+      "aal": 2
+    },
+    "nfc_euid": {
+      "aal": 3
+    }
+  },
+  "ops": {
+    "topology": "ok",
+    "traffic": {
+      "changed_by": "smoke",
+      "eu_percent": 40,
+      "notes": "dev smoke",
+      "regional_weights": {
+        "asia": 0,
+        "australia": 0,
+        "eu": 40,
+        "na_east": 0,
+        "na_west": 60
+      },
+      "updated_at": 1776362417.1985292,
+      "us_percent": 60
+    },
+    "rollout": {
+      "created_at": 1776362417.2132885,
+      "id": "rollout_66f2dc0a38ae",
+      "metadata": {},
+      "requested_by": "operator_panel",
+      "revision": "adapter/smoke-v1",
+      "status": "queued",
+      "strategy": "canary",
+      "target": "specialist",
+      "updated_at": 1776362417.2132885
+    },
+    "recent_rollouts": 1
+  },
+  "market": {
+    "job_id": "job_fd6ebe5213f3",
+    "job_status": "assigned",
+    "runs": 1,
+    "submissions": 1
+  },
+  "ok": true
+}

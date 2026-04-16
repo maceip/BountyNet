@@ -1,0 +1,183 @@
+services:
+  vllm-base:
+    image: vllm/vllm-openai:latest
+    container_name: bountynet-vllm-base
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    command:
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --model
+      - ${VLLM_BASE_MODEL}
+      - --api-key
+      - ${VLLM_API_KEY}
+      - --max-model-len
+      - ${VLLM_MAX_MODEL_LEN}
+      - --max-num-seqs
+      - ${VLLM_MAX_NUM_SEQS}
+      - --gpu-memory-utilization
+      - ${VLLM_GPU_MEMORY_UTILIZATION}
+      - --tensor-parallel-size
+      - ${VLLM_TP_SIZE}
+      - --enable-prefix-caching
+      - --enable-chunked-prefill
+      - --disable-log-stats
+    volumes:
+      - vllm-model-cache:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  vllm-specialist:
+    image: vllm/vllm-openai:latest
+    container_name: bountynet-vllm-specialist
+    ports:
+      - "8001:8000"
+    env_file:
+      - .env
+    command:
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --model
+      - ${VLLM_SPECIALIST_MODEL}
+      - --api-key
+      - ${VLLM_API_KEY}
+      - --max-model-len
+      - ${VLLM_MAX_MODEL_LEN}
+      - --max-num-seqs
+      - ${VLLM_MAX_NUM_SEQS}
+      - --gpu-memory-utilization
+      - ${VLLM_GPU_MEMORY_UTILIZATION}
+      - --tensor-parallel-size
+      - ${VLLM_TP_SIZE}
+      - --enable-prefix-caching
+      - --enable-chunked-prefill
+      - --speculative-model
+      - ${VLLM_DRAFTER_MODEL}
+      - --num-speculative-tokens
+      - ${VLLM_SPEC_TOKENS}
+      - --disable-log-stats
+    volumes:
+      - vllm-model-cache:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  postgres:
+    image: postgres:16
+    container_name: bountynet-langfuse-postgres
+    environment:
+      POSTGRES_DB: langfuse
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse
+    volumes:
+      - langfuse-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse -d langfuse"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: bountynet-langfuse-redis
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - langfuse-redis-data:/data
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: bountynet-langfuse-clickhouse
+    environment:
+      CLICKHOUSE_DB: langfuse
+      CLICKHOUSE_USER: langfuse
+      CLICKHOUSE_PASSWORD: langfuse
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    volumes:
+      - langfuse-clickhouse-data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  langfuse:
+    image: langfuse/langfuse:latest
+    container_name: bountynet-langfuse
+    ports:
+      - "3001:3000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://langfuse:langfuse@postgres:5432/langfuse
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse:langfuse@clickhouse:9000/langfuse
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      NEXTAUTH_URL: ${LANGFUSE_PUBLIC_URL}
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET}
+      SALT: ${LANGFUSE_SALT}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY}
+      TELEMETRY_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  axolotl-trainer:
+    build:
+      context: .
+      dockerfile: docker/axolotl/Dockerfile
+    container_name: bountynet-axolotl-trainer
+    profiles:
+      - tune
+    env_file:
+      - .env
+    environment:
+      HF_TOKEN: ${HF_TOKEN}
+    volumes:
+      - ./axolotl:/workspace/axolotl
+      - vllm-model-cache:/root/.cache/huggingface
+    command: ["sleep", "infinity"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  vllm-model-cache:
+  langfuse-postgres-data:
+  langfuse-clickhouse-data:
+  langfuse-redis-data:
