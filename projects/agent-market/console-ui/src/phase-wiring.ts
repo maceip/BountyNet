@@ -169,7 +169,7 @@ export const PHASE_DEFINITIONS: PhaseDefinition[] = [
     note: 'Admin controls',
     adminOnly: true,
     summary:
-      'Admin-only surface for edge droplet fleet topology, Bedrock routing controls, rollout actions, and drift/observability operations.',
+      'Admin-only surface for edge droplet fleet topology, Qwen supervisor/worker routing controls, rollout actions, and drift/observability operations.',
     cards: [
       {
         id: 'ops-01',

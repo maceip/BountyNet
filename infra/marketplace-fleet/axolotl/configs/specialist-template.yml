@@ -1,13 +1,15 @@
-base_model: Qwen/Qwen2.5-Coder-32B-Instruct
-model_type: AutoModelForCausalLM
+base_model: Qwen/Qwen3.6-35B-A3B
+model_type: Qwen2
 tokenizer_type: AutoTokenizer
+is_qwen_derived_model: true
 
 load_in_4bit: true
 adapter: qlora
 
 datasets:
   - path: ./datasets/specialist-train.jsonl
-    type: chat_template
+    type: sharegpt
+    conversation: qwen-7b-chat
 
 dataset_prepared_path: ./cache/prepared
 val_set_size: 0.02
@@ -16,18 +18,16 @@ output_dir: ./output/specialist-template
 sequence_len: 8192
 sample_packing: true
 pad_to_sequence_len: true
+liger_rope: true
 
 lora_r: 64
 lora_alpha: 16
 lora_dropout: 0.05
 lora_target_modules:
-  - q_proj
-  - k_proj
-  - v_proj
-  - o_proj
   - gate_proj
-  - up_proj
   - down_proj
+  - q_proj
+  - v_proj
 
 gradient_accumulation_steps: 8
 micro_batch_size: 1

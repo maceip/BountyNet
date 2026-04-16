@@ -173,8 +173,8 @@ variable "service_port" {
   default     = 4000
 }
 
-variable "bedrock_region" {
-  description = "Primary Bedrock region for supervisor and worker calls."
+variable "model_api_region" {
+  description = "Primary model control-plane region used for supervisor and worker API calls."
   type        = string
   default     = "us-west-2"
 }
@@ -203,11 +203,13 @@ variable "secret_parameter_names" {
     openai    = string
     anthropic = string
     gemini    = string
+    openrouter = string
   })
   default = {
     openai    = "/bountynet/market/edge/openai_api_key"
     anthropic = "/bountynet/market/edge/anthropic_api_key"
     gemini    = "/bountynet/market/edge/gemini_api_key"
+    openrouter = "/bountynet/market/edge/openrouter_api_key"
   }
 }
 

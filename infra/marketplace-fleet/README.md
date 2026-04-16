@@ -18,6 +18,37 @@ This scaffold is optimized for your marketplace control plane:
 - **Specialist iteration speed:** Axolotl QLoRA adapters for pod/lane specializations (Rust Sentinel, TypeScript Auditor).
 - **Trace + cost attribution:** Langfuse backbone for plan tracing and billing normalization.
 
+## Unified wiring diagram
+
+### Layer A: Marketplace Brain (DigitalOcean)
+
+- **Ingress + identity:** LiteLLM gateway receives task intent and forwards identity metadata with `X-Agent-ID` (example: `rust_security`).
+- **Context sync:** Redis-backed KV/prefix cache keeps a rolling project state so requests can reuse recent context and append only net-new files.
+- **Role:** route, cache, and gate before inference execution.
+
+### Layer B: Execution Core (AWS Inferentia/Graviton)
+
+- **Primary inference:** one universal base model (`Qwen/Qwen3.6-35B-A3B`) served on Inferentia2 (`inf2`) via vLLM + Neuron.
+- **Dynamic identity loading:** hot-swap LoRA adapters by `X-Agent-ID` instead of running six full model replicas.
+- **CPU lane:** fallback and utility execution on Graviton (`c8g`) with `llama.cpp` GGUF paths where latency/cost wins.
+
+### Layer C: Evolution Loop (AWS Trainium)
+
+- **Data flywheel:** successful PR outcomes + preserved thinking traces are pushed to S3.
+- **Cadence:** scheduled weekly Axolotl jobs on `trn1.32xlarge`.
+- **Output:** refreshed adapter set for all six identities against a shared golden base.
+
+## Dual-tune strategy
+
+- **Golden base (infrequent):** tune Qwen3.6-35B-A3B on broad agentic trajectories (terminal/tool/diff behavior).
+- **Identity adapters (frequent):** tune compact LoRA layers for each specialist persona (security patch, vendor swap, recovery).
+- **MoE routing focus:** prioritize gate/down projections to improve expert routing for domain-heavy identities (for example, Rust borrow-checker repair paths).
+
+## Long-context training posture
+
+- Enable `liger_rope: true` in Axolotl configs for 256k-stability workstreams.
+- Use FSDP sharding in Trainium jobs so long-sequence tuning can be distributed across accelerator cores.
+
 ## Folder layout
 
 ```text
@@ -126,6 +157,7 @@ Start from the unified root:
 ```bash
 cp terraform/terraform.tfvars.example terraform/terraform.tfvars
 bash scripts/terraform-init.sh
+bash scripts/terraform-sanity.sh
 ```
 
 Then fill the values and apply from `infra/marketplace-fleet/terraform/`.
@@ -134,11 +166,20 @@ Then fill the values and apply from `infra/marketplace-fleet/terraform/`.
 
 - Each DigitalOcean edge droplet boots LiteLLM as an OpenRouter-style gateway with:
   - Redis-backed prompt prefix caching.
-  - Circuit-break fallback routes to OpenAI/Anthropic/Gemini when Bedrock routes fail or overload.
+  - Circuit-break fallback routes across Qwen lanes (supervisor flash + universal worker) and external API backups.
   - Managed secret bootstrap via AWS SSM SecureString + KMS decrypt (no plaintext API keys in cloud-init).
 - Primary/backup DigitalOcean global LBs are intended to front NA East/NA West lanes, with DNS failover hostname (`llm-backup`) for operator-directed switchover.
-- Bedrock model lanes are intended as:
-  - Supervisor: Mistral Small 4.
-  - Workers (Security + Vendor Swap): GLM 5.1 (Axolotl tuned).
-  - Workers (Get Back on Track): MiniMax M2.7.
+- Qwen model lanes are intended as:
+  - Supervisor: Qwen3.6-Flash API for rapid triage.
+  - Universal Worker: Qwen3.6-35B-A3B for coding and terminal-heavy execution.
+  - Tuning target: Qwen3.6-35B-A3B qLoRA adapters on Trainium (trn1).
 - Use Langfuse trace IDs to join execution runs, rollouts, and payout ledgers.
+
+## Software manifest
+
+| Component | Software | Hardware |
+| --- | --- | --- |
+| Edge Gateway | LiteLLM + Redis | DigitalOcean Droplet |
+| Inference Server | vLLM (Neuron SDK support) | AWS Inferentia2 (`inf2`) |
+| CPU Worker | `llama.cpp` (GGUF quants) | AWS Graviton (`c8g`) |
+| Fine-Tuner | Axolotl (Neuron image) | AWS Trainium (`trn1`) |

@@ -16,7 +16,7 @@ module "digitalocean_regional_lbs" {
   gateway_docker_image            = var.gateway_docker_image
   gateway_container_port          = var.gateway_container_port
   entry_port                      = var.entry_port
-  bedrock_region                  = var.bedrock_region
+  model_api_region                = var.model_api_region
   enable_managed_secret_bootstrap = var.enable_managed_secret_bootstrap
   aws_secrets_region              = var.aws_secrets_region
   aws_kms_key_arn                 = var.aws_kms_key_arn

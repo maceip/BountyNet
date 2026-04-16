@@ -58,12 +58,14 @@ resource "digitalocean_droplet" "edge_gateway" {
           OPENAI_API_KEY=
           ANTHROPIC_API_KEY=
           GEMINI_API_KEY=
-          AWS_REGION_NAME=${var.bedrock_region}
+          OPENROUTER_API_KEY=
+          AWS_REGION_NAME=${var.model_api_region}
           AWS_SECRETS_REGION=${var.aws_secrets_region}
           AWS_KMS_KEY_ARN=${var.aws_kms_key_arn}
           OPENAI_KEY_PARAM=${var.secret_parameter_names.openai}
           ANTHROPIC_KEY_PARAM=${var.secret_parameter_names.anthropic}
           GEMINI_KEY_PARAM=${var.secret_parameter_names.gemini}
+          OPENROUTER_KEY_PARAM=${var.secret_parameter_names.openrouter}
       - path: /opt/bountynet/config.yaml
         permissions: "0644"
         content: |
@@ -72,24 +74,34 @@ resource "digitalocean_droplet" "edge_gateway" {
             request_timeout: 60
             redis_host: "127.0.0.1"
             redis_port: 6379
+            enable_thinking: true
+            preserve_thinking: true
             fallbacks:
-              - ["bedrock/supervisor", "openai/gpt-4.1-mini", "anthropic/claude-3-7-sonnet-latest", "gemini/gemini-2.0-flash"]
-              - ["bedrock/worker_security", "anthropic/claude-3-7-sonnet-latest", "openai/gpt-4.1"]
-              - ["bedrock/worker_vendor_swap", "openai/gpt-4.1", "anthropic/claude-3-7-sonnet-latest"]
-              - ["bedrock/worker_recovery", "gemini/gemini-2.0-flash", "openai/gpt-4.1-mini"]
+              - ["qwen/supervisor_flash", "qwen/worker_universal", "openai/gpt-4.1-mini"]
+              - ["qwen/worker_security", "qwen/worker_universal", "anthropic/claude-3-7-sonnet-latest"]
+              - ["qwen/worker_vendor_swap", "qwen/worker_universal", "openai/gpt-4.1"]
+              - ["qwen/worker_recovery", "qwen/worker_universal", "gemini/gemini-2.0-flash"]
           model_list:
-            - model_name: bedrock/supervisor
+            - model_name: qwen/supervisor_flash
               litellm_params:
-                model: bedrock/mistral.small.4
-            - model_name: bedrock/worker_security
+                model: openrouter/qwen/qwen3.6-flash
+                api_key: os.environ/OPENROUTER_API_KEY
+            - model_name: qwen/worker_universal
               litellm_params:
-                model: bedrock/glm.5.1
-            - model_name: bedrock/worker_vendor_swap
+                model: openrouter/qwen/qwen3.6-35b-a3b
+                api_key: os.environ/OPENROUTER_API_KEY
+            - model_name: qwen/worker_security
               litellm_params:
-                model: bedrock/glm.5.1
-            - model_name: bedrock/worker_recovery
+                model: openrouter/qwen/qwen3.6-35b-a3b
+                api_key: os.environ/OPENROUTER_API_KEY
+            - model_name: qwen/worker_vendor_swap
               litellm_params:
-                model: bedrock/minimax.m2.7
+                model: openrouter/qwen/qwen3.6-35b-a3b
+                api_key: os.environ/OPENROUTER_API_KEY
+            - model_name: qwen/worker_recovery
+              litellm_params:
+                model: openrouter/qwen/qwen3.6-35b-a3b
+                api_key: os.environ/OPENROUTER_API_KEY
       - path: /opt/bountynet/docker-compose.yml
         permissions: "0644"
         content: |
@@ -116,9 +128,11 @@ resource "digitalocean_droplet" "edge_gateway" {
           OPENAI_KEY=$(aws ssm get-parameter --name "${var.secret_parameter_names.openai}" --with-decryption --region "${var.aws_secrets_region}" --query Parameter.Value --output text 2>/dev/null || true)
           ANTHROPIC_KEY=$(aws ssm get-parameter --name "${var.secret_parameter_names.anthropic}" --with-decryption --region "${var.aws_secrets_region}" --query Parameter.Value --output text 2>/dev/null || true)
           GEMINI_KEY=$(aws ssm get-parameter --name "${var.secret_parameter_names.gemini}" --with-decryption --region "${var.aws_secrets_region}" --query Parameter.Value --output text 2>/dev/null || true)
+          OPENROUTER_KEY=$(aws ssm get-parameter --name "${var.secret_parameter_names.openrouter}" --with-decryption --region "${var.aws_secrets_region}" --query Parameter.Value --output text 2>/dev/null || true)
           if [ -n "$OPENAI_KEY" ]; then sed -i "s|^OPENAI_API_KEY=.*|OPENAI_API_KEY=$OPENAI_KEY|" /opt/bountynet/.env; fi
           if [ -n "$ANTHROPIC_KEY" ]; then sed -i "s|^ANTHROPIC_API_KEY=.*|ANTHROPIC_API_KEY=$ANTHROPIC_KEY|" /opt/bountynet/.env; fi
           if [ -n "$GEMINI_KEY" ]; then sed -i "s|^GEMINI_API_KEY=.*|GEMINI_API_KEY=$GEMINI_KEY|" /opt/bountynet/.env; fi
+          if [ -n "$OPENROUTER_KEY" ]; then sed -i "s|^OPENROUTER_API_KEY=.*|OPENROUTER_API_KEY=$OPENROUTER_KEY|" /opt/bountynet/.env; fi
         fi
       - /usr/bin/docker compose -f /opt/bountynet/docker-compose.yml up -d
   EOT

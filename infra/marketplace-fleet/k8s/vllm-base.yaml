@@ -22,7 +22,7 @@ spec:
             - --port
             - "8000"
             - --model
-            - Qwen/Qwen2.5-Coder-32B-Instruct
+            - Qwen/Qwen3.6-35B-A3B
             - --api-key
             - replace-with-strong-key
             - --max-model-len

@@ -55,33 +55,37 @@ This review focuses on your operating target:
      - latency regressions
    - Trigger automatic rollback when thresholds are breached.
 
-## Recommended architecture (many agents, 1-2 base models)
+## Recommended architecture (unified 3-layer wiring)
 
 Use this control pattern:
 
-1. **Base models**
-   - `Model-A`: primary coding/reasoning model.
-   - `Model-B`: optional low-latency drafter or fallback reliability lane.
+1. **Layer A: Marketplace Brain (DigitalOcean)**
+   - LiteLLM + Redis edge gateway.
+   - Forward identity via `X-Agent-ID` (for example `rust_security`).
+   - Reuse KV cache state per repo and append only net-new files.
 
-2. **Agent persona = policy + tools + adapter profile**
-   - Do not spawn new base models for each agent.
-   - Implement each agent as:
-     - system/policy template
-     - tool permission set
-     - retrieval profile
-     - optional LoRA adapter
-     - decoding policy (temperature, max tokens, speculative decode on/off)
+2. **Layer B: Execution Core (AWS Inferentia/Graviton)**
+   - One universal worker base: `Qwen/Qwen3.6-35B-A3B`.
+   - Hot-swap LoRA adapters by Agent-ID instead of per-agent base model replicas.
+   - Keep a CPU lane on Graviton with `llama.cpp` GGUF for low-cost utility jobs.
 
-3. **Adapter packs**
-   - Maintain adapter packs per domain:
-     - TypeScript Auditor
-     - Rust Sentinel
-     - Security Triage
-   - Hot-load per request or per worker pool.
+3. **Layer C: Evolution Loop (AWS Trainium)**
+   - Weekly Axolotl training from successful PRs and preserved thinking traces in S3.
+   - Refresh six identity adapters on top of a shared golden base.
+   - Promotion flow remains trace -> curate -> train -> evaluate -> canary -> promote -> monitor.
 
-4. **Promotion loop**
-   - Trace -> curate -> train -> evaluate -> canary -> promote -> monitor.
-   - Langfuse trace IDs should join every stage for attribution and billing.
+## Dual-tune policy
+
+1. **Golden base (tune infrequently)**
+   - Train once on broad agentic behavior (terminal, tool calls, patch workflows).
+2. **Identity adapters (tune frequently)**
+   - Maintain six compact LoRA adapters for specialist personas.
+   - Focus Rust identity deltas on borrow-checker and recovery trajectories.
+
+## Long-context fit
+
+- Enable `liger_rope: true` for 256k trajectory stability.
+- Run FSDP sharding in Trainium jobs so long-context runs fit memory envelopes.
 
 ## Immediate next infra additions
 

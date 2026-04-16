@@ -166,9 +166,9 @@ function App() {
     { value: 'edge_digitalocean_gateways', label: 'DigitalOcean Edge Gateways' },
     { value: 'global_aws_accelerator', label: 'AWS Global Accelerator' },
     { value: 'global_do_dns', label: 'DigitalOcean Global DNS' },
-    { value: 'bedrock_supervisor_mistral', label: 'Bedrock Supervisor (Mistral Small 4)' },
-    { value: 'bedrock_worker_glm', label: 'Bedrock Worker Pool (GLM 5.1)' },
-    { value: 'bedrock_worker_minimax', label: 'Bedrock Worker Pool (MiniMax M2.7)' },
+    { value: 'bedrock_supervisor_mistral', label: 'Supervisor API (Qwen3.6-Flash)' },
+    { value: 'bedrock_worker_glm', label: 'Universal Worker Pool (Qwen3.6-35B-A3B)' },
+    { value: 'bedrock_worker_minimax', label: 'Worker Thinking Lane (Qwen3.6-35B-A3B)' },
     { value: 'trainium_tuning_loop', label: 'Trainium Tuning Loop (Axolotl qLoRA)' },
   ];
   const componentOptions = operatorSnapshot.components.length
@@ -673,10 +673,10 @@ function App() {
                           >
                             <option value="base">Base</option>
                             <option value="specialist">Specialist</option>
-                            <option value="supervisor">Supervisor (Mistral)</option>
-                            <option value="worker_security">Worker Security (GLM)</option>
-                            <option value="worker_vendor_swap">Worker Vendor Swap (GLM)</option>
-                            <option value="worker_recovery">Worker Recovery (MiniMax)</option>
+                            <option value="supervisor">Supervisor (Qwen3.6-Flash)</option>
+                            <option value="worker_security">Worker Security (Qwen3.6-35B-A3B)</option>
+                            <option value="worker_vendor_swap">Worker Vendor Swap (Qwen3.6-35B-A3B)</option>
+                            <option value="worker_recovery">Worker Recovery (Qwen3.6-35B-A3B)</option>
                             <option value="edge_gateway">Edge Gateway (Droplets)</option>
                             <option value="tuning_loop">Tuning Loop (Trainium)</option>
                           </select>

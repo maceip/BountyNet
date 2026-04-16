@@ -19,7 +19,7 @@ droplet_image = "ubuntu-24-04-x64"
 ssh_key_fingerprints = ["aa:bb:cc:dd"]
 gateway_docker_image = "ghcr.io/berriai/litellm:main-stable"
 
-bedrock_region = "us-west-2"
+model_api_region = "us-west-2"
 aws_control_plane_region = "us-east-1"
 enable_managed_secret_bootstrap = true
 aws_secrets_region = "us-west-2"
@@ -28,6 +28,7 @@ secret_parameter_names = {
   openai    = "/bountynet/market/edge/openai_api_key"
   anthropic = "/bountynet/market/edge/anthropic_api_key"
   gemini    = "/bountynet/market/edge/gemini_api_key"
+  openrouter = "/bountynet/market/edge/openrouter_api_key"
 }
 
 regional_plan = {
