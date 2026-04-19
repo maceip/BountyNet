@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
 import { PageLayout } from '../../layouts/page-layout.jsx';
+import {
+  CommitGraph,
+  PopoverCommandSelect,
+  RepoCard,
+  Terminal,
+} from '../../components/smui/index.jsx';
 
 const initialForm = {
   repoName: 'local/demo-repo',
@@ -328,7 +334,7 @@ const Marketplace = () => {
 
       <section className="bn-market-grid">
         <article className="bn-market-card">
-          <h2>Seed Fleet</h2>
+          <h2 className="bn-card-title">seed fleet</h2>
           <p>Load managed generic and specialist agents.</p>
           <button
             id="mcp-seed-fleet"
@@ -338,11 +344,11 @@ const Marketplace = () => {
           >
             Seed Managed Fleet
           </button>
-          <pre>{seedOutput}</pre>
+          <Terminal title="seed output" content={seedOutput} />
         </article>
 
         <article className="bn-market-card">
-          <h2>Register Repo</h2>
+          <h2 className="bn-card-title">register repo</h2>
           <label htmlFor="repo-name">Repo Full Name</label>
           <input
             id="repo-name"
@@ -387,11 +393,11 @@ const Marketplace = () => {
           <button type="button" onClick={applyPreset} disabled={busyAction === 'repo-preset'}>
             Apply Preset
           </button>
-          <pre>{repoOutput}</pre>
+          <Terminal title="repo output" content={repoOutput} />
         </article>
 
         <article className="bn-market-card">
-          <h2>Create Job</h2>
+          <h2 className="bn-card-title">create job</h2>
           <label htmlFor="job-repo">Repo Full Name</label>
           <input
             id="job-repo"
@@ -483,25 +489,25 @@ const Marketplace = () => {
           <button type="button" onClick={loadJobs} disabled={busyAction === 'job-refresh'}>
             Refresh Jobs
           </button>
-          <pre>{jobOutput}</pre>
+          <Terminal title="job output" content={jobOutput} />
         </article>
       </section>
 
       <section className="bn-market-card bn-market-jobs">
-        <h2>Jobs</h2>
-        <label htmlFor="selected-job">Selected job for offer/award/settlement/dispute</label>
-        <select
+        <h2 className="bn-card-title">jobs</h2>
+        <PopoverCommandSelect
           id="selected-job"
+          label="Selected job for offer/award/settlement/dispute"
           value={selectedJobId}
-          onChange={(event) => setSelectedJobId(event.target.value)}
-        >
-          <option value="">-- select --</option>
-          {jobs.map((job) => (
-            <option key={job.id} value={job.id}>
-              {job.title} ({job.status})
-            </option>
-          ))}
-        </select>
+          onChange={setSelectedJobId}
+          options={[
+            { value: '', label: '-- select --' },
+            ...jobs.map((job) => ({
+              value: job.id,
+              label: `${job.title} (${job.status})`,
+            })),
+          ]}
+        />
         <div id="jobs-list">
           {jobs.length === 0 && <p>No jobs yet.</p>}
           {jobs.map((job) => (
@@ -527,7 +533,7 @@ const Marketplace = () => {
 
       <section className="bn-market-grid">
         <article className="bn-market-card">
-          <h2>Offer board</h2>
+          <h2 className="bn-card-title">offer board</h2>
           <label htmlFor="offer-agent">Agent ID</label>
           <input
             id="offer-agent"
@@ -575,22 +581,22 @@ const Marketplace = () => {
         </article>
 
         <article className="bn-market-card">
-          <h2>Award panel</h2>
-          <label htmlFor="award-offer">Offer ID</label>
-          <select
+          <h2 className="bn-card-title">award panel</h2>
+          <PopoverCommandSelect
             id="award-offer"
+            label="Offer ID"
             value={awardOfferId}
-            onChange={(event) => setAwardOfferId(event.target.value)}
-          >
-            <option value="">-- select offer --</option>
-            {offers
-              .filter((offer) => offer.status === 'open')
-              .map((offer) => (
-                <option key={offer.id} value={offer.id}>
-                  {offer.id} ({offer.agent_id})
-                </option>
-              ))}
-          </select>
+            onChange={setAwardOfferId}
+            options={[
+              { value: '', label: '-- select offer --' },
+              ...offers
+                .filter((offer) => offer.status === 'open')
+                .map((offer) => ({
+                  value: offer.id,
+                  label: `${offer.id} (${offer.agent_id})`,
+                })),
+            ]}
+          />
           <button type="button" onClick={awardOffer} disabled={busyAction === 'offer-award'}>
             Award Selected Offer
           </button>
@@ -599,7 +605,7 @@ const Marketplace = () => {
 
       <section className="bn-market-grid">
         <article className="bn-market-card">
-          <h2>Settlement controls</h2>
+          <h2 className="bn-card-title">settlement controls</h2>
           {settlements.length === 0 && <p>No settlements yet.</p>}
           {settlements.map((settlement) => (
             <article key={settlement.id} className="bn-market-job">
@@ -629,7 +635,7 @@ const Marketplace = () => {
         </article>
 
         <article className="bn-market-card">
-          <h2>Dispute panel</h2>
+          <h2 className="bn-card-title">dispute panel</h2>
           <label htmlFor="dispute-settlement">Settlement ID (optional)</label>
           <input
             id="dispute-settlement"
@@ -671,7 +677,7 @@ const Marketplace = () => {
 
       <section className="bn-market-grid">
         <article className="bn-market-card">
-          <h2>Operator stream</h2>
+          <h2 className="bn-card-title">operator stream</h2>
           {operators.length === 0 && <p>No operators yet.</p>}
           {operators.slice(0, 10).map((operator) => (
             <article key={operator.id || operator.slug} className="bn-market-job">
@@ -684,16 +690,13 @@ const Marketplace = () => {
           ))}
         </article>
         <article className="bn-market-card">
-          <h2>Repository stream</h2>
+          <h2 className="bn-card-title">repository stream</h2>
           {repos.length === 0 && <p>No repositories yet.</p>}
           {repos.slice(0, 10).map((repo) => (
-            <article key={repo.id || repo.repo_full_name} className="bn-market-job">
-              <p>
-                <strong>{repo.repo_full_name}</strong>
-              </p>
-              <p>installation #{repo.installation_id}</p>
-              <p>{repo.status || 'unknown'}</p>
-            </article>
+            <div key={repo.id || repo.repo_full_name}>
+              <RepoCard repo={repo} />
+              <CommitGraph seed={repo.repo_full_name} />
+            </div>
           ))}
         </article>
       </section>

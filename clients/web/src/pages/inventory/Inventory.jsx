@@ -1,5 +1,6 @@
 import { usePollingJson } from '../../hooks/usePollingJson.js';
 import { PageLayout } from '../../layouts/page-layout.jsx';
+import { AnimatedNumber, Gauge } from '../../components/smui/index.jsx';
 
 const INITIAL_DASHBOARD = {
   agent: {},
@@ -36,7 +37,8 @@ const Inventory = () => {
 
       <section className="bn-market-grid">
         <article className="bn-market-card">
-          <h2>Work done for you (Bob)</h2>
+          <h2 className="bn-card-title">work done for you (bob)</h2>
+          <Gauge value={recentJobs.length} max={30} label="job throughput" />
           {recentJobs.length === 0 && <p>No jobs yet.</p>}
           {recentJobs.slice(0, 12).map((job) => (
             <article key={job.id} className="bn-market-job">
@@ -52,7 +54,8 @@ const Inventory = () => {
         </article>
 
         <article className="bn-market-card">
-          <h2>Work done by you (Alice)</h2>
+          <h2 className="bn-card-title">work done by you (alice)</h2>
+          <Gauge value={sessions.length} max={40} label="session volume" />
           {sessions.length === 0 && <p>No session history yet.</p>}
           {sessions.slice(0, 12).map((session) => (
             <article key={session.context_hash || `${session.repo}-${session.check_name}`} className="bn-market-job">
@@ -62,14 +65,15 @@ const Inventory = () => {
               <p>{session.check_name || 'check'}</p>
               <p>
                 <span>{session.status || 'unknown'}</span>{' '}
-                <span>{session.tokens_total || 0} tokens</span>
+                <span><AnimatedNumber value={session.tokens_total || 0} /> tokens</span>
               </p>
             </article>
           ))}
         </article>
 
         <article className="bn-market-card">
-          <h2>Registered agent inventory</h2>
+          <h2 className="bn-card-title">registered agent inventory</h2>
+          <Gauge value={registeredAgents.length} max={40} label="agent count" />
           {registeredAgents.length === 0 && <p>No agents registered yet.</p>}
           {registeredAgents.slice(0, 12).map((agent) => (
             <article key={agent.id || agent.slug} className="bn-market-job">

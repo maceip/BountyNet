@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PageLayout } from '../../layouts/page-layout.jsx';
+import { CodeLine, Terminal } from '../../components/smui/index.jsx';
 
 const SimulatorConfig = () => {
   const [journeys, setJourneys] = useState({});
@@ -28,14 +29,16 @@ const SimulatorConfig = () => {
       </section>
       <section className="bn-market-grid">
         <article className="bn-market-card">
-          <h2>Journey manifest</h2>
-          <pre>{JSON.stringify(journeys, null, 2)}</pre>
+          <h2 className="bn-card-title">journey manifest</h2>
+          <Terminal title="journey manifest" content={journeys} />
         </article>
         <article className="bn-market-card">
-          <h2>Run commands</h2>
-          <pre>{`npm run dev:full\nnpm run dev:test:webmcp\nnpm run dev:test:full`}</pre>
+          <h2 className="bn-card-title">run commands</h2>
+          <CodeLine>npm run dev:full</CodeLine>
+          <CodeLine>npm run dev:test:webmcp</CodeLine>
+          <CodeLine>npm run dev:test:full</CodeLine>
           <p>Output:</p>
-          <pre>{output || 'idle'}</pre>
+          <Terminal title="simulator output" content={output || 'idle'} />
         </article>
       </section>
     </PageLayout>

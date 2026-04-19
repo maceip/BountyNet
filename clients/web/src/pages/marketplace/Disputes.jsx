@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PageLayout } from '../../layouts/page-layout.jsx';
+import { PopoverCommandSelect, Terminal } from '../../components/smui/index.jsx';
 
 const Disputes = () => {
   const [jobId, setJobId] = useState('');
@@ -74,27 +75,28 @@ const Disputes = () => {
           ))}
         </article>
         <article className="bn-market-card">
-          <h2>Resolve dispute</h2>
+          <h2 className="bn-card-title">resolve dispute</h2>
           <label htmlFor="resolve-dispute-id">Dispute ID</label>
           <input
             id="resolve-dispute-id"
             value={resolve.disputeId}
             onChange={(event) => setResolve((s) => ({ ...s, disputeId: event.target.value }))}
           />
-          <label htmlFor="resolve-ruling">Ruling</label>
-          <select
+          <PopoverCommandSelect
             id="resolve-ruling"
+            label="Ruling"
             value={resolve.ruling}
-            onChange={(event) => setResolve((s) => ({ ...s, ruling: event.target.value }))}
-          >
-            <option value="refund_buyer">refund_buyer</option>
-            <option value="uphold_agent">uphold_agent</option>
-            <option value="split">split</option>
-          </select>
+            onChange={(ruling) => setResolve((s) => ({ ...s, ruling }))}
+            options={[
+              { value: 'refund_buyer', label: 'refund_buyer' },
+              { value: 'uphold_agent', label: 'uphold_agent' },
+              { value: 'split', label: 'split' },
+            ]}
+          />
           <button type="button" onClick={resolveDispute}>
             Resolve
           </button>
-          <pre>{output}</pre>
+          <Terminal title="dispute output" content={output} />
         </article>
       </section>
     </PageLayout>

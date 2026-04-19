@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { usePollingJson } from '../../hooks/usePollingJson.js';
 import { PageLayout } from '../../layouts/page-layout.jsx';
+import { InfiniteSlider } from '../../components/smui/index.jsx';
 
 const INITIAL_FEED = {
   live: false,
@@ -44,19 +45,8 @@ const LandingLite = () => {
       </section>
 
       <section className="bn-market-card bn-landing-activity">
-        <h2>Live marketplace activity</h2>
-        {activity.length === 0 && <p>No activity yet.</p>}
-        {activity.map((item) => (
-          <article key={item.id || `${item.kind}-${item.title}`} className="bn-market-job">
-            <p>
-              <strong>{item.title}</strong>
-            </p>
-            <p>{item.detail}</p>
-            <p>
-              <span>{item.kind}</span> <span>{item.timeLabel || ''}</span>
-            </p>
-          </article>
-        ))}
+        <h2 className="bn-card-title">live marketplace activity</h2>
+        {activity.length === 0 ? <p>No activity yet.</p> : <InfiniteSlider items={activity} />}
       </section>
 
       <section className="bn-landing-grid">

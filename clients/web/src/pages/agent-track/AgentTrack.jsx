@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PageLayout } from '../../layouts/page-layout.jsx';
 import {
+  Chat,
+  CommitGraph,
+  Pane,
+  PaneGroup,
+  RepoCard,
+  Terminal,
+} from '../../components/smui/index.jsx';
+import {
   addAgentRepoPair,
   appendAgentTrackEvent,
   getAgentTrackState,
 } from '../../utils/agentTrackStore.js';
-import {
-  consumeVoiceTranscript,
-  getVoiceInbox,
-  pushVoiceTranscript,
-} from '../../utils/voiceInbox.js';
+import { consumeVoiceTranscript, getVoiceInbox, pushVoiceTranscript } from '../../utils/voiceInbox.js';
 
 const randomDelayMs = () => Math.floor(500 + Math.random() * 2500);
 
@@ -37,9 +41,17 @@ const AgentTrack = () => {
     };
     window.addEventListener('bn:agent-track-updated', updateTrack);
     window.addEventListener('bn:voice-inbox-updated', updateVoice);
+    const transcriptListener = (event) => {
+      const text = event.detail?.text;
+      if (text) {
+        setDraftText((current) => `${current}${current ? '\n' : ''}${text}`);
+      }
+    };
+    window.addEventListener('bn:status-rail-transcript', transcriptListener);
     return () => {
       window.removeEventListener('bn:agent-track-updated', updateTrack);
       window.removeEventListener('bn:voice-inbox-updated', updateVoice);
+      window.removeEventListener('bn:status-rail-transcript', transcriptListener);
     };
   }, []);
 
@@ -119,7 +131,7 @@ const AgentTrack = () => {
 
       <section className="bn-market-grid">
         <article className="bn-market-card">
-          <h2>Simulator controls</h2>
+          <h2 className="bn-card-title">simulator controls</h2>
           <p>Pair cadence: random delay between 500ms and 3000ms.</p>
           <button type="button" onClick={() => setIsSimulating((v) => !v)}>
             {isSimulating ? 'Pause simulator' : 'Resume simulator'}
@@ -128,66 +140,54 @@ const AgentTrack = () => {
             Add pair now
           </button>
           <p>Pending voice items: {pendingVoiceCount}</p>
+          <CommitGraph seed={`${pendingVoiceCount}-${agents.length}-${repos.length}`} />
         </article>
 
         <article className="bn-market-card">
-          <h2>Agent-track text interface</h2>
-          <label htmlFor="agent-track-draft">Draft text</label>
-          <textarea
-            id="agent-track-draft"
-            rows={8}
+          <h2 className="bn-card-title">agent-track text interface</h2>
+          <Chat
+            title="agent track chat"
             value={draftText}
-            onChange={(event) => setDraftText(event.target.value)}
-            placeholder="Voice items auto-append here when no input was selected."
+            onChange={setDraftText}
+            onSend={queueDraft}
           />
-          <button type="button" onClick={queueDraft}>
-            Return draft to voice inbox
-          </button>
         </article>
       </section>
 
       <section className="bn-market-grid">
-        <article className="bn-market-card">
-          <h2>Agent stream</h2>
-          {agents.length === 0 && <p>No agents yet.</p>}
-          {agents.slice(0, 16).map((agent) => (
-            <article key={agent.id} className="bn-market-job">
-              <p>
-                <strong>{agent.slug}</strong>
-              </p>
-              <p>{agent.status}</p>
-              <p>{agent.at}</p>
+        <PaneGroup persistKey="agent-track-three-panes">
+          <Pane>
+            <article className="bn-market-card">
+              <h2 className="bn-card-title">agent stream</h2>
+              {agents.length === 0 && <p>No agents yet.</p>}
+              {agents.slice(0, 16).map((agent) => (
+                <article key={agent.id} className="bn-market-job">
+                  <p>
+                    <strong>{agent.slug}</strong>
+                  </p>
+                  <p>{agent.status}</p>
+                  <p>{agent.at}</p>
+                </article>
+              ))}
             </article>
-          ))}
-        </article>
-        <article className="bn-market-card">
-          <h2>Repository stream</h2>
-          {repos.length === 0 && <p>No repositories yet.</p>}
-          {repos.slice(0, 16).map((repo) => (
-            <article key={repo.id} className="bn-market-job">
-              <p>
-                <strong>{repo.repo_full_name}</strong>
-              </p>
-              <p>{repo.status}</p>
-              <p>{repo.at}</p>
+          </Pane>
+          <Pane>
+            <article className="bn-market-card">
+              <h2 className="bn-card-title">repository stream</h2>
+              {repos.length === 0 && <p>No repositories yet.</p>}
+              {repos.slice(0, 16).map((repo) => (
+                <RepoCard key={repo.id} repo={repo} />
+              ))}
             </article>
-          ))}
-        </article>
-        <article className="bn-market-card">
-          <h2>Assignment log</h2>
-          {events.length === 0 && <p>No events yet.</p>}
-          {events.slice(0, 16).map((event) => (
-            <article key={event.id} className="bn-market-job">
-              <p>
-                <strong>{event.kind}</strong>
-              </p>
-              <p>{event.detail}</p>
-              <p>
-                {event.source} - {event.at}
-              </p>
+          </Pane>
+          <Pane>
+            <article className="bn-market-card">
+              <h2 className="bn-card-title">assignment log</h2>
+              {events.length === 0 && <p>No events yet.</p>}
+              <Terminal title="assignments" content={events.slice(0, 16)} />
             </article>
-          ))}
-        </article>
+          </Pane>
+        </PaneGroup>
       </section>
     </PageLayout>
   );

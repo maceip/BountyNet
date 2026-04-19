@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
 import { PageLayout } from '../../layouts/page-layout.jsx';
+import {
+  CodeLine,
+  Pane,
+  PaneGroup,
+  PopoverCommandSelect,
+  Terminal,
+} from '../../components/smui/index.jsx';
 
 const MarketAdmin = () => {
   const [topology, setTopology] = useState(null);
@@ -82,26 +89,34 @@ const MarketAdmin = () => {
       </section>
 
       <section className="bn-market-grid">
-        <article className="bn-market-card">
-          <h2>Serving topology</h2>
-          <pre>{JSON.stringify(topology || {}, null, 2)}</pre>
-        </article>
-        <article className="bn-market-card">
-          <h2>Infra drift</h2>
-          <button type="button" onClick={runDrift}>
-            Run drift scan
-          </button>
-          <pre>{JSON.stringify(drift || {}, null, 2)}</pre>
-        </article>
+        <PaneGroup persistKey="admin-topology-drift-runbook">
+          <Pane>
+            <article className="bn-market-card">
+              <h2 className="bn-card-title">serving topology</h2>
+              <Terminal title="topology" content={topology || {}} />
+            </article>
+          </Pane>
+          <Pane>
+            <article className="bn-market-card">
+              <h2 className="bn-card-title">infra drift</h2>
+              <button type="button" onClick={runDrift}>
+                run drift scan
+              </button>
+              <Terminal title="drift report" content={drift || {}} />
+            </article>
+          </Pane>
+          <Pane>
+            <article className="bn-market-card">
+              <h2 className="bn-card-title">runbook + orchestration slos</h2>
+              <Terminal title="runbook" content={runbook || {}} />
+            </article>
+          </Pane>
+        </PaneGroup>
       </section>
 
       <section className="bn-market-grid">
         <article className="bn-market-card">
-          <h2>Runbook + orchestration SLOs</h2>
-          <pre>{JSON.stringify(runbook || {}, null, 2)}</pre>
-        </article>
-        <article className="bn-market-card">
-          <h2>Market incidents/actions</h2>
+          <h2 className="bn-card-title">market incidents/actions</h2>
           {incidents.length === 0 && <p>No incidents yet.</p>}
           {incidents.map((incident) => (
             <article key={incident.id} className="bn-market-job">
@@ -118,26 +133,28 @@ const MarketAdmin = () => {
       </section>
 
       <section className="bn-market-card">
-        <h2>Settlement freeze controls</h2>
+        <h2 className="bn-card-title">settlement freeze controls</h2>
         <label htmlFor="settlement-id">Settlement ID</label>
         <input
           id="settlement-id"
           value={freezeForm.settlementId}
           onChange={(event) => setFreezeForm((s) => ({ ...s, settlementId: event.target.value }))}
         />
-        <label htmlFor="settlement-action">Action</label>
-        <select
+        <PopoverCommandSelect
           id="settlement-action"
+          label="Action"
           value={freezeForm.action}
-          onChange={(event) => setFreezeForm((s) => ({ ...s, action: event.target.value }))}
-        >
-          <option value="freeze">freeze</option>
-          <option value="unfreeze">unfreeze</option>
-        </select>
+          onChange={(action) => setFreezeForm((s) => ({ ...s, action }))}
+          options={[
+            { label: 'freeze', value: 'freeze' },
+            { label: 'unfreeze', value: 'unfreeze' },
+          ]}
+        />
         <button type="button" onClick={freezeOrUnfreeze}>
-          Apply
+          apply
         </button>
-        <pre>{output || 'idle'}</pre>
+        <CodeLine>{`curl -X POST /api/bountynet/ops/market/settlements/:id/${freezeForm.action}`}</CodeLine>
+        <Terminal title="control output" content={output || 'idle'} />
       </section>
     </PageLayout>
   );

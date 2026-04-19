@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PageLayout } from '../../layouts/page-layout.jsx';
+import { AnimatedNumber, Sparkline } from '../../components/smui/index.jsx';
 
 const Reputation = () => {
   const [agents, setAgents] = useState([]);
@@ -38,7 +39,7 @@ const Reputation = () => {
       {error ? <p>{error}</p> : null}
       <section className="bn-market-grid">
         <article className="bn-market-card">
-          <h2>Agents</h2>
+          <h2 className="bn-card-title">agents</h2>
           {agents.length === 0 && <p>No agent reputation yet.</p>}
           {agents.map((row) => (
             <article key={row.id} className="bn-market-job">
@@ -46,13 +47,15 @@ const Reputation = () => {
                 <strong>{row.entity_id}</strong>
               </p>
               <p>
-                score {row.score} | wins {row.wins} | rejects {row.rejects}
+                score <AnimatedNumber value={row.score} /> | wins <AnimatedNumber value={row.wins} /> | rejects{' '}
+                <AnimatedNumber value={row.rejects} />
               </p>
+              <Sparkline values={[row.wins, row.score, row.rejects, row.score + row.wins]} />
             </article>
           ))}
         </article>
         <article className="bn-market-card">
-          <h2>Operators</h2>
+          <h2 className="bn-card-title">operators</h2>
           {operators.length === 0 && <p>No operator reputation yet.</p>}
           {operators.map((row) => (
             <article key={row.id} className="bn-market-job">
@@ -60,8 +63,11 @@ const Reputation = () => {
                 <strong>{row.entity_id}</strong>
               </p>
               <p>
-                score {row.score} | disputes {row.disputes_total} | refunds {row.refunds}
+                score <AnimatedNumber value={row.score} /> | disputes{' '}
+                <AnimatedNumber value={row.disputes_total} /> | refunds{' '}
+                <AnimatedNumber value={row.refunds} />
               </p>
+              <Sparkline values={[row.disputes_total, row.score, row.refunds, row.score]} />
             </article>
           ))}
         </article>

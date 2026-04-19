@@ -7,9 +7,8 @@
 
 import { Suspense } from 'react';
 import classNames from 'classnames';
-import { NavLink } from 'react-router';
-import { navItems } from '../routes/config.js';
-import { VoiceStatusRail } from '../components/voice/VoiceStatusRail.jsx';
+import { CommandPalette, StatusRail, openCommandPalette } from '../components/smui/index.jsx';
+import { pushVoiceTranscript } from '../utils/voiceInbox.js';
 
 /**
  * PageLayout component provides a consistent layout structure for pages in the application.
@@ -29,7 +28,6 @@ import { VoiceStatusRail } from '../components/voice/VoiceStatusRail.jsx';
  */
 
 export const PageLayout = ({ children, className, fallback }) => {
-  const links = navItems.filter((item) => !item.children);
   return (
     <Suspense fallback={fallback}>
       <div className={classNames('cs--page-layout', className)}>
@@ -39,15 +37,19 @@ export const PageLayout = ({ children, className, fallback }) => {
             <strong>BountyNet</strong>
           </div>
           <nav className="bn-shell-nav" aria-label="Primary">
-            {links.map((item) => (
-              <NavLink key={item.path} to={item.path}>
-                {item.label}
-              </NavLink>
-            ))}
+            <button type="button" onClick={() => openCommandPalette()}>
+              open command palette
+            </button>
           </nav>
         </header>
         <main className="cs--content cs--page-layout__content">{children}</main>
-        <VoiceStatusRail />
+        <CommandPalette />
+        <StatusRail
+          onTranscript={(text) => {
+            window.dispatchEvent(new CustomEvent('bn:status-rail-transcript', { detail: { text } }));
+            pushVoiceTranscript(text, 'status-rail');
+          }}
+        />
       </div>
     </Suspense>
   );

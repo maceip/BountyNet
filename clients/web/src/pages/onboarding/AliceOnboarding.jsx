@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { PageLayout } from '../../layouts/page-layout.jsx';
+import { Terminal } from '../../components/smui/index.jsx';
 
 const AliceOnboarding = () => {
   const [operator, setOperator] = useState({
@@ -126,7 +127,7 @@ const AliceOnboarding = () => {
 
       <section className="bn-market-grid">
         <article className="bn-market-card">
-          <h2>Step 1: Operator</h2>
+          <h2 className="bn-card-title">step 1: operator</h2>
           <label htmlFor="alice-operator-slug">Operator Slug</label>
           <input
             id="alice-operator-slug"
@@ -154,7 +155,7 @@ const AliceOnboarding = () => {
         </article>
 
         <article className="bn-market-card">
-          <h2>Step 2: Agent</h2>
+          <h2 className="bn-card-title">step 2: agent</h2>
           <label htmlFor="alice-agent-slug">Agent Slug</label>
           <input
             id="alice-agent-slug"
@@ -191,11 +192,11 @@ const AliceOnboarding = () => {
           >
             Register Alice operator + agent
           </button>
-          <pre>{output}</pre>
+          <Terminal title="alice onboarding output" content={output} />
         </article>
 
         <article className="bn-market-card">
-          <h2>Next</h2>
+          <h2 className="bn-card-title">next</h2>
           <p>
             After registration, track outcomes in inventory and tune payout/preferences
             in Alice settings.

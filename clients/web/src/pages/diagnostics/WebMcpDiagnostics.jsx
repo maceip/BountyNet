@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { PageLayout } from '../../layouts/page-layout.jsx';
+import { Terminal } from '../../components/smui/index.jsx';
 import { getWebMcpDiagnostics } from '../../webmcp/registerTools.js';
 
 const INITIAL_JOURNEYS = {
@@ -49,22 +50,19 @@ const WebMcpDiagnostics = () => {
 
       <section className="bn-market-grid">
         <article className="bn-market-card">
-          <h2>Runtime status</h2>
-          <pre>
-            {JSON.stringify(
-              {
-                webmcpAvailable: diag.webmcpAvailable,
-                registered: diag.registered,
-                initError: diag.initError,
-                toolCount: (diag.registeredTools || []).length,
-              },
-              null,
-              2,
-            )}
-          </pre>
+          <h2 className="bn-card-title">runtime status</h2>
+          <Terminal
+            title="runtime"
+            content={{
+              webmcpAvailable: diag.webmcpAvailable,
+              registered: diag.registered,
+              initError: diag.initError,
+              toolCount: (diag.registeredTools || []).length,
+            }}
+          />
         </article>
         <article className="bn-market-card">
-          <h2>Registered tools</h2>
+          <h2 className="bn-card-title">registered tools</h2>
           {(diag.registeredTools || []).length === 0 && <p>No tools registered.</p>}
           {(diag.registeredTools || []).map((tool) => (
             <p key={tool}>
@@ -73,18 +71,16 @@ const WebMcpDiagnostics = () => {
           ))}
         </article>
         <article className="bn-market-card">
-          <h2>Last tool call</h2>
-          <pre>{JSON.stringify(diag.lastCall || {}, null, 2)}</pre>
+          <h2 className="bn-card-title">last tool call</h2>
+          <Terminal title="last tool call" content={diag.lastCall || {}} />
         </article>
       </section>
 
       <section className="bn-market-grid">
         <article className="bn-market-card">
-          <h2>Journey manifest</h2>
+          <h2 className="bn-card-title">journey manifest</h2>
           {journeyError ? <p>{journeyError}</p> : null}
-          {!journeyError && (
-            <pre>{JSON.stringify(journeys, null, 2)}</pre>
-          )}
+          {!journeyError && <Terminal title="manifest" content={journeys} />}
         </article>
         <article className="bn-market-card">
           <h2>Quick actions</h2>
