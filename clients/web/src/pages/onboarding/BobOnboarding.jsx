@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { PageLayout } from '../../layouts/page-layout.jsx';
+import { PopoverCommandSelect, Terminal } from '../../components/smui/index.jsx';
 
 const GITHUB_APP_INSTALL_URL =
   import.meta.env.VITE_GITHUB_APP_INSTALL_URL || 'https://github.com/apps';
@@ -81,26 +82,26 @@ const BobOnboarding = () => {
 
   return (
     <PageLayout fallback={<p>Loading Bob onboarding...</p>}>
-      <section className="bn-landing-hero">
-        <p className="bn-eyebrow">Persona onboarding: Bob</p>
-        <h1>Connect GitHub and configure spend policy.</h1>
+      <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
+        <p className="text-label">persona onboarding: bob</p>
+        <h1>connect github and configure spend policy.</h1>
         <p>
           This is the repo-owner path: installation access, target repos, required checks,
           and budget controls.
         </p>
       </section>
 
-      <section className="bn-market-grid">
-        <article className="bn-market-card">
-          <h2>Step 1: GitHub App install</h2>
+      <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 desktop:grid-cols-3 fold:px-6 desktop:px-8">
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">step 1: github app install</h2>
           <p>Install and authorize the app for your organization or repository.</p>
           <a href={GITHUB_APP_INSTALL_URL} target="_blank" rel="noreferrer">
             Open GitHub App installation
           </a>
         </article>
 
-        <article className="bn-market-card">
-          <h2>Step 2: Repository + spend setup</h2>
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">step 2: repository + spend setup</h2>
           <label htmlFor="bob-repo">Repo Full Name</label>
           <input
             id="bob-repo"
@@ -119,7 +120,7 @@ const BobOnboarding = () => {
             value={form.installationId}
             onChange={(e) => setForm((s) => ({ ...s, installationId: e.target.value }))}
           />
-          <div className="bn-market-inline">
+          <div className="grid grid-cols-1 gap-2 fold:grid-cols-2">
             <div>
               <label htmlFor="bob-monthly">Monthly Cap</label>
               <input
@@ -137,27 +138,28 @@ const BobOnboarding = () => {
               />
             </div>
           </div>
-          <label htmlFor="bob-preset">Preset</label>
-          <select
+          <PopoverCommandSelect
             id="bob-preset"
+            label="Preset"
             value={form.preset}
-            onChange={(e) => setForm((s) => ({ ...s, preset: e.target.value }))}
-          >
-            <option value="typescript_ci_repair">typescript_ci_repair</option>
-            <option value="typescript_security_audit">typescript_security_audit</option>
-            <option value="rust_security_patch">rust_security_patch</option>
-            <option value="rust_porting">rust_porting</option>
-          </select>
+            onChange={(preset) => setForm((s) => ({ ...s, preset }))}
+            options={[
+              { value: 'typescript_ci_repair', label: 'typescript_ci_repair' },
+              { value: 'typescript_security_audit', label: 'typescript_security_audit' },
+              { value: 'rust_security_patch', label: 'rust_security_patch' },
+              { value: 'rust_porting', label: 'rust_porting' },
+            ]}
+          />
           <button id="mcp-bob-save" type="button" onClick={save} disabled={busy}>
             Save Bob configuration
           </button>
-          <pre>{output}</pre>
+          <Terminal title="bob onboarding output" content={output} />
         </article>
 
-        <article className="bn-market-card">
-          <h2>Next</h2>
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">next</h2>
           <p>Once configured, Bob can monitor outcomes and spend from inventory/settings.</p>
-          <div className="bn-cta-row">
+          <div className="mt-4 flex flex-wrap gap-2">
             <Link to="/inventory">Open inventory</Link>
             <Link to="/settings/bob">Bob settings</Link>
             <Link to="/marketplace">Marketplace stream</Link>

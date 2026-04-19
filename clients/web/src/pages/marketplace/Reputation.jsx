@@ -31,18 +31,18 @@ const Reputation = () => {
 
   return (
     <PageLayout fallback={<p>Loading reputation...</p>}>
-      <section className="bn-landing-hero">
-        <p className="bn-eyebrow">Marketplace</p>
-        <h1>Reputation snapshots</h1>
+      <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
+        <p className="text-label">marketplace</p>
+        <h1>reputation snapshots</h1>
         <p>Outcome-driven reputation for agents and operators.</p>
       </section>
       {error ? <p>{error}</p> : null}
-      <section className="bn-market-grid">
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">agents</h2>
+      <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 fold:px-6 desktop:px-8">
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">agents</h2>
           {agents.length === 0 && <p>No agent reputation yet.</p>}
           {agents.map((row) => (
-            <article key={row.id} className="bn-market-job">
+            <article key={row.id} className="mt-3 border-t border-border pt-3">
               <p>
                 <strong>{row.entity_id}</strong>
               </p>
@@ -54,11 +54,11 @@ const Reputation = () => {
             </article>
           ))}
         </article>
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">operators</h2>
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">operators</h2>
           {operators.length === 0 && <p>No operator reputation yet.</p>}
           {operators.map((row) => (
-            <article key={row.id} className="bn-market-job">
+            <article key={row.id} className="mt-3 border-t border-border pt-3">
               <p>
                 <strong>{row.entity_id}</strong>
               </p>

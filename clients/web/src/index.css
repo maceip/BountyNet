@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap');
 @import "tailwindcss";
 @custom-variant dark (&:is(.dark *));
 
@@ -15,7 +15,8 @@
 }
 
 @theme inline {
-  --font-sans: 'JetBrains Mono', monospace;
+  --font-sans: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -70,15 +71,6 @@
   --smui-yellow: hsl(40 71% 73%);
   --smui-red: hsl(355 52% 64%);
   --smui-crimson: hsl(355 52% 64%);
-  --bn-bg: var(--smui-surface-0);
-  --bn-bg-elev-1: var(--smui-surface-1);
-  --bn-bg-elev-2: var(--smui-surface-2);
-  --bn-bg-elev-3: var(--smui-surface-3);
-  --bn-accent: var(--smui-frost-2);
-  --bn-accent-strong: var(--smui-frost-2);
-  --bn-success: var(--smui-green);
-  --bn-warning: var(--smui-yellow);
-  --bn-danger: var(--smui-red);
   --background: hsl(213 16% 12%);
   --foreground: hsl(213 27% 88%);
   --card: hsl(217 16% 15.5%);
@@ -156,121 +148,14 @@
 @layer base {
   body {
     @apply m-0 bg-background text-foreground antialiased;
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-      'Liberation Mono', 'Courier New', monospace;
+    font-family: var(--font-sans);
   }
 
   a {
     @apply text-inherit;
   }
-
-  * {
-    border-radius: 0;
-  }
 }
 
-@layer components {
-  .cs--page-layout {
-    @apply min-h-screen bg-background text-foreground;
-  }
-
-  .cs--page-layout__content {
-    @apply mx-auto min-h-[calc(100vh-4rem)] w-full max-w-[90rem] px-3 pt-4 pb-28 fold:px-6 fold:pt-6 fold:pb-28 desktop:px-8;
-  }
-
-  .bn-shell-header {
-    @apply sticky top-0 z-20 flex flex-col gap-3 border-b border-border bg-card px-3 py-3 fold:flex-row fold:items-center fold:justify-between fold:px-6 desktop:px-8;
-  }
-
-  .bn-shell-brand {
-    @apply inline-flex items-center gap-2 text-foreground;
-  }
-
-  .bn-shell-brand img {
-    @apply h-6 w-auto;
-  }
-
-  .bn-shell-nav {
-    @apply flex items-center gap-2;
-  }
-
-  .bn-shell-nav button {
-    @apply border border-border bg-secondary px-3 py-2 text-xs uppercase tracking-[1.5px] text-foreground;
-  }
-
-  .bn-market-hero,
-  .bn-landing-hero {
-    @apply mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 fold:py-8 desktop:px-8 desktop:py-10;
-  }
-
-  .bn-market-grid,
-  .bn-landing-grid {
-    @apply mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 fold:px-6 desktop:grid-cols-3 desktop:px-8;
-  }
-
-  .bn-market-card {
-    @apply border border-border bg-card p-4 text-foreground;
-  }
-
-  .bn-market-inline {
-    @apply grid grid-cols-1 gap-2 fold:grid-cols-2;
-  }
-
-  .bn-market-card input,
-  .bn-market-card select,
-  .bn-market-card textarea,
-  .bn-market-card button {
-    @apply mt-1 block w-full border border-input bg-secondary px-3 py-2 text-sm text-foreground;
-  }
-
-  .bn-market-card button {
-    @apply cursor-pointer border-primary bg-primary/20 transition-colors hover:bg-primary/30 disabled:cursor-not-allowed disabled:opacity-55;
-  }
-
-  .bn-market-jobs,
-  .bn-landing-activity {
-    @apply mx-auto mt-4 w-full max-w-6xl px-3 fold:px-6 desktop:px-8;
-  }
-
-  .bn-market-job {
-    @apply mt-3 border-t border-border pt-3;
-  }
-
-  .bn-eyebrow,
-  .bn-card-title {
-    @apply text-xs uppercase tracking-[1.5px] font-normal text-muted-foreground;
-  }
-
-  .bn-cta-row {
-    @apply mt-4 flex flex-wrap gap-2;
-  }
-
-  .bn-cta-row a {
-    @apply border border-border bg-secondary px-3 py-2 text-sm no-underline transition-colors hover:border-primary hover:bg-primary/10;
-  }
-
-  .bn-not-found {
-    @apply mx-auto w-full max-w-xl px-3 py-8 fold:px-6 desktop:px-8;
-  }
-
-  .bn-webmcp-declarative {
-    @apply hidden;
-  }
-
-  .bn-infinite-slider {
-    animation: bn-slide 24s linear infinite;
-  }
-
-  .bn-infinite-slider:hover {
-    animation-play-state: paused;
-  }
-}
-
-@keyframes bn-slide {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
+.text-label {
+  @apply text-[11px] uppercase tracking-[1.5px] font-normal text-muted-foreground;
 }

@@ -326,15 +326,16 @@ const Marketplace = () => {
   }, [selectedJobId]);
 
   return (
-    <PageLayout className="bn-page bn-market-page" fallback={<p>Loading market...</p>}>
-      <section className="bn-market-hero">
-        <h1>Agent Market</h1>
+    <PageLayout fallback={<p>Loading market...</p>}>
+      <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
+        <p className="text-label">marketplace</p>
+        <h1>agent market</h1>
         <p>An agent marketplace for code improvements.</p>
       </section>
 
-      <section className="bn-market-grid">
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">seed fleet</h2>
+      <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 desktop:grid-cols-3 fold:px-6 desktop:px-8">
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">seed fleet</h2>
           <p>Load managed generic and specialist agents.</p>
           <button
             id="mcp-seed-fleet"
@@ -347,8 +348,8 @@ const Marketplace = () => {
           <Terminal title="seed output" content={seedOutput} />
         </article>
 
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">register repo</h2>
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">register repo</h2>
           <label htmlFor="repo-name">Repo Full Name</label>
           <input
             id="repo-name"
@@ -363,7 +364,7 @@ const Marketplace = () => {
             onChange={(event) => setField('repoPath', event.target.value)}
           />
 
-          <div className="bn-market-inline">
+          <div className="grid grid-cols-1 gap-2 fold:grid-cols-2">
             <div>
               <label htmlFor="repo-installation">Installation</label>
               <input
@@ -373,17 +374,18 @@ const Marketplace = () => {
               />
             </div>
             <div>
-              <label htmlFor="repo-preset">Preset</label>
-              <select
+              <PopoverCommandSelect
                 id="repo-preset"
+                label="Preset"
                 value={form.preset}
-                onChange={(event) => setField('preset', event.target.value)}
-              >
-                <option value="typescript_ci_repair">typescript_ci_repair</option>
-                <option value="typescript_security_audit">typescript_security_audit</option>
-                <option value="rust_security_patch">rust_security_patch</option>
-                <option value="rust_porting">rust_porting</option>
-              </select>
+                onChange={(preset) => setField('preset', preset)}
+                options={[
+                  { value: 'typescript_ci_repair', label: 'typescript_ci_repair' },
+                  { value: 'typescript_security_audit', label: 'typescript_security_audit' },
+                  { value: 'rust_security_patch', label: 'rust_security_patch' },
+                  { value: 'rust_porting', label: 'rust_porting' },
+                ]}
+              />
             </div>
           </div>
 
@@ -396,8 +398,8 @@ const Marketplace = () => {
           <Terminal title="repo output" content={repoOutput} />
         </article>
 
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">create job</h2>
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">create job</h2>
           <label htmlFor="job-repo">Repo Full Name</label>
           <input
             id="job-repo"
@@ -405,32 +407,34 @@ const Marketplace = () => {
             onChange={(event) => setField('jobRepo', event.target.value)}
           />
 
-          <div className="bn-market-inline">
+          <div className="grid grid-cols-1 gap-2 fold:grid-cols-2">
             <div>
-              <label htmlFor="job-class">Job Class</label>
-              <select
+              <PopoverCommandSelect
                 id="job-class"
+                label="Job Class"
                 value={form.jobClass}
-                onChange={(event) => setField('jobClass', event.target.value)}
-              >
-                <option value="ci_repair">ci_repair</option>
-                <option value="dependency_update">dependency_update</option>
-                <option value="security_update">security_update</option>
-                <option value="config_remediation">config_remediation</option>
-                <option value="type_repair">type_repair</option>
-              </select>
+                onChange={(jobClass) => setField('jobClass', jobClass)}
+                options={[
+                  { value: 'ci_repair', label: 'ci_repair' },
+                  { value: 'dependency_update', label: 'dependency_update' },
+                  { value: 'security_update', label: 'security_update' },
+                  { value: 'config_remediation', label: 'config_remediation' },
+                  { value: 'type_repair', label: 'type_repair' },
+                ]}
+              />
             </div>
             <div>
-              <label htmlFor="job-risk">Risk</label>
-              <select
+              <PopoverCommandSelect
                 id="job-risk"
+                label="Risk"
                 value={form.risk}
-                onChange={(event) => setField('risk', event.target.value)}
-              >
-                <option value="low">low</option>
-                <option value="medium">medium</option>
-                <option value="high">high</option>
-              </select>
+                onChange={(risk) => setField('risk', risk)}
+                options={[
+                  { value: 'low', label: 'low' },
+                  { value: 'medium', label: 'medium' },
+                  { value: 'high', label: 'high' },
+                ]}
+              />
             </div>
           </div>
 
@@ -441,18 +445,19 @@ const Marketplace = () => {
             onChange={(event) => setField('title', event.target.value)}
           />
 
-          <div className="bn-market-inline">
+          <div className="grid grid-cols-1 gap-2 fold:grid-cols-2">
             <div>
-              <label htmlFor="job-pod">Pod</label>
-              <select
+              <PopoverCommandSelect
                 id="job-pod"
+                label="Pod"
                 value={form.pod}
-                onChange={(event) => setField('pod', event.target.value)}
-              >
-                <option value="typescript">typescript</option>
-                <option value="rust">rust</option>
-                <option value="github_actions">github_actions</option>
-              </select>
+                onChange={(pod) => setField('pod', pod)}
+                options={[
+                  { value: 'typescript', label: 'typescript' },
+                  { value: 'rust', label: 'rust' },
+                  { value: 'github_actions', label: 'github_actions' },
+                ]}
+              />
             </div>
             <div>
               <label htmlFor="job-lane">Lane</label>
@@ -464,7 +469,7 @@ const Marketplace = () => {
             </div>
           </div>
 
-          <div className="bn-market-inline">
+          <div className="grid grid-cols-1 gap-2 fold:grid-cols-2">
             <div>
               <label htmlFor="job-package">Package/Crate</label>
               <input
@@ -493,8 +498,8 @@ const Marketplace = () => {
         </article>
       </section>
 
-      <section className="bn-market-card bn-market-jobs">
-        <h2 className="bn-card-title">jobs</h2>
+      <section className="mx-auto mt-4 w-full max-w-6xl border border-border bg-card p-4 px-3 fold:px-6 desktop:px-8">
+        <h2 className="text-label">jobs</h2>
         <PopoverCommandSelect
           id="selected-job"
           label="Selected job for offer/award/settlement/dispute"
@@ -511,7 +516,7 @@ const Marketplace = () => {
         <div id="jobs-list">
           {jobs.length === 0 && <p>No jobs yet.</p>}
           {jobs.map((job) => (
-            <article key={job.id} className="bn-market-job">
+            <article key={job.id} className="mt-3 border-t border-border pt-3">
               <p>
                 <strong>{job.title}</strong>
               </p>
@@ -531,9 +536,9 @@ const Marketplace = () => {
         </div>
       </section>
 
-      <section className="bn-market-grid">
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">offer board</h2>
+      <section className="mx-auto mt-4 grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 fold:px-6 desktop:px-8">
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">offer board</h2>
           <label htmlFor="offer-agent">Agent ID</label>
           <input
             id="offer-agent"
@@ -542,7 +547,7 @@ const Marketplace = () => {
               setOfferForm((s) => ({ ...s, agentId: event.target.value }))
             }
           />
-          <div className="bn-market-inline">
+          <div className="grid grid-cols-1 gap-2 fold:grid-cols-2">
             <div>
               <label htmlFor="offer-amount">Amount</label>
               <input
@@ -568,7 +573,7 @@ const Marketplace = () => {
             Create Offer
           </button>
           {offers.map((offer) => (
-            <article key={offer.id} className="bn-market-job">
+            <article key={offer.id} className="mt-3 border-t border-border pt-3">
               <p>
                 <strong>{offer.id}</strong>
               </p>
@@ -580,8 +585,8 @@ const Marketplace = () => {
           ))}
         </article>
 
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">award panel</h2>
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">award panel</h2>
           <PopoverCommandSelect
             id="award-offer"
             label="Offer ID"
@@ -603,12 +608,12 @@ const Marketplace = () => {
         </article>
       </section>
 
-      <section className="bn-market-grid">
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">settlement controls</h2>
+      <section className="mx-auto mt-4 grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 fold:px-6 desktop:px-8">
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">settlement controls</h2>
           {settlements.length === 0 && <p>No settlements yet.</p>}
           {settlements.map((settlement) => (
-            <article key={settlement.id} className="bn-market-job">
+            <article key={settlement.id} className="mt-3 border-t border-border pt-3">
               <p>
                 <strong>{settlement.id}</strong>
               </p>
@@ -634,8 +639,8 @@ const Marketplace = () => {
           ))}
         </article>
 
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">dispute panel</h2>
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">dispute panel</h2>
           <label htmlFor="dispute-settlement">Settlement ID (optional)</label>
           <input
             id="dispute-settlement"
@@ -664,7 +669,7 @@ const Marketplace = () => {
             Open Dispute
           </button>
           {disputes.map((dispute) => (
-            <article key={dispute.id} className="bn-market-job">
+            <article key={dispute.id} className="mt-3 border-t border-border pt-3">
               <p>
                 <strong>{dispute.id}</strong>
               </p>
@@ -675,12 +680,12 @@ const Marketplace = () => {
         </article>
       </section>
 
-      <section className="bn-market-grid">
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">operator stream</h2>
+      <section className="mx-auto mt-4 grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 fold:px-6 desktop:px-8">
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">operator stream</h2>
           {operators.length === 0 && <p>No operators yet.</p>}
           {operators.slice(0, 10).map((operator) => (
-            <article key={operator.id || operator.slug} className="bn-market-job">
+            <article key={operator.id || operator.slug} className="mt-3 border-t border-border pt-3">
               <p>
                 <strong>{operator.display_name || operator.slug}</strong>
               </p>
@@ -689,8 +694,8 @@ const Marketplace = () => {
             </article>
           ))}
         </article>
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">repository stream</h2>
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">repository stream</h2>
           {repos.length === 0 && <p>No repositories yet.</p>}
           {repos.slice(0, 10).map((repo) => (
             <div key={repo.id || repo.repo_full_name}>

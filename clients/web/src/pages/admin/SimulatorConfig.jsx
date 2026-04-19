@@ -20,20 +20,20 @@ const SimulatorConfig = () => {
 
   return (
     <PageLayout fallback={<p>Loading simulator config...</p>}>
-      <section className="bn-landing-hero">
-        <p className="bn-eyebrow">Simulator</p>
-        <h1>Simulator configuration and eval alignment</h1>
+      <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
+        <p className="text-label">simulator</p>
+        <h1>simulator configuration and eval alignment</h1>
         <p>
           Unified surface for configuring simulator journeys and validating WebMCP coverage.
         </p>
       </section>
-      <section className="bn-market-grid">
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">journey manifest</h2>
+      <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 fold:px-6 desktop:px-8">
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">journey manifest</h2>
           <Terminal title="journey manifest" content={journeys} />
         </article>
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">run commands</h2>
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">run commands</h2>
           <CodeLine>npm run dev:full</CodeLine>
           <CodeLine>npm run dev:test:webmcp</CodeLine>
           <CodeLine>npm run dev:test:full</CodeLine>

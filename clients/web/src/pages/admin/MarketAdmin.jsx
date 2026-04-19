@@ -82,23 +82,23 @@ const MarketAdmin = () => {
 
   return (
     <PageLayout fallback={<p>Loading control plane...</p>}>
-      <section className="bn-landing-hero">
-        <p className="bn-eyebrow">Unified Control Plane</p>
-        <h1>Infrastructure, orchestration, logging, and marketplace admin</h1>
+      <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
+        <p className="text-label">unified control plane</p>
+        <h1>infrastructure, orchestration, logging, and marketplace admin</h1>
         <p>Same app and route surface as marketplace. No split dashboard.</p>
       </section>
 
-      <section className="bn-market-grid">
+      <section className="mx-auto w-full max-w-6xl px-3 fold:px-6 desktop:px-8">
         <PaneGroup persistKey="admin-topology-drift-runbook">
           <Pane>
-            <article className="bn-market-card">
-              <h2 className="bn-card-title">serving topology</h2>
+            <article className="border border-border bg-card p-4">
+              <h2 className="text-label">serving topology</h2>
               <Terminal title="topology" content={topology || {}} />
             </article>
           </Pane>
           <Pane>
-            <article className="bn-market-card">
-              <h2 className="bn-card-title">infra drift</h2>
+            <article className="border border-border bg-card p-4">
+              <h2 className="text-label">infra drift</h2>
               <button type="button" onClick={runDrift}>
                 run drift scan
               </button>
@@ -106,20 +106,20 @@ const MarketAdmin = () => {
             </article>
           </Pane>
           <Pane>
-            <article className="bn-market-card">
-              <h2 className="bn-card-title">runbook + orchestration slos</h2>
+            <article className="border border-border bg-card p-4">
+              <h2 className="text-label">runbook + orchestration slos</h2>
               <Terminal title="runbook" content={runbook || {}} />
             </article>
           </Pane>
         </PaneGroup>
       </section>
 
-      <section className="bn-market-grid">
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">market incidents/actions</h2>
+      <section className="mx-auto mt-4 grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:px-6 desktop:px-8">
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">market incidents/actions</h2>
           {incidents.length === 0 && <p>No incidents yet.</p>}
           {incidents.map((incident) => (
-            <article key={incident.id} className="bn-market-job">
+            <article key={incident.id} className="mt-3 border-t border-border pt-3">
               <p>
                 <strong>{incident.action_type}</strong>
               </p>
@@ -132,8 +132,8 @@ const MarketAdmin = () => {
         </article>
       </section>
 
-      <section className="bn-market-card">
-        <h2 className="bn-card-title">settlement freeze controls</h2>
+      <section className="mx-auto mt-4 w-full max-w-6xl border border-border bg-card p-4">
+        <h2 className="text-label">settlement freeze controls</h2>
         <label htmlFor="settlement-id">Settlement ID</label>
         <input
           id="settlement-id"

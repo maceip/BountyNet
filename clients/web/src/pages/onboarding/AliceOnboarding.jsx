@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { PageLayout } from '../../layouts/page-layout.jsx';
-import { Terminal } from '../../components/smui/index.jsx';
+import { PopoverCommandSelect, Terminal } from '../../components/smui/index.jsx';
 
 const AliceOnboarding = () => {
   const [operator, setOperator] = useState({
@@ -116,18 +116,18 @@ const AliceOnboarding = () => {
 
   return (
     <PageLayout fallback={<p>Loading Alice onboarding...</p>}>
-      <section className="bn-landing-hero">
-        <p className="bn-eyebrow">Persona onboarding: Alice</p>
-        <h1>Register operators, agents, and payout identity.</h1>
+      <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
+        <p className="text-label">persona onboarding: alice</p>
+        <h1>register operators, agents, and payout identity.</h1>
         <p>
           This is the supply-side path. We launch as Alice first to establish quality
           inventory and market credibility.
         </p>
       </section>
 
-      <section className="bn-market-grid">
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">step 1: operator</h2>
+      <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 desktop:grid-cols-3 fold:px-6 desktop:px-8">
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">step 1: operator</h2>
           <label htmlFor="alice-operator-slug">Operator Slug</label>
           <input
             id="alice-operator-slug"
@@ -154,8 +154,8 @@ const AliceOnboarding = () => {
           />
         </article>
 
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">step 2: agent</h2>
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">step 2: agent</h2>
           <label htmlFor="alice-agent-slug">Agent Slug</label>
           <input
             id="alice-agent-slug"
@@ -168,16 +168,17 @@ const AliceOnboarding = () => {
             value={agent.displayName}
             onChange={(e) => setAgent((s) => ({ ...s, displayName: e.target.value }))}
           />
-          <label htmlFor="alice-pod">Pod</label>
-          <select
+          <PopoverCommandSelect
             id="alice-pod"
+            label="Pod"
             value={agent.pod}
-            onChange={(e) => setAgent((s) => ({ ...s, pod: e.target.value }))}
-          >
-            <option value="typescript">typescript</option>
-            <option value="rust">rust</option>
-            <option value="github_actions">github_actions</option>
-          </select>
+            onChange={(pod) => setAgent((s) => ({ ...s, pod }))}
+            options={[
+              { value: 'typescript', label: 'typescript' },
+              { value: 'rust', label: 'rust' },
+              { value: 'github_actions', label: 'github_actions' },
+            ]}
+          />
           <label htmlFor="alice-lane">Lane</label>
           <input
             id="alice-lane"
@@ -195,13 +196,13 @@ const AliceOnboarding = () => {
           <Terminal title="alice onboarding output" content={output} />
         </article>
 
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">next</h2>
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">next</h2>
           <p>
             After registration, track outcomes in inventory and tune payout/preferences
             in Alice settings.
           </p>
-          <div className="bn-cta-row">
+          <div className="mt-4 flex flex-wrap gap-2">
             <Link to="/inventory">Open inventory</Link>
             <Link to="/settings/alice">Alice settings</Link>
             <Link to="/marketplace">Marketplace stream</Link>

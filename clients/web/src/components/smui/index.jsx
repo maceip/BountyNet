@@ -17,7 +17,7 @@ export const CodeLine = ({ children, className = '' }) => (
 
 export const Terminal = ({ title = 'output', content = '', className = '' }) => (
   <div className={cn('mt-2 border border-border bg-card', className)}>
-    <div className="border-b border-border px-3 py-2 text-[10px] uppercase tracking-[1.5px] text-muted-foreground">
+    <div className="border-b border-border px-3 py-2 text-label">
       {title}
     </div>
     <pre className="max-h-72 overflow-auto px-3 py-2 text-xs whitespace-pre-wrap break-words">
@@ -89,7 +89,7 @@ export const Gauge = ({ value = 0, max = 100, label = '', className = '' }) => {
         />
       </svg>
       <div>
-        <p className="text-[10px] uppercase tracking-[1.5px] text-muted-foreground">{label}</p>
+        <p className="text-label">{label}</p>
         <AnimatedNumber value={value} className="text-xl font-semibold text-foreground" />
       </div>
     </div>
@@ -129,9 +129,14 @@ export const RepoCard = ({ repo }) => (
 
 export const InfiniteSlider = ({ items = [] }) => {
   const merged = [...items, ...items];
+  const animationName = 'smui-infinite-slider';
   return (
     <div className="overflow-hidden border border-border bg-card">
-      <div className="bn-infinite-slider flex w-max gap-4 px-3 py-2">
+      <style>{`@keyframes ${animationName} {0% {transform: translateX(0)} 100% {transform: translateX(-50%)}}`}</style>
+      <div
+        className="flex w-max gap-4 px-3 py-2 hover:[animation-play-state:paused]"
+        style={{ animation: `${animationName} 24s linear infinite` }}
+      >
         {merged.map((item, idx) => (
           <div key={`${item.id || item.title}-${idx}`} className="min-w-[20rem] border border-border bg-secondary/30 p-2">
             <p className="text-sm font-semibold">{item.title}</p>
@@ -159,13 +164,19 @@ export const PopoverCommandSelect = ({
   const active = options.find((option) => option.value === value);
   return (
     <div className="relative">
-      {label ? <label htmlFor={id}>{label}</label> : null}
-      <button id={id} type="button" onClick={() => setOpen((v) => !v)} className="text-left">
+      {label ? <label htmlFor={id} className="text-label">{label}</label> : null}
+      <button
+        id={id}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="mt-1 w-full border border-input bg-secondary px-3 py-2 text-left text-sm"
+      >
         {active?.label || placeholder}
       </button>
       {open ? (
         <div className="absolute z-30 mt-1 w-full border border-border bg-card p-2">
           <input
+            className="w-full border border-input bg-secondary px-3 py-2 text-sm"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="type to filter..."
@@ -175,6 +186,7 @@ export const PopoverCommandSelect = ({
               <button
                 key={option.value}
                 type="button"
+                className="w-full border border-border bg-secondary/30 px-2 py-2 text-left text-sm hover:bg-primary/10"
                 onClick={() => {
                   onChange(option.value);
                   setOpen(false);
@@ -201,7 +213,7 @@ export const PaneGroup = ({ children, persistKey = 'pane-group' }) => {
   );
   const [sizes, setSizes] = useState(() => {
     try {
-      const saved = window.localStorage.getItem(`bn.panes.${persistKey}`);
+      const saved = window.localStorage.getItem(`smui.panes.${persistKey}`);
       if (saved) return JSON.parse(saved);
     } catch {
       // ignore
@@ -211,7 +223,7 @@ export const PaneGroup = ({ children, persistKey = 'pane-group' }) => {
   const dragRef = useRef(null);
 
   useEffect(() => {
-    window.localStorage.setItem(`bn.panes.${persistKey}`, JSON.stringify(sizes));
+    window.localStorage.setItem(`smui.panes.${persistKey}`, JSON.stringify(sizes));
   }, [persistKey, sizes]);
 
   const startDrag = (index, event) => {
@@ -256,10 +268,15 @@ export const PaneGroup = ({ children, persistKey = 'pane-group' }) => {
 
 export const Chat = ({ value, onChange, onSend, title = 'chat' }) => (
   <div className="border border-border bg-card p-3">
-    <p className="mb-2 text-[10px] uppercase tracking-[1.5px] text-muted-foreground">{title}</p>
-    <textarea rows={8} value={value} onChange={(event) => onChange(event.target.value)} />
-    <button type="button" onClick={onSend}>
-      Send
+    <p className="mb-2 text-label">{title}</p>
+    <textarea
+      rows={8}
+      className="w-full border border-input bg-secondary px-3 py-2 text-sm"
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+    <button type="button" className="mt-2 border border-primary bg-primary/20 px-3 py-2 text-sm hover:bg-primary/30" onClick={onSend}>
+      send
     </button>
   </div>
 );
@@ -298,8 +315,10 @@ export const CommandPalette = () => {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 p-4">
       <div className="w-full max-w-xl border border-border bg-card p-3">
+        <p className="mb-2 text-label">command palette</p>
         <input
           autoFocus
+          className="w-full border border-input bg-secondary px-3 py-2 text-sm"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="jump to route..."
@@ -309,6 +328,7 @@ export const CommandPalette = () => {
             <button
               key={command.path}
               type="button"
+              className="mt-1 w-full border border-border bg-secondary/30 px-3 py-2 text-left text-sm hover:bg-primary/10"
               onClick={() => {
                 navigate(command.path);
                 setOpen(false);
@@ -319,8 +339,8 @@ export const CommandPalette = () => {
             </button>
           ))}
         </div>
-        <button type="button" onClick={() => setOpen(false)}>
-          Close
+        <button type="button" className="mt-2 border border-border bg-secondary px-3 py-2 text-label" onClick={() => setOpen(false)}>
+          close
         </button>
       </div>
     </div>
@@ -444,9 +464,9 @@ export const StatusRail = ({ onTranscript }) => {
 
   return (
     <>
-      <aside className="fixed right-3 bottom-3 left-3 z-40 hidden border border-border bg-card px-3 py-2 fold:flex fold:items-center fold:justify-between">
+      <aside className="fixed right-3 bottom-3 left-3 z-40 hidden border border-border bg-card px-3 py-2 desktop:flex desktop:items-center desktop:justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-[1.5px] text-muted-foreground">
+          <span className="text-label">
             status rail
           </span>
           <div className="flex items-end gap-1">{bars}</div>
@@ -455,7 +475,10 @@ export const StatusRail = ({ onTranscript }) => {
         <button
           type="button"
           onClick={isListening ? stopListening : startListening}
-          className={cn(isListening ? 'animate-pulse border-destructive' : '')}
+          className={cn(
+            'border border-primary bg-primary/20 px-3 py-2 text-label hover:bg-primary/30',
+            isListening ? 'animate-pulse border-destructive bg-destructive/20' : '',
+          )}
         >
           {isListening ? 'stop voice' : 'start voice'}
         </button>
@@ -463,7 +486,7 @@ export const StatusRail = ({ onTranscript }) => {
       <button
         type="button"
         className={cn(
-          'fixed right-4 bottom-4 z-50 h-20 w-20 border-2 border-destructive bg-card text-xs fold:hidden',
+          'fixed right-4 bottom-4 z-50 h-20 w-20 border-2 border-destructive bg-card text-label desktop:hidden',
           isListening ? 'animate-pulse' : '',
         )}
         onClick={isListening ? stopListening : startListening}

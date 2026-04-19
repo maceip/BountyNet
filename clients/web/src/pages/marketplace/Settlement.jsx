@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PageLayout } from '../../layouts/page-layout.jsx';
+import { Terminal } from '../../components/smui/index.jsx';
 
 const Settlement = () => {
   const [settlements, setSettlements] = useState([]);
@@ -40,15 +41,15 @@ const Settlement = () => {
 
   return (
     <PageLayout fallback={<p>Loading settlements...</p>}>
-      <section className="bn-landing-hero">
-        <p className="bn-eyebrow">Marketplace</p>
-        <h1>Settlement lifecycle</h1>
+      <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
+        <p className="text-label">marketplace</p>
+        <h1>settlement lifecycle</h1>
       </section>
-      <section className="bn-market-card">
-        <h2>All settlements</h2>
+      <section className="mx-auto w-full max-w-6xl border border-border bg-card p-4">
+        <h2 className="text-label">all settlements</h2>
         {settlements.length === 0 && <p>No settlements yet.</p>}
         {settlements.map((item) => (
-          <article key={item.id} className="bn-market-job">
+          <article key={item.id} className="mt-3 border-t border-border pt-3">
             <p>
               <strong>{item.id}</strong>
             </p>
@@ -63,7 +64,7 @@ const Settlement = () => {
             </button>
           </article>
         ))}
-        <pre>{output || 'idle'}</pre>
+        <Terminal title="settlement output" content={output || 'idle'} />
       </section>
     </PageLayout>
   );

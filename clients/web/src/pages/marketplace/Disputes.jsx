@@ -51,12 +51,12 @@ const Disputes = () => {
 
   return (
     <PageLayout fallback={<p>Loading disputes...</p>}>
-      <section className="bn-landing-hero">
-        <p className="bn-eyebrow">Marketplace</p>
-        <h1>Dispute resolution</h1>
+      <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
+        <p className="text-label">marketplace</p>
+        <h1>dispute resolution</h1>
       </section>
-      <section className="bn-market-grid">
-        <article className="bn-market-card">
+      <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 fold:px-6 desktop:px-8">
+        <article className="border border-border bg-card p-4">
           <label htmlFor="dispute-job-id">Job ID</label>
           <input
             id="dispute-job-id"
@@ -64,7 +64,7 @@ const Disputes = () => {
             onChange={(event) => setJobId(event.target.value)}
           />
           {disputes.map((item) => (
-            <article key={item.id} className="bn-market-job">
+            <article key={item.id} className="mt-3 border-t border-border pt-3">
               <p>
                 <strong>{item.id}</strong>
               </p>
@@ -74,8 +74,8 @@ const Disputes = () => {
             </article>
           ))}
         </article>
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">resolve dispute</h2>
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">resolve dispute</h2>
           <label htmlFor="resolve-dispute-id">Dispute ID</label>
           <input
             id="resolve-dispute-id"
@@ -94,7 +94,7 @@ const Disputes = () => {
             ]}
           />
           <button type="button" onClick={resolveDispute}>
-            Resolve
+            resolve
           </button>
           <Terminal title="dispute output" content={output} />
         </article>

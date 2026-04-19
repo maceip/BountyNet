@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { PageLayout } from '../../layouts/page-layout.jsx';
+import { PopoverCommandSelect, Terminal } from '../../components/smui/index.jsx';
 
 const STORAGE_KEY = 'bn.settings.bob';
 
@@ -33,32 +34,31 @@ const BobSettings = () => {
 
   return (
     <PageLayout fallback={<p>Loading Bob settings...</p>}>
-      <section className="bn-landing-hero">
-        <p className="bn-eyebrow">Settings: Bob</p>
-        <h1>Repository-owner policy controls.</h1>
+      <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
+        <p className="text-label">settings: bob</p>
+        <h1>repository-owner policy controls.</h1>
         <p>Set default spend and promotion policy for Bob-owned repositories.</p>
       </section>
 
-      <section className="bn-market-grid">
-        <article className="bn-market-card">
-          <label htmlFor="bob-budget-type">Default Budget Type</label>
-          <select
+      <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 fold:px-6 desktop:px-8">
+        <article className="border border-border bg-card p-4">
+          <PopoverCommandSelect
             id="bob-budget-type"
+            label="Default Budget Type"
             value={settings.defaultBudgetType}
-            onChange={(e) =>
-              setSettings((s) => ({ ...s, defaultBudgetType: e.target.value }))
-            }
-          >
-            <option value="platform_credits">platform_credits</option>
-            <option value="api_key_pool">api_key_pool</option>
-          </select>
+            onChange={(defaultBudgetType) => setSettings((s) => ({ ...s, defaultBudgetType }))}
+            options={[
+              { value: 'platform_credits', label: 'platform_credits' },
+              { value: 'api_key_pool', label: 'api_key_pool' },
+            ]}
+          />
           <label htmlFor="bob-checks">Required Checks (comma separated)</label>
           <input
             id="bob-checks"
             value={settings.requireChecks}
             onChange={(e) => setSettings((s) => ({ ...s, requireChecks: e.target.value }))}
           />
-          <div className="bn-market-inline">
+          <div className="grid grid-cols-1 gap-2 fold:grid-cols-2">
             <div>
               <label htmlFor="bob-monthly-cap">Monthly Spend Cap</label>
               <input
@@ -78,30 +78,29 @@ const BobSettings = () => {
               />
             </div>
           </div>
-          <label htmlFor="bob-promote-threshold">Auto-promote threshold</label>
-          <select
+          <PopoverCommandSelect
             id="bob-promote-threshold"
+            label="Auto-promote threshold"
             value={settings.autoPromoteThreshold}
-            onChange={(e) =>
-              setSettings((s) => ({ ...s, autoPromoteThreshold: e.target.value }))
-            }
-          >
-            <option value="low">low</option>
-            <option value="medium">medium</option>
-            <option value="high">high</option>
-          </select>
+            onChange={(autoPromoteThreshold) => setSettings((s) => ({ ...s, autoPromoteThreshold }))}
+            options={[
+              { value: 'low', label: 'low' },
+              { value: 'medium', label: 'medium' },
+              { value: 'high', label: 'high' },
+            ]}
+          />
           <button type="button" onClick={save}>
             Save Bob settings
           </button>
-          <pre>{savedAt ? `saved_at=${savedAt}` : 'not saved yet'}</pre>
+          <Terminal title="settings save status" content={savedAt ? `saved_at=${savedAt}` : 'not saved yet'} />
         </article>
-        <article className="bn-market-card">
-          <h2>Where this applies</h2>
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">where this applies</h2>
           <p>
             These values are used as Bob defaults during onboarding and repository
             setup decisions.
           </p>
-          <div className="bn-cta-row">
+          <div className="mt-4 flex flex-wrap gap-2">
             <Link to="/onboarding/bob">Bob onboarding</Link>
             <Link to="/inventory">Inventory</Link>
             <Link to="/marketplace">Marketplace</Link>

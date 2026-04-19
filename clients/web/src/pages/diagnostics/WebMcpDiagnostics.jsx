@@ -39,18 +39,18 @@ const WebMcpDiagnostics = () => {
 
   return (
     <PageLayout fallback={<p>Loading diagnostics...</p>}>
-      <section className="bn-landing-hero">
-        <p className="bn-eyebrow">Diagnostics</p>
-        <h1>WebMCP capability and tool telemetry.</h1>
+      <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
+        <p className="text-label">diagnostics</p>
+        <h1>webmcp capability and tool telemetry.</h1>
         <p>
           Confirms browser support, registered tools, last tool call, and journey
           manifest availability for Bob/Alice automation.
         </p>
       </section>
 
-      <section className="bn-market-grid">
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">runtime status</h2>
+      <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 desktop:grid-cols-3 fold:px-6 desktop:px-8">
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">runtime status</h2>
           <Terminal
             title="runtime"
             content={{
@@ -61,8 +61,8 @@ const WebMcpDiagnostics = () => {
             }}
           />
         </article>
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">registered tools</h2>
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">registered tools</h2>
           {(diag.registeredTools || []).length === 0 && <p>No tools registered.</p>}
           {(diag.registeredTools || []).map((tool) => (
             <p key={tool}>
@@ -70,21 +70,21 @@ const WebMcpDiagnostics = () => {
             </p>
           ))}
         </article>
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">last tool call</h2>
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">last tool call</h2>
           <Terminal title="last tool call" content={diag.lastCall || {}} />
         </article>
       </section>
 
-      <section className="bn-market-grid">
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">journey manifest</h2>
+      <section className="mx-auto mt-4 grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 fold:px-6 desktop:px-8">
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">journey manifest</h2>
           {journeyError ? <p>{journeyError}</p> : null}
           {!journeyError && <Terminal title="manifest" content={journeys} />}
         </article>
-        <article className="bn-market-card">
-          <h2>Quick actions</h2>
-          <div className="bn-cta-row">
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">quick actions</h2>
+          <div className="mt-4 flex flex-wrap gap-2">
             <Link to="/onboarding/bob">Bob onboarding</Link>
             <Link to="/onboarding/alice">Alice onboarding</Link>
             <Link to="/marketplace">Marketplace</Link>

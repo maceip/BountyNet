@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { PageLayout } from '../../layouts/page-layout.jsx';
+import { PopoverCommandSelect, Terminal } from '../../components/smui/index.jsx';
 
 const STORAGE_KEY = 'bn.settings.alice';
 
@@ -33,67 +34,70 @@ const AliceSettings = () => {
 
   return (
     <PageLayout fallback={<p>Loading Alice settings...</p>}>
-      <section className="bn-landing-hero">
-        <p className="bn-eyebrow">Settings: Alice</p>
-        <h1>Agent operator defaults and payout policy.</h1>
+      <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
+        <p className="text-label">settings: alice</p>
+        <h1>agent operator defaults and payout policy.</h1>
         <p>Define payout identity and default lane strategy for Alice-managed agents.</p>
       </section>
 
-      <section className="bn-market-grid">
-        <article className="bn-market-card">
+      <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 fold:px-6 desktop:px-8">
+        <article className="border border-border bg-card p-4">
           <label htmlFor="alice-wallet">Payout Wallet</label>
           <input
             id="alice-wallet"
             value={settings.payoutWallet}
             onChange={(e) => setSettings((s) => ({ ...s, payoutWallet: e.target.value }))}
           />
-          <label htmlFor="alice-pod-pref">Preferred Pod</label>
-          <select
+          <PopoverCommandSelect
             id="alice-pod-pref"
+            label="Preferred Pod"
             value={settings.preferredPod}
-            onChange={(e) => setSettings((s) => ({ ...s, preferredPod: e.target.value }))}
-          >
-            <option value="typescript">typescript</option>
-            <option value="rust">rust</option>
-            <option value="github_actions">github_actions</option>
-          </select>
+            onChange={(preferredPod) => setSettings((s) => ({ ...s, preferredPod }))}
+            options={[
+              { value: 'typescript', label: 'typescript' },
+              { value: 'rust', label: 'rust' },
+              { value: 'github_actions', label: 'github_actions' },
+            ]}
+          />
           <label htmlFor="alice-lane-pref">Preferred Lane</label>
           <input
             id="alice-lane-pref"
             value={settings.preferredLane}
             onChange={(e) => setSettings((s) => ({ ...s, preferredLane: e.target.value }))}
           />
-          <label htmlFor="alice-jobclass">Minimum Job Class</label>
-          <select
+          <PopoverCommandSelect
             id="alice-jobclass"
+            label="Minimum Job Class"
             value={settings.minJobClass}
-            onChange={(e) => setSettings((s) => ({ ...s, minJobClass: e.target.value }))}
-          >
-            <option value="ci_repair">ci_repair</option>
-            <option value="dependency_update">dependency_update</option>
-            <option value="security_update">security_update</option>
-          </select>
-          <label htmlFor="alice-reputation">Target Reputation Tier</label>
-          <select
+            onChange={(minJobClass) => setSettings((s) => ({ ...s, minJobClass }))}
+            options={[
+              { value: 'ci_repair', label: 'ci_repair' },
+              { value: 'dependency_update', label: 'dependency_update' },
+              { value: 'security_update', label: 'security_update' },
+            ]}
+          />
+          <PopoverCommandSelect
             id="alice-reputation"
+            label="Target Reputation Tier"
             value={settings.reputationGoal}
-            onChange={(e) => setSettings((s) => ({ ...s, reputationGoal: e.target.value }))}
-          >
-            <option value="standard">standard</option>
-            <option value="trusted">trusted</option>
-            <option value="critical">critical</option>
-          </select>
+            onChange={(reputationGoal) => setSettings((s) => ({ ...s, reputationGoal }))}
+            options={[
+              { value: 'standard', label: 'standard' },
+              { value: 'trusted', label: 'trusted' },
+              { value: 'critical', label: 'critical' },
+            ]}
+          />
           <button type="button" onClick={save}>
             Save Alice settings
           </button>
-          <pre>{savedAt ? `saved_at=${savedAt}` : 'not saved yet'}</pre>
+          <Terminal title="settings save status" content={savedAt ? `saved_at=${savedAt}` : 'not saved yet'} />
         </article>
-        <article className="bn-market-card">
-          <h2>Where this applies</h2>
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">where this applies</h2>
           <p>
             These values are used as Alice defaults during operator/agent registration.
           </p>
-          <div className="bn-cta-row">
+          <div className="mt-4 flex flex-wrap gap-2">
             <Link to="/onboarding/alice">Alice onboarding</Link>
             <Link to="/inventory">Inventory</Link>
             <Link to="/marketplace">Marketplace</Link>

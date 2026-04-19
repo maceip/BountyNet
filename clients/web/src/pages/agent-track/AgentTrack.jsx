@@ -47,11 +47,11 @@ const AgentTrack = () => {
         setDraftText((current) => `${current}${current ? '\n' : ''}${text}`);
       }
     };
-    window.addEventListener('bn:status-rail-transcript', transcriptListener);
+    window.addEventListener('smui:status-rail-transcript', transcriptListener);
     return () => {
       window.removeEventListener('bn:agent-track-updated', updateTrack);
       window.removeEventListener('bn:voice-inbox-updated', updateVoice);
-      window.removeEventListener('bn:status-rail-transcript', transcriptListener);
+      window.removeEventListener('smui:status-rail-transcript', transcriptListener);
     };
   }, []);
 
@@ -120,18 +120,18 @@ const AgentTrack = () => {
 
   return (
     <PageLayout fallback={<p>Loading agent track...</p>}>
-      <section className="bn-landing-hero">
-        <p className="bn-eyebrow">Agent Track</p>
-        <h1>Voice inbox handoff + rolling supply simulation.</h1>
+      <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
+        <p className="text-label">agent track</p>
+        <h1>voice inbox handoff + rolling supply simulation.</h1>
         <p>
           New agent/repo pairs are generated every random 0.5-3.0 seconds while simulator is
           active. Voice queue entries are consumed and staged for assignment here.
         </p>
       </section>
 
-      <section className="bn-market-grid">
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">simulator controls</h2>
+      <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 fold:px-6 desktop:px-8">
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">simulator controls</h2>
           <p>Pair cadence: random delay between 500ms and 3000ms.</p>
           <button type="button" onClick={() => setIsSimulating((v) => !v)}>
             {isSimulating ? 'Pause simulator' : 'Resume simulator'}
@@ -143,8 +143,8 @@ const AgentTrack = () => {
           <CommitGraph seed={`${pendingVoiceCount}-${agents.length}-${repos.length}`} />
         </article>
 
-        <article className="bn-market-card">
-          <h2 className="bn-card-title">agent-track text interface</h2>
+        <article className="border border-border bg-card p-4">
+          <h2 className="text-label">agent-track text interface</h2>
           <Chat
             title="agent track chat"
             value={draftText}
@@ -154,14 +154,14 @@ const AgentTrack = () => {
         </article>
       </section>
 
-      <section className="bn-market-grid">
+      <section className="mx-auto mt-4 w-full max-w-6xl px-3 fold:px-6 desktop:px-8">
         <PaneGroup persistKey="agent-track-three-panes">
           <Pane>
-            <article className="bn-market-card">
-              <h2 className="bn-card-title">agent stream</h2>
+            <article className="border border-border bg-card p-4">
+              <h2 className="text-label">agent stream</h2>
               {agents.length === 0 && <p>No agents yet.</p>}
               {agents.slice(0, 16).map((agent) => (
-                <article key={agent.id} className="bn-market-job">
+                <article key={agent.id} className="mt-3 border-t border-border pt-3">
                   <p>
                     <strong>{agent.slug}</strong>
                   </p>
@@ -172,8 +172,8 @@ const AgentTrack = () => {
             </article>
           </Pane>
           <Pane>
-            <article className="bn-market-card">
-              <h2 className="bn-card-title">repository stream</h2>
+            <article className="border border-border bg-card p-4">
+              <h2 className="text-label">repository stream</h2>
               {repos.length === 0 && <p>No repositories yet.</p>}
               {repos.slice(0, 16).map((repo) => (
                 <RepoCard key={repo.id} repo={repo} />
@@ -181,8 +181,8 @@ const AgentTrack = () => {
             </article>
           </Pane>
           <Pane>
-            <article className="bn-market-card">
-              <h2 className="bn-card-title">assignment log</h2>
+            <article className="border border-border bg-card p-4">
+              <h2 className="text-label">assignment log</h2>
               {events.length === 0 && <p>No events yet.</p>}
               <Terminal title="assignments" content={events.slice(0, 16)} />
             </article>

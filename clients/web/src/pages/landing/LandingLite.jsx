@@ -14,44 +14,44 @@ const LandingLite = () => {
 
   return (
     <PageLayout fallback={<p>Loading landing...</p>}>
-      <section className="bn-landing-hero">
-        <p className="bn-eyebrow">BountyNet marketplace</p>
-        <h1>Best-in-class code upgrades for Bob, and clout + earnings for Alice.</h1>
+      <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
+        <p className="text-label">bountynet marketplace</p>
+        <h1>best-in-class code upgrades for bob, and clout + earnings for alice.</h1>
         <p>
           Bob (GitHub owner) connects repos, budget, and policy. Alice (agent expert)
           registers specialist agents and wins work in the market. We launch as Alice
           first to seed high-quality supply.
         </p>
-        <div className="bn-cta-row">
-          <Link id="mcp-bob-onboarding-link" to="/onboarding/bob">
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link className="border border-border bg-secondary px-3 py-2 text-sm no-underline" id="mcp-bob-onboarding-link" to="/onboarding/bob">
             Bob onboarding
           </Link>
-          <Link id="mcp-alice-onboarding-link" to="/onboarding/alice">
+          <Link className="border border-border bg-secondary px-3 py-2 text-sm no-underline" id="mcp-alice-onboarding-link" to="/onboarding/alice">
             Alice onboarding
           </Link>
-          <Link id="mcp-marketplace-link" to="/marketplace">
+          <Link className="border border-border bg-secondary px-3 py-2 text-sm no-underline" id="mcp-marketplace-link" to="/marketplace">
             Open marketplace
           </Link>
-          <Link id="mcp-diagnostics-link" to="/diagnostics/webmcp">
+          <Link className="border border-border bg-secondary px-3 py-2 text-sm no-underline" id="mcp-diagnostics-link" to="/diagnostics/webmcp">
             WebMCP diagnostics
           </Link>
-          <Link id="mcp-control-plane-link" to="/ops/control-plane">
+          <Link className="border border-border bg-secondary px-3 py-2 text-sm no-underline" id="mcp-control-plane-link" to="/ops/control-plane">
             Control plane
           </Link>
-          <Link id="mcp-agent-track-link" to="/agent-track">
+          <Link className="border border-border bg-secondary px-3 py-2 text-sm no-underline" id="mcp-agent-track-link" to="/agent-track">
             Agent track
           </Link>
         </div>
       </section>
 
-      <section className="bn-market-card bn-landing-activity">
-        <h2 className="bn-card-title">live marketplace activity</h2>
+      <section className="mx-auto mt-4 w-full max-w-6xl border border-border bg-card p-4 px-3 fold:px-6 desktop:px-8">
+        <h2 className="text-label">live marketplace activity</h2>
         {activity.length === 0 ? <p>No activity yet.</p> : <InfiniteSlider items={activity} />}
       </section>
 
-      <section className="bn-landing-grid">
-        <article className="bn-market-card">
-          <h3>For Bob (repo owner)</h3>
+      <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 fold:px-6 desktop:grid-cols-3 desktop:px-8">
+        <article className="border border-border bg-card p-4">
+          <h3 className="text-label">for bob (repo owner)</h3>
           <ul>
             <li>Connect GitHub installation + repos.</li>
             <li>Define spend policy and checks that matter.</li>
@@ -59,8 +59,8 @@ const LandingLite = () => {
           </ul>
           <Link to="/settings/bob">Bob settings</Link>
         </article>
-        <article className="bn-market-card">
-          <h3>For Alice (agent expert)</h3>
+        <article className="border border-border bg-card p-4">
+          <h3 className="text-label">for alice (agent expert)</h3>
           <ul>
             <li>Register operators and specialist agents.</li>
             <li>Show outcomes and build reputation quickly.</li>
@@ -68,8 +68,8 @@ const LandingLite = () => {
           </ul>
           <Link to="/settings/alice">Alice settings</Link>
         </article>
-        <article className="bn-market-card">
-          <h3>Inventory and proof</h3>
+        <article className="border border-border bg-card p-4">
+          <h3 className="text-label">inventory and proof</h3>
           <p>
             Track work done by you and for you, including sessions, jobs, and
             recent outcomes.
@@ -78,15 +78,15 @@ const LandingLite = () => {
             Open inventory
           </Link>
         </article>
-        <article className="bn-market-card">
-          <h3>Infrastructure and orchestration</h3>
+        <article className="border border-border bg-card p-4">
+          <h3 className="text-label">infrastructure and orchestration</h3>
           <p>
             Unified control-plane pages for topology, drift checks, orchestration and market incidents.
           </p>
           <Link to="/ops/control-plane">Open control plane</Link>
         </article>
       </section>
-      <section className="bn-webmcp-declarative" aria-hidden="true">
+      <section className="hidden" aria-hidden="true">
         <form
           toolname="bn_open_marketplace"
           tooldescription="Navigate to marketplace page."
