@@ -21,8 +21,8 @@ services:
       - ${TENSOR_PARALLEL_SIZE}
       - --api-key
       - ${VLLM_API_KEY}
-    ports:
-      - "${VLLM_PORT}:8000"
+    expose:
+      - "8000"
     volumes:
       - ${VLLM_MODEL}:${VLLM_MODEL}:ro
       - ~/.cache/huggingface:/root/.cache/huggingface
@@ -31,3 +31,23 @@ services:
         reservations:
           devices:
             - capabilities: ["gpu"]
+
+  adapter-router:
+    image: python:3.12-slim
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      VLLM_UPSTREAM_BASE: "http://vllm:8000"
+      ADAPTER_ROUTER_PORT: "8010"
+    command:
+      - /bin/sh
+      - -lc
+      - pip install --no-cache-dir flask && python /app/adapter_router.py
+    ports:
+      - "${VLLM_PORT}:8010"
+    volumes:
+      - ./adapter_router.py:/app/adapter_router.py:ro
+      - ./adapter-manifest.json:/etc/bountynet/adapter-manifest.json:ro
+    depends_on:
+      - vllm

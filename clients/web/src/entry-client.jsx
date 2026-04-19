@@ -11,10 +11,12 @@ import { hydrateRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 import { I18nextProvider } from 'react-i18next';
 import { Router } from './routes';
+import './index.css';
 
 // App level imports
 import { initializeTheme } from './utils/theme';
 import i18n from './i18n.client.js';
+import { initializeWebMcpTools } from './webmcp/registerTools.js';
 
 /**
  * Initializes the theme on client load by reading the user's preference
@@ -22,6 +24,9 @@ import i18n from './i18n.client.js';
  * Carbon theme class to the document.
  */
 initializeTheme();
+initializeWebMcpTools().catch((error) => {
+  console.warn('WebMCP tool registration skipped:', error);
+});
 
 /**
  * Synchronize client-side i18next with the server's translation state.

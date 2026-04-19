@@ -1,0 +1,17 @@
+---
+description: Keep solutions simple and interfaces narrow
+alwaysApply: true
+---
+
+# KISS Engineering Principle
+
+When implementing or changing code in this repository:
+
+- Prefer the simplest design that solves the requirement.
+- Minimize code lines and moving parts.
+- Avoid adding abstractions unless they are clearly necessary now.
+- Keep interfaces narrow: small inputs/outputs, minimal configuration surface.
+- Favor straightforward control flow over clever patterns.
+- Refactor toward less complexity when touching nearby code.
+
+If two solutions are viable, choose the one that is easier to explain, test, and maintain.

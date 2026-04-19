@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+apt-get update
+apt-get install -y --no-install-recommends ca-certificates curl git jq unzip
+
+curl -fsSL https://get.docker.com | sh
+systemctl enable docker
+systemctl start docker
+
+mkdir -p /opt/bountynet-inf2
+
+cat >/opt/bountynet-inf2/.env <<'EOF'
+VLLM_MODEL=${model_id}
+VLLM_SERVED_MODEL_NAME=${served_model_name}
+VLLM_API_KEY=${api_key}
+VLLM_PORT=${inference_port}
+RUNTIME_IMAGE=${runtime_image}
+VLLM_AGENT_ID_HEADER=${agent_id_header}
+ADAPTER_BUCKET=${adapter_bucket}
+ADAPTER_DEFAULT_REVISION=${adapter_default_revision}
+ADAPTER_MANIFEST_PATH=/etc/bountynet/adapter-manifest.json
+EOF
+
+cat >/opt/bountynet-inf2/adapter-manifest.json <<'EOF'
+{}
+EOF
+
+cat >/opt/bountynet-inf2/adapter_router.py <<'EOF'
+from __future__ import annotations
+
+import json
+import os
+import urllib.error
+import urllib.request
+from functools import lru_cache
+
+from flask import Flask, Response, jsonify, request
+
+app = Flask(__name__)
+
+UPSTREAM_BASE = (os.getenv("VLLM_UPSTREAM_BASE") or "http://vllm:8000").rstrip("/")
+AGENT_ID_HEADER = (os.getenv("VLLM_AGENT_ID_HEADER") or "X-Agent-ID").strip()
+ADAPTER_MANIFEST_PATH = os.getenv("ADAPTER_MANIFEST_PATH") or "/etc/bountynet/adapter-manifest.json"
+ADAPTER_BUCKET = (os.getenv("ADAPTER_BUCKET") or "").strip()
+ADAPTER_DEFAULT_REVISION = (os.getenv("ADAPTER_DEFAULT_REVISION") or "latest").strip()
+
+
+@lru_cache(maxsize=1)
+def _load_manifest() -> dict:
+    if not os.path.isfile(ADAPTER_MANIFEST_PATH):
+        return {}
+    try:
+        with open(ADAPTER_MANIFEST_PATH, "r", encoding="utf-8") as fh:
+            payload = json.load(fh)
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _resolve(agent_id: str) -> dict:
+    agent_id = (agent_id or "").strip()
+    if not agent_id:
+        return {"agent_id": "", "adapter_id": "", "adapter_s3_uri": "", "revision": ""}
+    manifest = _load_manifest()
+    item = manifest.get(agent_id) if isinstance(manifest, dict) else None
+    if isinstance(item, dict):
+        adapter_id = str(item.get("adapter_id") or agent_id).strip()
+        uri = str(item.get("adapter_s3_uri") or "").strip()
+        rev = str(item.get("revision") or ADAPTER_DEFAULT_REVISION).strip()
+        if not uri and ADAPTER_BUCKET:
+            uri = f"{ADAPTER_BUCKET.rstrip('/')}/{adapter_id}/{rev}/"
+        return {"agent_id": agent_id, "adapter_id": adapter_id, "adapter_s3_uri": uri, "revision": rev}
+    uri = f"{ADAPTER_BUCKET.rstrip('/')}/{agent_id}/{ADAPTER_DEFAULT_REVISION}/" if ADAPTER_BUCKET else ""
+    return {"agent_id": agent_id, "adapter_id": agent_id, "adapter_s3_uri": uri, "revision": ADAPTER_DEFAULT_REVISION}
+
+
+@app.get("/health")
+def health():
+    return jsonify({"status": "ok", "service": "adapter-router"})
+
+
+@app.get("/ops/adapters/resolve")
+def resolve():
+    agent_id = (request.args.get("agent_id") or request.headers.get(AGENT_ID_HEADER) or "").strip()
+    return jsonify({"status": "ok", "resolution": _resolve(agent_id)})
+
+
+@app.route("/v1/models", methods=["GET"])
+@app.route("/v1/chat/completions", methods=["POST"])
+def passthrough():
+    upstream_url = f"{UPSTREAM_BASE}{request.path}"
+    body = request.get_data() or b""
+    headers = {k: v for k, v in request.headers.items() if k.lower() not in {"host", "content-length"}}
+    agent_id = (request.headers.get(AGENT_ID_HEADER) or request.headers.get("X-Agent-ID") or "").strip()
+    adapter = _resolve(agent_id)
+    if agent_id:
+        headers[AGENT_ID_HEADER] = agent_id
+        headers["X-BN-Adapter-ID"] = adapter.get("adapter_id", "")
+        headers["X-BN-Adapter-S3-URI"] = adapter.get("adapter_s3_uri", "")
+        headers["X-BN-Adapter-Revision"] = adapter.get("revision", "")
+    req = urllib.request.Request(upstream_url, data=body, headers=headers, method=request.method)
+    try:
+        with urllib.request.urlopen(req, timeout=90) as resp:
+            payload = resp.read()
+            out = Response(payload, status=resp.status, content_type=resp.headers.get("Content-Type", "application/json"))
+    except urllib.error.HTTPError as e:
+        out = Response(e.read(), status=e.code, content_type=e.headers.get("Content-Type", "application/json"))
+    if agent_id:
+        out.headers["X-BN-Agent-ID"] = agent_id
+        out.headers["X-BN-Adapter-ID"] = adapter.get("adapter_id", "")
+        out.headers["X-BN-Adapter-S3-URI"] = adapter.get("adapter_s3_uri", "")
+        out.headers["X-BN-Adapter-Revision"] = adapter.get("revision", "")
+    return out
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8010)
+EOF
+
+cat >/opt/bountynet-inf2/docker-compose.yml <<'EOF'
+services:
+  vllm:
+    image: $${RUNTIME_IMAGE}
+    restart: unless-stopped
+    command:
+      - --model
+      - $${VLLM_MODEL}
+      - --served-model-name
+      - $${VLLM_SERVED_MODEL_NAME}
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --api-key
+      - $${VLLM_API_KEY}
+      - --max-model-len
+      - "32768"
+      - --enable-prefix-caching
+      - --disable-log-stats
+    expose:
+      - "8000"
+    volumes:
+      - /root/.cache/huggingface:/root/.cache/huggingface
+
+  adapter-router:
+    image: python:3.12-slim
+    restart: unless-stopped
+    command:
+      - /bin/sh
+      - -lc
+      - pip install --no-cache-dir flask && python /app/adapter_router.py
+    environment:
+      VLLM_UPSTREAM_BASE: http://vllm:8000
+      VLLM_AGENT_ID_HEADER: $${VLLM_AGENT_ID_HEADER}
+      ADAPTER_BUCKET: $${ADAPTER_BUCKET}
+      ADAPTER_DEFAULT_REVISION: $${ADAPTER_DEFAULT_REVISION}
+      ADAPTER_MANIFEST_PATH: $${ADAPTER_MANIFEST_PATH}
+    ports:
+      - "$${VLLM_PORT}:8010"
+    depends_on:
+      - vllm
+    volumes:
+      - /opt/bountynet-inf2/adapter_router.py:/app/adapter_router.py:ro
+      - /opt/bountynet-inf2/adapter-manifest.json:/etc/bountynet/adapter-manifest.json:ro
+EOF
+
+cd /opt/bountynet-inf2
+docker compose pull || true
+docker compose up -d

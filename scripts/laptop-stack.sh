@@ -10,11 +10,16 @@ usage() {
 Usage: ./scripts/laptop-stack.sh <command>
 
 Commands:
-  up       Build and start the laptop stack
+  up       Build and start the laptop stack (default profile: slice)
   down     Stop and remove stack resources
   ps       Show stack services
   logs     Tail stack logs
   smoke    Run local smoke against running stack
+
+Examples:
+  ./scripts/laptop-stack.sh up
+  ./scripts/laptop-stack.sh up full
+  ./scripts/laptop-stack.sh logs slice
 EOF
 }
 
@@ -32,19 +37,54 @@ compose() {
 
 case "${cmd}" in
   up)
-    compose up -d --build "$@"
+    profile="${1:-slice}"
+    case "${profile}" in
+      slice|full) ;;
+      *)
+        echo "Invalid profile '${profile}'. Expected: slice or full."
+        exit 1
+        ;;
+    esac
+    shift || true
+    compose --profile "${profile}" up -d --build "$@"
     ;;
   down)
-    compose down -v "$@"
+    compose --profile slice --profile full down -v "$@"
     ;;
   ps)
-    compose ps "$@"
+    profile="${1:-slice}"
+    case "${profile}" in
+      slice|full)
+        shift || true
+        compose --profile "${profile}" ps "$@"
+        ;;
+      *)
+        compose ps "${profile}" "$@"
+        ;;
+    esac
     ;;
   logs)
-    compose logs -f "$@"
+    profile="${1:-slice}"
+    case "${profile}" in
+      slice|full)
+        shift || true
+        compose --profile "${profile}" logs -f "$@"
+        ;;
+      *)
+        compose logs -f "${profile}" "$@"
+        ;;
+    esac
     ;;
   smoke)
-    python "${ROOT_DIR}/scripts/simulate_dev_surface.py"
+    profile="${1:-slice}"
+    case "${profile}" in
+      slice|full) ;;
+      *)
+        echo "Invalid profile '${profile}'. Expected: slice or full."
+        exit 1
+        ;;
+    esac
+    "${ROOT_DIR}/scripts/dev-stack-smoke.sh" "${profile}"
     ;;
   *)
     usage

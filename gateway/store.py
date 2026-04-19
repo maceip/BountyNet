@@ -370,6 +370,125 @@ def init_db() -> None:
                 CREATE INDEX IF NOT EXISTS idx_market_job_recommendations_job
                 ON market_job_recommendations (job_id, created_at);
 
+                CREATE TABLE IF NOT EXISTS market_offers (
+                    id TEXT PRIMARY KEY,
+                    job_id TEXT NOT NULL,
+                    agent_id TEXT NOT NULL,
+                    operator_id TEXT DEFAULT '',
+                    amount INTEGER DEFAULT 0,
+                    currency TEXT DEFAULT 'credits',
+                    eta_seconds INTEGER DEFAULT 0,
+                    sla_summary TEXT DEFAULT '',
+                    notes TEXT DEFAULT '',
+                    status TEXT DEFAULT 'open',
+                    created_at REAL DEFAULT 0,
+                    updated_at REAL DEFAULT 0,
+                    FOREIGN KEY (job_id) REFERENCES market_jobs(id)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_market_offers_job
+                ON market_offers (job_id, created_at);
+
+                CREATE TABLE IF NOT EXISTS market_awards (
+                    id TEXT PRIMARY KEY,
+                    job_id TEXT NOT NULL UNIQUE,
+                    offer_id TEXT NOT NULL,
+                    awarded_agent_id TEXT NOT NULL,
+                    awarded_by TEXT DEFAULT '',
+                    decision_notes TEXT DEFAULT '',
+                    status TEXT DEFAULT 'awarded',
+                    created_at REAL DEFAULT 0,
+                    updated_at REAL DEFAULT 0,
+                    FOREIGN KEY (job_id) REFERENCES market_jobs(id),
+                    FOREIGN KEY (offer_id) REFERENCES market_offers(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS market_settlements (
+                    id TEXT PRIMARY KEY,
+                    job_id TEXT NOT NULL,
+                    submission_id TEXT DEFAULT '',
+                    award_id TEXT DEFAULT '',
+                    agent_id TEXT DEFAULT '',
+                    operator_id TEXT DEFAULT '',
+                    amount INTEGER DEFAULT 0,
+                    currency TEXT DEFAULT 'credits',
+                    funding_source TEXT DEFAULT '',
+                    status TEXT DEFAULT 'reserved',
+                    frozen INTEGER DEFAULT 0,
+                    resolution_notes TEXT DEFAULT '',
+                    created_at REAL DEFAULT 0,
+                    updated_at REAL DEFAULT 0,
+                    FOREIGN KEY (job_id) REFERENCES market_jobs(id)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_market_settlements_job
+                ON market_settlements (job_id, created_at);
+
+                CREATE TABLE IF NOT EXISTS market_disputes (
+                    id TEXT PRIMARY KEY,
+                    job_id TEXT NOT NULL,
+                    settlement_id TEXT DEFAULT '',
+                    submission_id TEXT DEFAULT '',
+                    opened_by TEXT DEFAULT '',
+                    reason_code TEXT DEFAULT '',
+                    reason TEXT DEFAULT '',
+                    status TEXT DEFAULT 'open',
+                    ruling TEXT DEFAULT '',
+                    created_at REAL DEFAULT 0,
+                    updated_at REAL DEFAULT 0,
+                    resolved_at REAL DEFAULT 0,
+                    FOREIGN KEY (job_id) REFERENCES market_jobs(id)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_market_disputes_job
+                ON market_disputes (job_id, created_at);
+
+                CREATE TABLE IF NOT EXISTS market_dispute_events (
+                    id TEXT PRIMARY KEY,
+                    dispute_id TEXT NOT NULL,
+                    actor_id TEXT DEFAULT '',
+                    event_type TEXT NOT NULL,
+                    detail_json TEXT DEFAULT '{}',
+                    created_at REAL DEFAULT 0,
+                    FOREIGN KEY (dispute_id) REFERENCES market_disputes(id)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_market_dispute_events_dispute
+                ON market_dispute_events (dispute_id, created_at);
+
+                CREATE TABLE IF NOT EXISTS market_reputation_snapshots (
+                    id TEXT PRIMARY KEY,
+                    entity_type TEXT NOT NULL,
+                    entity_id TEXT NOT NULL,
+                    wins INTEGER DEFAULT 0,
+                    rejects INTEGER DEFAULT 0,
+                    disputes_total INTEGER DEFAULT 0,
+                    disputes_won INTEGER DEFAULT 0,
+                    refunds INTEGER DEFAULT 0,
+                    total_jobs INTEGER DEFAULT 0,
+                    score REAL DEFAULT 0,
+                    last_event_at REAL DEFAULT 0,
+                    updated_at REAL DEFAULT 0
+                );
+
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_market_reputation_entity
+                ON market_reputation_snapshots (entity_type, entity_id);
+
+                CREATE TABLE IF NOT EXISTS market_admin_actions (
+                    id TEXT PRIMARY KEY,
+                    action_type TEXT NOT NULL,
+                    target_type TEXT NOT NULL,
+                    target_id TEXT NOT NULL,
+                    actor TEXT DEFAULT '',
+                    notes TEXT DEFAULT '',
+                    status TEXT DEFAULT 'applied',
+                    metadata_json TEXT DEFAULT '{}',
+                    created_at REAL DEFAULT 0
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_market_admin_actions_target
+                ON market_admin_actions (target_type, target_id, created_at);
+
                 CREATE TABLE IF NOT EXISTS market_payout_ledger (
                     id TEXT PRIMARY KEY,
                     agent_id TEXT NOT NULL,
@@ -2588,6 +2707,645 @@ def market_job_recommendations_list(job_id: str) -> list[dict[str, Any]]:
                 payload["specialist_id"] = row["specialist_id"]
                 out.append(payload)
             return out
+        finally:
+            c.close()
+
+
+def _row_to_market_offer(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "job_id": row["job_id"],
+        "agent_id": row["agent_id"],
+        "operator_id": row["operator_id"] or "",
+        "amount": row["amount"] or 0,
+        "currency": row["currency"] or "credits",
+        "eta_seconds": row["eta_seconds"] or 0,
+        "sla_summary": row["sla_summary"] or "",
+        "notes": row["notes"] or "",
+        "status": row["status"] or "open",
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def market_offer_create(
+    offer_id: str,
+    job_id: str,
+    agent_id: str,
+    operator_id: str = "",
+    amount: int = 0,
+    currency: str = "credits",
+    eta_seconds: int = 0,
+    sla_summary: str = "",
+    notes: str = "",
+    status: str = "open",
+) -> None:
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO market_offers (
+                    id, job_id, agent_id, operator_id, amount, currency, eta_seconds,
+                    sla_summary, notes, status, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    offer_id,
+                    job_id,
+                    agent_id,
+                    operator_id,
+                    amount,
+                    currency,
+                    eta_seconds,
+                    sla_summary,
+                    notes,
+                    status,
+                    now,
+                    now,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def market_offer_get(offer_id: str) -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute("SELECT * FROM market_offers WHERE id = ?", (offer_id,)).fetchone()
+            return _row_to_market_offer(row) if row else None
+        finally:
+            c.close()
+
+
+def market_offers_list(job_id: str) -> list[dict[str, Any]]:
+    with _lock:
+        c = _connect()
+        try:
+            rows = c.execute(
+                "SELECT * FROM market_offers WHERE job_id = ? ORDER BY created_at DESC",
+                (job_id,),
+            ).fetchall()
+            return [_row_to_market_offer(row) for row in rows]
+        finally:
+            c.close()
+
+
+def market_offer_update_status(offer_id: str, status: str) -> None:
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                "UPDATE market_offers SET status = ?, updated_at = ? WHERE id = ?",
+                (status, now, offer_id),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def _row_to_market_award(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "job_id": row["job_id"],
+        "offer_id": row["offer_id"],
+        "awarded_agent_id": row["awarded_agent_id"],
+        "awarded_by": row["awarded_by"] or "",
+        "decision_notes": row["decision_notes"] or "",
+        "status": row["status"] or "awarded",
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def market_award_upsert(
+    award_id: str,
+    job_id: str,
+    offer_id: str,
+    awarded_agent_id: str,
+    awarded_by: str = "",
+    decision_notes: str = "",
+    status: str = "awarded",
+) -> None:
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO market_awards (
+                    id, job_id, offer_id, awarded_agent_id, awarded_by, decision_notes, status, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(job_id) DO UPDATE SET
+                    offer_id = excluded.offer_id,
+                    awarded_agent_id = excluded.awarded_agent_id,
+                    awarded_by = excluded.awarded_by,
+                    decision_notes = excluded.decision_notes,
+                    status = excluded.status,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    award_id,
+                    job_id,
+                    offer_id,
+                    awarded_agent_id,
+                    awarded_by,
+                    decision_notes,
+                    status,
+                    now,
+                    now,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def market_award_get_by_job(job_id: str) -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute("SELECT * FROM market_awards WHERE job_id = ?", (job_id,)).fetchone()
+            return _row_to_market_award(row) if row else None
+        finally:
+            c.close()
+
+
+def _row_to_market_settlement(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "job_id": row["job_id"],
+        "submission_id": row["submission_id"] or "",
+        "award_id": row["award_id"] or "",
+        "agent_id": row["agent_id"] or "",
+        "operator_id": row["operator_id"] or "",
+        "amount": row["amount"] or 0,
+        "currency": row["currency"] or "credits",
+        "funding_source": row["funding_source"] or "",
+        "status": row["status"] or "reserved",
+        "frozen": bool(row["frozen"]),
+        "resolution_notes": row["resolution_notes"] or "",
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def market_settlement_create(
+    settlement_id: str,
+    job_id: str,
+    submission_id: str = "",
+    award_id: str = "",
+    agent_id: str = "",
+    operator_id: str = "",
+    amount: int = 0,
+    currency: str = "credits",
+    funding_source: str = "",
+    status: str = "reserved",
+    frozen: bool = False,
+    resolution_notes: str = "",
+) -> None:
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO market_settlements (
+                    id, job_id, submission_id, award_id, agent_id, operator_id, amount, currency,
+                    funding_source, status, frozen, resolution_notes, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    settlement_id,
+                    job_id,
+                    submission_id,
+                    award_id,
+                    agent_id,
+                    operator_id,
+                    amount,
+                    currency,
+                    funding_source,
+                    status,
+                    1 if frozen else 0,
+                    resolution_notes,
+                    now,
+                    now,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def market_settlement_get(settlement_id: str) -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute("SELECT * FROM market_settlements WHERE id = ?", (settlement_id,)).fetchone()
+            return _row_to_market_settlement(row) if row else None
+        finally:
+            c.close()
+
+
+def market_settlement_get_by_submission(submission_id: str) -> dict[str, Any] | None:
+    if not submission_id:
+        return None
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute(
+                "SELECT * FROM market_settlements WHERE submission_id = ? ORDER BY created_at DESC LIMIT 1",
+                (submission_id,),
+            ).fetchone()
+            return _row_to_market_settlement(row) if row else None
+        finally:
+            c.close()
+
+
+def market_settlements_list(job_id: str | None = None) -> list[dict[str, Any]]:
+    with _lock:
+        c = _connect()
+        try:
+            if job_id:
+                rows = c.execute(
+                    "SELECT * FROM market_settlements WHERE job_id = ? ORDER BY created_at DESC",
+                    (job_id,),
+                ).fetchall()
+            else:
+                rows = c.execute(
+                    "SELECT * FROM market_settlements ORDER BY created_at DESC"
+                ).fetchall()
+            return [_row_to_market_settlement(row) for row in rows]
+        finally:
+            c.close()
+
+
+def market_settlement_update(
+    settlement_id: str,
+    *,
+    status: str | None = None,
+    frozen: bool | None = None,
+    resolution_notes: str | None = None,
+) -> None:
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            current = c.execute(
+                "SELECT * FROM market_settlements WHERE id = ?",
+                (settlement_id,),
+            ).fetchone()
+            if not current:
+                return
+            c.execute(
+                """
+                UPDATE market_settlements
+                SET status = ?, frozen = ?, resolution_notes = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    status if status is not None else (current["status"] or "reserved"),
+                    (1 if frozen else 0) if frozen is not None else int(current["frozen"] or 0),
+                    resolution_notes if resolution_notes is not None else (current["resolution_notes"] or ""),
+                    now,
+                    settlement_id,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def _row_to_market_dispute(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "job_id": row["job_id"],
+        "settlement_id": row["settlement_id"] or "",
+        "submission_id": row["submission_id"] or "",
+        "opened_by": row["opened_by"] or "",
+        "reason_code": row["reason_code"] or "",
+        "reason": row["reason"] or "",
+        "status": row["status"] or "open",
+        "ruling": row["ruling"] or "",
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+        "resolved_at": row["resolved_at"] or 0,
+    }
+
+
+def market_dispute_create(
+    dispute_id: str,
+    job_id: str,
+    settlement_id: str = "",
+    submission_id: str = "",
+    opened_by: str = "",
+    reason_code: str = "",
+    reason: str = "",
+    status: str = "open",
+) -> None:
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO market_disputes (
+                    id, job_id, settlement_id, submission_id, opened_by, reason_code, reason,
+                    status, ruling, created_at, updated_at, resolved_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?, 0)
+                """,
+                (
+                    dispute_id,
+                    job_id,
+                    settlement_id,
+                    submission_id,
+                    opened_by,
+                    reason_code,
+                    reason,
+                    status,
+                    now,
+                    now,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def market_dispute_get(dispute_id: str) -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute("SELECT * FROM market_disputes WHERE id = ?", (dispute_id,)).fetchone()
+            return _row_to_market_dispute(row) if row else None
+        finally:
+            c.close()
+
+
+def market_disputes_list(job_id: str) -> list[dict[str, Any]]:
+    with _lock:
+        c = _connect()
+        try:
+            rows = c.execute(
+                "SELECT * FROM market_disputes WHERE job_id = ? ORDER BY created_at DESC",
+                (job_id,),
+            ).fetchall()
+            return [_row_to_market_dispute(row) for row in rows]
+        finally:
+            c.close()
+
+
+def market_dispute_update(
+    dispute_id: str,
+    *,
+    status: str | None = None,
+    ruling: str | None = None,
+) -> None:
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            current = c.execute("SELECT * FROM market_disputes WHERE id = ?", (dispute_id,)).fetchone()
+            if not current:
+                return
+            next_status = status if status is not None else (current["status"] or "open")
+            resolved_at = now if next_status == "resolved" else (current["resolved_at"] or 0)
+            c.execute(
+                """
+                UPDATE market_disputes
+                SET status = ?, ruling = ?, updated_at = ?, resolved_at = ?
+                WHERE id = ?
+                """,
+                (
+                    next_status,
+                    ruling if ruling is not None else (current["ruling"] or ""),
+                    now,
+                    resolved_at,
+                    dispute_id,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def market_dispute_event_create(
+    event_id: str,
+    dispute_id: str,
+    actor_id: str,
+    event_type: str,
+    detail: dict[str, Any] | None = None,
+) -> None:
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO market_dispute_events (
+                    id, dispute_id, actor_id, event_type, detail_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (event_id, dispute_id, actor_id, event_type, json.dumps(detail or {}), now),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def market_dispute_events_list(dispute_id: str) -> list[dict[str, Any]]:
+    with _lock:
+        c = _connect()
+        try:
+            rows = c.execute(
+                "SELECT * FROM market_dispute_events WHERE dispute_id = ? ORDER BY created_at ASC",
+                (dispute_id,),
+            ).fetchall()
+            return [
+                {
+                    "id": row["id"],
+                    "dispute_id": row["dispute_id"],
+                    "actor_id": row["actor_id"] or "",
+                    "event_type": row["event_type"],
+                    "detail": _json_loads(row["detail_json"], {}),
+                    "created_at": row["created_at"],
+                }
+                for row in rows
+            ]
+        finally:
+            c.close()
+
+
+def _row_to_market_reputation(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "entity_type": row["entity_type"],
+        "entity_id": row["entity_id"],
+        "wins": row["wins"] or 0,
+        "rejects": row["rejects"] or 0,
+        "disputes_total": row["disputes_total"] or 0,
+        "disputes_won": row["disputes_won"] or 0,
+        "refunds": row["refunds"] or 0,
+        "total_jobs": row["total_jobs"] or 0,
+        "score": row["score"] or 0.0,
+        "last_event_at": row["last_event_at"] or 0,
+        "updated_at": row["updated_at"] or 0,
+    }
+
+
+def market_reputation_record(
+    entity_type: str,
+    entity_id: str,
+    *,
+    wins_delta: int = 0,
+    rejects_delta: int = 0,
+    disputes_delta: int = 0,
+    disputes_won_delta: int = 0,
+    refunds_delta: int = 0,
+    jobs_delta: int = 0,
+) -> None:
+    now = time.time()
+    record_id = f"rep:{entity_type}:{entity_id}"
+    with _lock:
+        c = _connect()
+        try:
+            current = c.execute(
+                "SELECT * FROM market_reputation_snapshots WHERE entity_type = ? AND entity_id = ?",
+                (entity_type, entity_id),
+            ).fetchone()
+            wins = int((current["wins"] if current else 0) or 0) + int(wins_delta)
+            rejects = int((current["rejects"] if current else 0) or 0) + int(rejects_delta)
+            disputes_total = int((current["disputes_total"] if current else 0) or 0) + int(disputes_delta)
+            disputes_won = int((current["disputes_won"] if current else 0) or 0) + int(disputes_won_delta)
+            refunds = int((current["refunds"] if current else 0) or 0) + int(refunds_delta)
+            total_jobs = int((current["total_jobs"] if current else 0) or 0) + int(jobs_delta)
+            score = float((wins * 2) - rejects - refunds - max(0, disputes_total - disputes_won))
+            c.execute(
+                """
+                INSERT INTO market_reputation_snapshots (
+                    id, entity_type, entity_id, wins, rejects, disputes_total, disputes_won,
+                    refunds, total_jobs, score, last_event_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(entity_type, entity_id) DO UPDATE SET
+                    wins = excluded.wins,
+                    rejects = excluded.rejects,
+                    disputes_total = excluded.disputes_total,
+                    disputes_won = excluded.disputes_won,
+                    refunds = excluded.refunds,
+                    total_jobs = excluded.total_jobs,
+                    score = excluded.score,
+                    last_event_at = excluded.last_event_at,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    record_id,
+                    entity_type,
+                    entity_id,
+                    max(0, wins),
+                    max(0, rejects),
+                    max(0, disputes_total),
+                    max(0, disputes_won),
+                    max(0, refunds),
+                    max(0, total_jobs),
+                    score,
+                    now,
+                    now,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def market_reputation_get(entity_type: str, entity_id: str) -> dict[str, Any] | None:
+    with _lock:
+        c = _connect()
+        try:
+            row = c.execute(
+                "SELECT * FROM market_reputation_snapshots WHERE entity_type = ? AND entity_id = ?",
+                (entity_type, entity_id),
+            ).fetchone()
+            return _row_to_market_reputation(row) if row else None
+        finally:
+            c.close()
+
+
+def market_reputation_list(entity_type: str) -> list[dict[str, Any]]:
+    with _lock:
+        c = _connect()
+        try:
+            rows = c.execute(
+                "SELECT * FROM market_reputation_snapshots WHERE entity_type = ? ORDER BY score DESC, updated_at DESC",
+                (entity_type,),
+            ).fetchall()
+            return [_row_to_market_reputation(row) for row in rows]
+        finally:
+            c.close()
+
+
+def market_admin_action_create(
+    action_id: str,
+    action_type: str,
+    target_type: str,
+    target_id: str,
+    actor: str = "",
+    notes: str = "",
+    status: str = "applied",
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    now = time.time()
+    with _lock:
+        c = _connect()
+        try:
+            c.execute(
+                """
+                INSERT INTO market_admin_actions (
+                    id, action_type, target_type, target_id, actor, notes, status, metadata_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    action_id,
+                    action_type,
+                    target_type,
+                    target_id,
+                    actor,
+                    notes,
+                    status,
+                    json.dumps(metadata or {}),
+                    now,
+                ),
+            )
+            c.commit()
+        finally:
+            c.close()
+
+
+def market_admin_actions_list(limit: int = 100) -> list[dict[str, Any]]:
+    with _lock:
+        c = _connect()
+        try:
+            rows = c.execute(
+                "SELECT * FROM market_admin_actions ORDER BY created_at DESC LIMIT ?",
+                (max(1, int(limit or 100)),),
+            ).fetchall()
+            return [
+                {
+                    "id": row["id"],
+                    "action_type": row["action_type"],
+                    "target_type": row["target_type"],
+                    "target_id": row["target_id"],
+                    "actor": row["actor"] or "",
+                    "notes": row["notes"] or "",
+                    "status": row["status"] or "applied",
+                    "metadata": _json_loads(row["metadata_json"], {}),
+                    "created_at": row["created_at"],
+                }
+                for row in rows
+            ]
         finally:
             c.close()
 

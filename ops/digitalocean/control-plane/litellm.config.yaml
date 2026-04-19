@@ -64,17 +64,27 @@ model_list:
       api_base: os.environ/AWS_VLLM_API_BASE
       api_key: os.environ/AWS_VLLM_API_KEY
 
+  - model_name: aws-c8g/cpu-worker
+    litellm_params:
+      model: openai/cpu-worker
+      api_base: os.environ/AWS_C8G_API_BASE
+      api_key: os.environ/AWS_C8G_API_KEY
+
 router_settings:
+  allowed_fails: 1
+  cooldown_time: 10
   fallbacks:
-    - agents/default: ["aws-vllm/base-coder"]
-    - agents/ts-migrator: ["aws-vllm/base-coder"]
-    - agents/ts-auditor: ["aws-vllm/base-coder"]
-    - agents/ts-architect: ["aws-vllm/base-coder"]
-    - agents/rust-porter: ["aws-vllm/base-coder"]
-    - agents/rust-sentinel: ["aws-vllm/base-coder"]
-    - agents/rust-optimizer: ["aws-vllm/base-coder"]
+    - agents/default: ["aws-vllm/base-coder", "aws-c8g/cpu-worker"]
+    - agents/ts-migrator: ["aws-vllm/base-coder", "aws-c8g/cpu-worker"]
+    - agents/ts-auditor: ["aws-vllm/base-coder", "aws-c8g/cpu-worker"]
+    - agents/ts-architect: ["aws-vllm/base-coder", "aws-c8g/cpu-worker"]
+    - agents/rust-porter: ["aws-vllm/base-coder", "aws-c8g/cpu-worker"]
+    - agents/rust-sentinel: ["aws-vllm/base-coder", "aws-c8g/cpu-worker"]
+    - agents/rust-optimizer: ["aws-vllm/base-coder", "aws-c8g/cpu-worker"]
 
 litellm_settings:
+  request_timeout: 30
+  num_retries: 0
   master_key: os.environ/LITELLM_MASTER_KEY
   salt_key: os.environ/LITELLM_SALT_KEY
   success_callback: ["langfuse"]

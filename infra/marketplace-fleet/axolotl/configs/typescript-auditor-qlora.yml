@@ -14,7 +14,9 @@ datasets:
 output_dir: ./output/typescript-auditor
 dataset_prepared_path: ./cache/typescript-auditor
 
-sequence_len: 8192
+# Long-context rollout is staged to avoid OOM regressions:
+# stage1=32768 -> stage2=65536 -> stage3=131072 -> stage4=262144
+sequence_len: 32768
 sample_packing: true
 pad_to_sequence_len: true
 liger_rope: true
@@ -28,7 +30,7 @@ lora_target_modules:
   - q_proj
   - v_proj
 
-gradient_accumulation_steps: 8
+gradient_accumulation_steps: 16
 micro_batch_size: 1
 num_epochs: 3
 optimizer: paged_adamw_8bit

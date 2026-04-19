@@ -1,5 +1,5 @@
 {
-  "mock_rpc_url": "http://127.0.0.1:57865",
+  "mock_rpc_url": "http://127.0.0.1:39419",
   "health": {
     "status_code": 200,
     "body": {
@@ -9,7 +9,7 @@
       "identity": "0x0000000000000000000000000000000000000001",
       "registered_agents": 0,
       "status": "ok",
-      "storage_db": "C:\\Users\\mac\\BountyNet\\projects\\agent-market\\demo\\dev-surface-smoke.db"
+      "storage_db": "/home/ubuntu/BountyNet/projects/agent-market/demo/dev-surface-smoke.db"
     }
   },
   "events_count": 1,
@@ -47,24 +47,24 @@
         "na_east": 0,
         "na_west": 60
       },
-      "updated_at": 1776362417.1985292,
+      "updated_at": 1776382086.4094312,
       "us_percent": 60
     },
     "rollout": {
-      "created_at": 1776362417.2132885,
-      "id": "rollout_66f2dc0a38ae",
+      "created_at": 1776382086.417498,
+      "id": "rollout_58a6fb768696",
       "metadata": {},
       "requested_by": "operator_panel",
       "revision": "adapter/smoke-v1",
       "status": "queued",
       "strategy": "canary",
       "target": "specialist",
-      "updated_at": 1776362417.2132885
+      "updated_at": 1776382086.417498
     },
     "recent_rollouts": 1
   },
   "market": {
-    "job_id": "job_fd6ebe5213f3",
+    "job_id": "job_1df3b3ca274e",
     "job_status": "assigned",
     "runs": 1,
     "submissions": 1

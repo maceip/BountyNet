@@ -22,7 +22,7 @@ class AgentServingProfile:
 
 
 _DEFAULT_MODEL = "agents/default"
-_DEFAULT_FALLBACK_MODEL = "openrouter/anthropic/claude-sonnet-4.5"
+_DEFAULT_FALLBACK_MODEL = "agents/fallback"
 _DEFAULT_PROVIDER = "litellm"
 
 

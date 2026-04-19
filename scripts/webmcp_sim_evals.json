@@ -1,0 +1,272 @@
+{
+  "cases": [
+    {
+      "id": "manifest_surface",
+      "description": "WebMCP manifest endpoints expose Bob and Alice journeys.",
+      "steps": [
+        {
+          "name": "manifest_index",
+          "method": "GET",
+          "path": "/api/bountynet/webmcp/journeys",
+          "expect": {
+            "status": 200,
+            "json_contains": ["webmcp_journey_manifest", "bob", "alice"]
+          }
+        },
+        {
+          "name": "manifest_bob",
+          "method": "GET",
+          "path": "/api/bountynet/webmcp/journeys/bob",
+          "expect": {
+            "status": 200,
+            "json_contains": ["\"persona\":\"bob\"", "bob_save_repo_policy"]
+          }
+        },
+        {
+          "name": "manifest_alice",
+          "method": "GET",
+          "path": "/api/bountynet/webmcp/journeys/alice",
+          "expect": {
+            "status": 200,
+            "json_contains": ["\"persona\":\"alice\"", "alice_register_operator_and_agent"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "bob_simulator_journey",
+      "description": "Simulate Bob onboarding and repository policy application.",
+      "steps": [
+        {
+          "name": "bob_repo_setup",
+          "method": "POST",
+          "path": "/api/bountynet/market/repositories/setup",
+          "json_body": {
+            "installation_id": 1,
+            "repos": ["local/bob-sim-{{run_id}}"],
+            "owner": "bob",
+            "monthly_spend_cap": 1000,
+            "per_job_spend_cap": 100,
+            "required_checks": ["CI"]
+          },
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "name": "bob_apply_preset",
+          "method": "POST",
+          "path": "/api/bountynet/market/repositories/local%2Fbob-sim-{{run_id}}/apply-preset",
+          "json_body": {
+            "preset": "typescript_ci_repair"
+          },
+          "expect": {
+            "status": 200
+          }
+        }
+      ]
+    },
+    {
+      "id": "alice_simulator_journey",
+      "description": "Simulate Alice operator+agent registration and inventory visibility.",
+      "steps": [
+        {
+          "name": "alice_create_operator",
+          "method": "POST",
+          "path": "/api/bountynet/market/operators",
+          "json_body": {
+            "slug": "alice-sim-{{run_id}}",
+            "display_name": "Alice Sim {{run_id}}",
+            "summary": "sim run",
+            "contact_email": "alice+{{run_id}}@example.test",
+            "status": "active"
+          },
+          "save": {
+            "operator_id": "operator.id"
+          },
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "name": "alice_onboard_operator",
+          "method": "POST",
+          "path": "/api/bountynet/market/operators/{{operator_id}}/onboard",
+          "json_body": {
+            "identity_anchor": "dynamic:alice-sim-{{run_id}}",
+            "wallet": "0x1111111111111111111111111111111111111111",
+            "verification_status": "verified"
+          },
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "name": "alice_create_agent",
+          "method": "POST",
+          "path": "/api/bountynet/market/agents",
+          "json_body": {
+            "slug": "alice-agent-sim-{{run_id}}",
+            "display_name": "Alice Agent Sim {{run_id}}",
+            "operator_id": "{{operator_id}}",
+            "agent_kind": "specialist",
+            "pod": "typescript",
+            "lane": "migration",
+            "supported_job_classes": ["ci_repair", "dependency_update"],
+            "supported_ecosystems": ["typescript"],
+            "supported_budget_types": ["platform_credits"],
+            "status": "active"
+          },
+          "save": {
+            "alice_agent_id": "agent.id"
+          },
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "name": "inventory_agents",
+          "method": "GET",
+          "path": "/api/bountynet/market/agents",
+          "expect": {
+            "status": 200,
+            "json_contains": ["alice-agent-sim-{{run_id}}"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "offer_award_settlement_flow",
+      "description": "Simulate offer submission, award, acceptance settlement, and payout state transitions.",
+      "steps": [
+        {
+          "name": "create_job_for_offer",
+          "method": "POST",
+          "path": "/api/bountynet/market/jobs",
+          "json_body": {
+            "repo_full_name": "local/bob-sim-{{run_id}}",
+            "job_class": "ci_repair",
+            "title": "Offer flow test {{run_id}}",
+            "risk_level": "medium",
+            "metadata": {
+              "pod": "typescript",
+              "lane": "migration",
+              "required_trust_tier": "standard"
+            }
+          },
+          "save": {
+            "offer_job_id": "job.id"
+          },
+          "expect": {
+            "status": 201
+          }
+        },
+        {
+          "name": "create_offer",
+          "method": "POST",
+          "path": "/api/bountynet/market/jobs/{{offer_job_id}}/offers",
+          "json_body": {
+            "agent_id": "{{alice_agent_id}}",
+            "amount": 400,
+            "currency": "credits",
+            "eta_seconds": 900,
+            "notes": "sim offer"
+          },
+          "save": {
+            "offer_id": "offer.id"
+          },
+          "expect": {
+            "status": 201
+          }
+        },
+        {
+          "name": "award_offer",
+          "method": "POST",
+          "path": "/api/bountynet/market/jobs/{{offer_job_id}}/award",
+          "json_body": {
+            "offer_id": "{{offer_id}}",
+            "awarded_by": "sim"
+          },
+          "expect": {
+            "status": 200,
+            "json_contains": ["awarded"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "dispute_resolution_flow",
+      "description": "Open and resolve a dispute on a job path.",
+      "steps": [
+        {
+          "name": "open_dispute",
+          "method": "POST",
+          "path": "/api/bountynet/market/jobs/{{offer_job_id}}/disputes",
+          "json_body": {
+            "reason_code": "quality",
+            "reason": "sim dispute",
+            "opened_by": "bob"
+          },
+          "save": {
+            "dispute_id": "dispute.id"
+          },
+          "expect": {
+            "status": 201
+          }
+        },
+        {
+          "name": "resolve_dispute",
+          "method": "POST",
+          "path": "/api/bountynet/market/disputes/{{dispute_id}}/resolve",
+          "json_body": {
+            "ruling": "refund_buyer",
+            "resolved_by": "arbiter"
+          },
+          "expect": {
+            "status": 200,
+            "json_contains": ["resolved"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "suspended_actor_rejection",
+      "description": "Suspended actors cannot place offers.",
+      "steps": [
+        {
+          "name": "suspend_agent",
+          "method": "POST",
+          "path": "/api/bountynet/market/agents",
+          "json_body": {
+            "id": "{{alice_agent_id}}",
+            "slug": "alice-agent-sim-{{run_id}}",
+            "display_name": "Alice Agent Sim {{run_id}}",
+            "operator_id": "{{operator_id}}",
+            "agent_kind": "specialist",
+            "pod": "typescript",
+            "lane": "migration",
+            "supported_job_classes": ["ci_repair", "dependency_update"],
+            "supported_ecosystems": ["typescript"],
+            "supported_budget_types": ["platform_credits"],
+            "status": "suspended"
+          },
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "name": "offer_rejected_when_suspended",
+          "method": "POST",
+          "path": "/api/bountynet/market/jobs/{{offer_job_id}}/offers",
+          "json_body": {
+            "agent_id": "{{alice_agent_id}}",
+            "amount": 123
+          },
+          "expect": {
+            "status": 409
+          }
+        }
+      ]
+    }
+  ]
+}

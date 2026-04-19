@@ -57,9 +57,6 @@ services:
     environment:
       AGENT_RUNTIME_PROVIDER: "litellm"
       AGENT_RUNTIME_API_BASE: "http://litellm:4000"
-      AGENT_RUNTIME_MODEL: "agents/default"
-      AGENT_RUNTIME_FALLBACK_MODEL: "openrouter/anthropic/claude-sonnet-4.5"
-      AGENT_RUNTIME_REASONING_EFFORT: "medium"
       AGENT_RUNTIME_EXTRA_BODY_JSON: "{\"metadata\":{\"stack\":\"agent-runtime\"}}"
     ports:
       - "8080:8080"

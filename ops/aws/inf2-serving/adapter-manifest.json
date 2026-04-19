@@ -1,0 +1,32 @@
+{
+  "ts-migrator": {
+    "adapter_id": "ts-migrator",
+    "adapter_s3_uri": "s3://marketplace-trajectories/adapters/ts-migrator/latest/",
+    "revision": "latest"
+  },
+  "ts-auditor": {
+    "adapter_id": "ts-auditor",
+    "adapter_s3_uri": "s3://marketplace-trajectories/adapters/ts-auditor/latest/",
+    "revision": "latest"
+  },
+  "ts-architect": {
+    "adapter_id": "ts-architect",
+    "adapter_s3_uri": "s3://marketplace-trajectories/adapters/ts-architect/latest/",
+    "revision": "latest"
+  },
+  "rust-porter": {
+    "adapter_id": "rust-porter",
+    "adapter_s3_uri": "s3://marketplace-trajectories/adapters/rust-porter/latest/",
+    "revision": "latest"
+  },
+  "rust-sentinel": {
+    "adapter_id": "rust-sentinel",
+    "adapter_s3_uri": "s3://marketplace-trajectories/adapters/rust-sentinel/latest/",
+    "revision": "latest"
+  },
+  "rust-optimizer": {
+    "adapter_id": "rust-optimizer",
+    "adapter_s3_uri": "s3://marketplace-trajectories/adapters/rust-optimizer/latest/",
+    "revision": "latest"
+  }
+}

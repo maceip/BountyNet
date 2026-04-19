@@ -49,39 +49,53 @@ variable "entry_port" {
 variable "model_api_region" {
   description = "Primary model control-plane region for supervisor/worker calls."
   type        = string
-  default     = "us-west-2"
+  default     = "eu-central-1"
+}
+
+variable "litellm_master_key" {
+  description = "Optional LiteLLM master key used to protect admin/key APIs."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "litellm_salt_key" {
+  description = "Optional LiteLLM salt key used for key hashing/encryption features."
+  type        = string
+  default     = ""
+  sensitive   = true
 }
 
 variable "enable_managed_secret_bootstrap" {
-  description = "When true, cloud-init resolves API keys from AWS SSM SecureString with KMS decryption."
+  description = "Enable optional post-boot secret sync from AWS SSM/KMS. Does not block node startup."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "aws_secrets_region" {
-  description = "AWS region containing SSM/KMS-managed fallback provider secrets."
+  description = "AWS region containing SSM/KMS-managed secrets used by optional sync."
   type        = string
-  default     = "us-west-2"
+  default     = "eu-central-1"
 }
 
 variable "aws_kms_key_arn" {
-  description = "KMS key ARN used for SecureString encryption (metadata only; retrieval uses SSM --with-decryption)."
+  description = "KMS key ARN metadata for optional secret-sync context."
   type        = string
   default     = ""
 }
 
 variable "secret_parameter_names" {
-  description = "SSM SecureString parameter names for fallback provider API keys."
+  description = "SSM SecureString parameter names for optional provider key sync."
   type = object({
-    openai    = string
-    anthropic = string
-    gemini    = string
+    openai     = string
+    anthropic  = string
+    gemini     = string
     openrouter = string
   })
   default = {
-    openai    = "/bountynet/market/edge/openai_api_key"
-    anthropic = "/bountynet/market/edge/anthropic_api_key"
-    gemini    = "/bountynet/market/edge/gemini_api_key"
+    openai     = "/bountynet/market/edge/openai_api_key"
+    anthropic  = "/bountynet/market/edge/anthropic_api_key"
+    gemini     = "/bountynet/market/edge/gemini_api_key"
     openrouter = "/bountynet/market/edge/openrouter_api_key"
   }
 }

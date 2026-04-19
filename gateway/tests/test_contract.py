@@ -909,7 +909,7 @@ def test_market_runtime_status_exposes_agent_runtime_contract(asgi_app, monkeypa
     monkeypatch.setenv("AGENT_RUNTIME_PROVIDER", "litellm")
     monkeypatch.setenv("AGENT_RUNTIME_API_BASE", "http://litellm.internal:4000")
     monkeypatch.setenv("AGENT_RUNTIME_API_KEY", "sk-test")
-    monkeypatch.setenv("AGENT_RUNTIME_FALLBACK_MODEL", "openrouter/anthropic/claude-sonnet-4.5")
+    monkeypatch.setenv("AGENT_RUNTIME_FALLBACK_MODEL", "agents/fallback")
 
     with TestClient(asgi_app) as client:
         runtime = client.get("/market/runtime")
@@ -925,7 +925,7 @@ def test_market_runtime_status_exposes_agent_runtime_contract(asgi_app, monkeypa
         ts_payload = ts_runtime.json()["runtime"]
         assert ts_payload["agent_slug"] == "ts-migrator"
         assert ts_payload["model"] == "agents/ts-migrator"
-        assert ts_payload["fallback_model"] == "openrouter/anthropic/claude-sonnet-4.5"
+        assert ts_payload["fallback_model"] == "agents/fallback"
         assert ts_payload["adapter"] == "ts-migrator"
         assert ts_payload["has_api_key"] is True
 
@@ -1068,6 +1068,209 @@ def test_market_scan_and_promote_opportunity(asgi_app, tmp_path):
         promoted_body = promoted.json()
         assert promoted_body["job"]["repo_full_name"] == "local/upgrade-demo"
         assert promoted_body["job"]["source_event_key"].startswith("opp:")
+
+
+def test_market_offer_award_and_settlement_lifecycle(asgi_app):
+    with TestClient(asgi_app) as client:
+        repo_setup = client.post(
+            "/market/repositories/setup",
+            json={"installation_id": 209, "repos": ["acme/award-demo"], "owner": "acme"},
+        )
+        assert repo_setup.status_code == 200, repo_setup.text
+
+        operator = client.post(
+            "/market/operators",
+            json={"slug": "award-ops", "display_name": "Award Ops", "status": "active"},
+        )
+        assert operator.status_code == 200, operator.text
+        operator_id = operator.json()["operator"]["id"]
+
+        agent = client.post(
+            "/market/agents",
+            json={
+                "slug": "award-agent",
+                "display_name": "Award Agent",
+                "operator_id": operator_id,
+                "status": "active",
+                "supported_job_classes": ["ci_repair"],
+                "supported_ecosystems": ["typescript"],
+                "supported_budget_types": ["platform_credits"],
+            },
+        )
+        assert agent.status_code == 200, agent.text
+        agent_id = agent.json()["agent"]["id"]
+
+        job = client.post(
+            "/market/jobs",
+            json={
+                "repo_full_name": "acme/award-demo",
+                "job_class": "ci_repair",
+                "title": "Fix workflow",
+                "metadata": {"pod": "typescript", "lane": "migration", "required_trust_tier": "standard"},
+            },
+        )
+        assert job.status_code == 201, job.text
+        job_id = job.json()["job"]["id"]
+
+        offer = client.post(
+            f"/market/jobs/{job_id}/offers",
+            json={"agent_id": agent_id, "amount": 700, "currency": "credits", "eta_seconds": 600},
+        )
+        assert offer.status_code == 201, offer.text
+        offer_id = offer.json()["offer"]["id"]
+
+        award = client.post(
+            f"/market/jobs/{job_id}/award",
+            json={"offer_id": offer_id, "awarded_by": "acme"},
+        )
+        assert award.status_code == 200, award.text
+        assert award.json()["award"]["status"] == "awarded"
+
+        assignment = client.post(
+            f"/market/jobs/{job_id}/assignments",
+            json={"agent_id": agent_id, "assigned_by": "acme"},
+        )
+        assert assignment.status_code == 201, assignment.text
+
+        submission = client.post(
+            "/market/submissions",
+            json={"job_id": job_id, "agent_id": agent_id, "diff_summary": "workflow update"},
+        )
+        assert submission.status_code == 201, submission.text
+        submission_id = submission.json()["submission"]["id"]
+
+        decision = client.post(
+            f"/market/submissions/{submission_id}/decision",
+            json={
+                "decision": "accepted",
+                "operator_id": operator_id,
+                "funding_source": "platform_credits",
+                "currency": "credits",
+                "payout_amount": 700,
+            },
+        )
+        assert decision.status_code == 200, decision.text
+
+        settlements = client.get(f"/market/jobs/{job_id}/settlements")
+        assert settlements.status_code == 200, settlements.text
+        settlement_rows = settlements.json()["settlements"]
+        assert len(settlement_rows) >= 1
+        settlement_id = settlement_rows[0]["id"]
+        assert settlement_rows[0]["status"] == "approved"
+
+        paid = client.post(f"/market/settlements/{settlement_id}/pay", json={"notes": "paid"})
+        assert paid.status_code == 200, paid.text
+        assert paid.json()["settlement"]["status"] == "paid"
+
+        refunded = client.post(f"/market/settlements/{settlement_id}/refund", json={"notes": "refund test"})
+        assert refunded.status_code == 200, refunded.text
+        assert refunded.json()["settlement"]["status"] == "refunded"
+
+
+def test_market_disputes_reputation_and_admin_controls(asgi_app, monkeypatch):
+    import gateway.routes.market as market
+
+    monkeypatch.setattr(market, "_ops_authorized", lambda: True)
+
+    with TestClient(asgi_app) as client:
+        repo_setup = client.post(
+            "/market/repositories/setup",
+            json={"installation_id": 210, "repos": ["acme/dispute-demo"], "owner": "acme"},
+        )
+        assert repo_setup.status_code == 200, repo_setup.text
+
+        operator = client.post(
+            "/market/operators",
+            json={"slug": "dispute-ops", "display_name": "Dispute Ops", "status": "active"},
+        )
+        assert operator.status_code == 200, operator.text
+        operator_id = operator.json()["operator"]["id"]
+
+        agent = client.post(
+            "/market/agents",
+            json={
+                "slug": "dispute-agent",
+                "display_name": "Dispute Agent",
+                "operator_id": operator_id,
+                "status": "active",
+                "supported_job_classes": ["ci_repair"],
+                "supported_ecosystems": ["typescript"],
+                "supported_budget_types": ["platform_credits"],
+            },
+        )
+        assert agent.status_code == 200, agent.text
+        agent_id = agent.json()["agent"]["id"]
+
+        job = client.post(
+            "/market/jobs",
+            json={"repo_full_name": "acme/dispute-demo", "job_class": "ci_repair", "title": "Fix ci"},
+        )
+        assert job.status_code == 201, job.text
+        job_id = job.json()["job"]["id"]
+
+        offer = client.post(
+            f"/market/jobs/{job_id}/offers",
+            json={"agent_id": agent_id, "amount": 500},
+        )
+        assert offer.status_code == 201, offer.text
+
+        assignment = client.post(
+            f"/market/jobs/{job_id}/assignments",
+            json={"agent_id": agent_id, "assigned_by": "acme"},
+        )
+        assert assignment.status_code == 201, assignment.text
+
+        submission = client.post(
+            "/market/submissions",
+            json={"job_id": job_id, "agent_id": agent_id, "diff_summary": "candidate fix"},
+        )
+        assert submission.status_code == 201, submission.text
+        submission_id = submission.json()["submission"]["id"]
+
+        decision = client.post(
+            f"/market/submissions/{submission_id}/decision",
+            json={"decision": "accepted", "operator_id": operator_id, "payout_amount": 500},
+        )
+        assert decision.status_code == 200, decision.text
+        settlements = client.get(f"/market/jobs/{job_id}/settlements")
+        settlement_id = settlements.json()["settlements"][0]["id"]
+
+        dispute = client.post(
+            f"/market/jobs/{job_id}/disputes",
+            json={
+                "settlement_id": settlement_id,
+                "submission_id": submission_id,
+                "reason_code": "quality",
+                "reason": "needs review",
+                "opened_by": "acme",
+            },
+        )
+        assert dispute.status_code == 201, dispute.text
+        dispute_id = dispute.json()["dispute"]["id"]
+
+        evidence = client.post(
+            f"/market/disputes/{dispute_id}/evidence",
+            json={"actor_id": "acme", "summary": "evidence provided"},
+        )
+        assert evidence.status_code == 200, evidence.text
+
+        resolved = client.post(
+            f"/market/disputes/{dispute_id}/resolve",
+            json={"ruling": "refund_buyer", "resolved_by": "arbiter"},
+        )
+        assert resolved.status_code == 200, resolved.text
+        assert resolved.json()["dispute"]["status"] == "resolved"
+
+        rep_agents = client.get("/market/reputation/agents")
+        assert rep_agents.status_code == 200, rep_agents.text
+        assert isinstance(rep_agents.json()["reputation"], list)
+
+        suspend_operator = client.post(f"/ops/market/operators/{operator_id}/suspend", json={"actor": "admin"})
+        assert suspend_operator.status_code == 200, suspend_operator.text
+
+        incidents = client.get("/ops/market/incidents")
+        assert incidents.status_code == 200, incidents.text
+        assert len(incidents.json()["incidents"]) >= 1
 
 
 def test_github_install_setup_and_scan_populates_market_jobs(asgi_app, monkeypatch):

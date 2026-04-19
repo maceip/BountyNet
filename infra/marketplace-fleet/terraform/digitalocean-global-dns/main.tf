@@ -13,7 +13,7 @@ resource "digitalocean_record" "do_edges" {
 }
 
 resource "digitalocean_record" "primary_global_lb" {
-  count = trimspace(var.primary_global_lb_ip) != "" ? 1 : 0
+  count = var.create_primary_global_lb_record ? 1 : 0
 
   domain = var.domain_name
   type   = "A"
@@ -23,7 +23,7 @@ resource "digitalocean_record" "primary_global_lb" {
 }
 
 resource "digitalocean_record" "backup_global_lb" {
-  count = trimspace(var.backup_global_lb_ip) != "" ? 1 : 0
+  count = var.create_backup_global_lb_record ? 1 : 0
 
   domain = var.domain_name
   type   = "A"
@@ -33,7 +33,7 @@ resource "digitalocean_record" "backup_global_lb" {
 }
 
 resource "digitalocean_record" "aws_anycast_alias" {
-  count = var.include_aws_anycast_alias && trimspace(var.aws_global_accelerator_dns) != "" ? 1 : 0
+  count = var.create_aws_anycast_alias ? 1 : 0
 
   domain = var.domain_name
   type   = "CNAME"

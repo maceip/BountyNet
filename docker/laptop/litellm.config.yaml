@@ -11,18 +11,21 @@ model_list:
       api_base: os.environ/AWS_VLLM_API_BASE
       api_key: os.environ/AWS_VLLM_API_KEY
 
-  # Keep production-style fallback model names, but route locally.
-  - model_name: openrouter/anthropic/claude-sonnet-4.5
+  - model_name: agents/fallback
     litellm_params:
-      model: openai/base-coder
-      api_base: os.environ/AWS_VLLM_API_BASE
-      api_key: os.environ/AWS_VLLM_API_KEY
+      model: anthropic/claude-3-5-haiku-latest
+      api_base: os.environ/ANTHROPIC_API_BASE
+      api_key: os.environ/ANTHROPIC_API_KEY
 
 router_settings:
+  allowed_fails: 1
+  cooldown_time: 2
   fallbacks:
-    - agents/default: ["aws-vllm/base-coder", "openrouter/anthropic/claude-sonnet-4.5"]
+    - agents/default: ["aws-vllm/base-coder", "agents/fallback"]
 
 litellm_settings:
+  request_timeout: 8
+  num_retries: 0
   master_key: os.environ/LITELLM_MASTER_KEY
   salt_key: os.environ/LITELLM_SALT_KEY
   json_logs: true

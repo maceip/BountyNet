@@ -5,6 +5,13 @@
   "description": "Top-level task runner for BountyNet subprojects.",
   "scripts": {
     "bootstrap": "npm --prefix clients/web install && npm --prefix projects/agent-market/console-ui install",
+    "dev": "npm run dev:down && bash ./scripts/laptop-stack.sh up slice",
+    "dev:full": "npm run dev:down && bash ./scripts/laptop-stack.sh up full",
+    "dev:test": "bash ./scripts/laptop-stack.sh smoke slice",
+    "dev:test:full": "bash ./scripts/laptop-stack.sh smoke full",
+    "dev:test:webmcp": "python3 ./scripts/webmcp_simulator_eval.py --base-url http://127.0.0.1:5173",
+    "dev:down": "bash ./scripts/laptop-stack.sh down",
+    "dev:ps": "bash ./scripts/laptop-stack.sh ps",
     "dev:web": "npm --prefix clients/web run dev",
     "dev:console": "npm --prefix projects/agent-market/console-ui run dev",
     "build:web": "npm --prefix clients/web run build",

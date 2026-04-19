@@ -6,6 +6,7 @@
  */
 
 import react from '@vitejs/plugin-react-swc';
+import tailwindcss from '@tailwindcss/vite';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
 import i18nextLoader from 'vite-plugin-i18next-loader';
@@ -17,6 +18,7 @@ export default defineConfig(({ isSsrBuild }) => {
   return {
     plugins: [
       react(),
+      tailwindcss(),
       /**
        * Loads i18n translation JSON files from src/locales at build time.
        * Files are resolved by basename (e.g., de.json becomes the 'de' namespace),

@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const BOUNTYNET_GATEWAY_URL =
-  process.env.BOUNTYNET_GATEWAY_URL || 'https://gateway.stare.network';
+  process.env.BOUNTYNET_GATEWAY_URL || 'http://127.0.0.1:8090';
 const ANTHROPIC_MODEL =
   process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));

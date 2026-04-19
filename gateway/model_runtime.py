@@ -12,6 +12,8 @@ from gateway.agent_fleet import AgentServingProfile
 
 
 _DOTENV_LOADED = False
+_DEFAULT_LOGICAL_MODEL = "agents/default"
+_DEFAULT_LOGICAL_FALLBACK = "agents/fallback"
 
 
 def _load_root_env() -> None:
@@ -83,12 +85,13 @@ class RuntimeConfig:
 
 
 def default_runtime_config() -> RuntimeConfig:
-    default_model = _env("AGENT_RUNTIME_MODEL", "agents/default")
-    default_fallback = _env("AGENT_RUNTIME_FALLBACK_MODEL", "openrouter/anthropic/claude-sonnet-4.5")
-    resolved_model = _resolve_model_alias(default_model)
-    resolved_fallback_model = _resolve_model_alias(default_fallback)
+    provider = _env("AGENT_RUNTIME_PROVIDER", "litellm")
+    default_model = _DEFAULT_LOGICAL_MODEL
+    default_fallback = _DEFAULT_LOGICAL_FALLBACK
+    resolved_model = _resolve_model_alias(default_model, provider=provider)
+    resolved_fallback_model = _resolve_model_alias(default_fallback, provider=provider)
     return RuntimeConfig(
-        provider=_env("AGENT_RUNTIME_PROVIDER", "litellm"),
+        provider=provider,
         model=default_model,
         resolved_model=resolved_model,
         fallback_model=default_fallback,
@@ -96,17 +99,21 @@ def default_runtime_config() -> RuntimeConfig:
         api_base=_env("AGENT_RUNTIME_API_BASE"),
         api_key=_key_for_model(resolved_model),
         timeout_seconds=_env_int("AGENT_RUNTIME_TIMEOUT_SECONDS", 120),
-        reasoning_effort=_env("AGENT_RUNTIME_REASONING_EFFORT", "medium"),
+        reasoning_effort="",
         use_responses_api=_env_bool("AGENT_RUNTIME_USE_RESPONSES_API", False),
         extra_body=_env_json("AGENT_RUNTIME_EXTRA_BODY_JSON"),
         extra_headers={k: str(v) for k, v in _env_json("AGENT_RUNTIME_HEADERS_JSON").items()},
     )
 
 
-def _resolve_model_alias(model: str) -> str:
+def _resolve_model_alias(model: str, *, provider: str) -> str:
     mapping = _env_json("AGENT_RUNTIME_MODEL_MAP_JSON")
     if model in mapping and isinstance(mapping[model], str) and mapping[model].strip():
         return mapping[model].strip()
+    # For LiteLLM proxy mode, keep logical model aliases (e.g. agents/default)
+    # and let LiteLLM handle provider/model routing.
+    if provider == "litellm":
+        return model
     if model.startswith("agents/"):
         return _env("AGENT_RUNTIME_DEFAULT_HOSTED_MODEL", "anthropic/claude-sonnet-4-5")
     return model
@@ -118,19 +125,20 @@ def _key_for_model(model: str) -> str:
         return explicit
     if model.startswith("anthropic/"):
         return _env("ANTHROPIC_API_KEY")
-    if model.startswith("openrouter/"):
-        return _env("OPENROUTER_API_KEY")
     if model.startswith("openai/"):
         return _env("OPENAI_API_KEY")
-    return _env("OPENAI_API_KEY") or _env("ANTHROPIC_API_KEY") or _env("OPENROUTER_API_KEY")
+    if model.startswith("gemini/"):
+        return _env("GEMINI_API_KEY")
+    return _env("OPENAI_API_KEY") or _env("ANTHROPIC_API_KEY") or _env("GEMINI_API_KEY")
 
 
 def runtime_config_for_profile(profile: AgentServingProfile, *, agent_model: str = "") -> RuntimeConfig:
     base = default_runtime_config()
+    provider = profile.runtime_provider or base.provider
     model = (agent_model or profile.runtime_model or base.model).strip()
     fallback_model = profile.runtime_fallback_model or base.fallback_model
-    resolved_model = _resolve_model_alias(model)
-    resolved_fallback_model = _resolve_model_alias(fallback_model)
+    resolved_model = _resolve_model_alias(model, provider=provider)
+    resolved_fallback_model = _resolve_model_alias(fallback_model, provider=provider)
     extra_body = dict(base.extra_body)
     extra_body.setdefault("metadata", {})
     metadata = extra_body["metadata"]
@@ -139,8 +147,15 @@ def runtime_config_for_profile(profile: AgentServingProfile, *, agent_model: str
         metadata.setdefault("agent_adapter", profile.runtime_adapter)
         metadata.setdefault("agent_lane", profile.lane)
         metadata.setdefault("agent_pod", profile.pod)
+        metadata.setdefault("kv_cache_window_seconds", _env_int("VLLM_KV_CACHE_WINDOW_SECONDS", 300))
+        metadata.setdefault("context_floor_tokens", _env_int("AGENT_RUNTIME_CONTEXT_FLOOR_TOKENS", 262144))
+    extra_headers = dict(base.extra_headers)
+    agent_id_header = _env("VLLM_AGENT_ID_HEADER", "X-Agent-ID")
+    if agent_id_header:
+        # Layer-A -> Layer-B identity handoff for adapter routing.
+        extra_headers.setdefault(agent_id_header, profile.runtime_adapter or profile.slug)
     return RuntimeConfig(
-        provider=profile.runtime_provider or base.provider,
+        provider=provider,
         model=model,
         resolved_model=resolved_model,
         fallback_model=fallback_model,
@@ -151,12 +166,14 @@ def runtime_config_for_profile(profile: AgentServingProfile, *, agent_model: str
         reasoning_effort=profile.reasoning_effort or base.reasoning_effort,
         use_responses_api=base.use_responses_api,
         extra_body=extra_body,
-        extra_headers=base.extra_headers,
+        extra_headers=extra_headers,
     )
 
 
 def runtime_available(config: RuntimeConfig | None = None) -> bool:
     cfg = config or default_runtime_config()
+    if cfg.provider == "litellm":
+        return bool(cfg.resolved_model and cfg.api_base)
     return bool(cfg.resolved_model and cfg.api_key)
 
 
@@ -173,12 +190,13 @@ def _completion_kwargs(cfg: RuntimeConfig, messages: list[dict[str, str]]) -> di
     kwargs: dict[str, Any] = {
         "model": cfg.resolved_model,
         "messages": messages,
-        "api_key": cfg.api_key,
         "temperature": 0.2,
         "timeout": cfg.timeout_seconds,
         "response_format": {"type": "json_object"},
         "extra_body": cfg.extra_body,
     }
+    if cfg.api_key:
+        kwargs["api_key"] = cfg.api_key
     if cfg.api_base:
         kwargs["api_base"] = cfg.api_base
     if cfg.extra_headers:

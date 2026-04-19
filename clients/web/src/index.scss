@@ -5,23 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-@use '@carbon/ibm-products/css/index.min';
-@use '@carbon/react' with (
-  $font-path: '@ibm/plex',
-  $font-display: 'block'
-);
-@use '@carbon/react/scss/theme' as *;
-@use '@carbon/react/scss/themes';
-@use '@carbon-labs/react-theme-settings/scss/theme-settings';
-@use 'layouts/page-layout';
-@use 'styles/bountynet';
-
-:root {
-  @include theme(themes.$white);
-}
+@use 'styles/market-lite';
 
 body {
-  background-color: $background;
-  block-size: calc(100% - 3rem);
-  color: $text-primary;
+  background-color: #f4efe8;
+  color: #201d19;
+  margin: 0;
 }

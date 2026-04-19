@@ -5,7 +5,7 @@ import uuid
 import os
 from pathlib import Path
 
-from flask import Blueprint, Response, current_app, jsonify, request
+from flask import Blueprint, Response, current_app, jsonify, redirect, request
 
 from gateway import store
 from gateway.agent_fleet import AGENT_SERVING_PROFILES
@@ -57,12 +57,13 @@ _LANE_PRESETS = {
 
 _SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 _JOB_STATUS_TRANSITIONS = {
-    "open": {"assigned", "cancelled"},
-    "assigned": {"open", "completed", "cancelled"},
-    "completed": {"open"},
+    "open": {"assigned", "awarded", "cancelled"},
+    "assigned": {"open", "awarded", "completed", "cancelled"},
+    "awarded": {"assigned", "open", "completed", "cancelled"},
+    "completed": {"open", "awarded"},
     "cancelled": set(),
 }
-_MUTATING_JOB_STATUSES = {"open", "assigned"}
+_MUTATING_JOB_STATUSES = {"open", "assigned", "awarded"}
 _EXECUTION_MODES = {"dry_run", "apply"}
 _OPS_REGIONAL_TARGET_DROPLETS = {
     "na_west": 2,
@@ -335,6 +336,63 @@ def _agent_policy_violations(job: dict, account: dict, agent: dict) -> list[str]
         if not (set(allowed_pools) & agent_pools):
             violations.append("agent is outside allowed agent pools")
     return violations
+
+
+def _is_agent_or_operator_suspended(agent: dict) -> tuple[bool, str]:
+    if (agent.get("status") or "").strip().lower() in {"suspended", "disabled"}:
+        return True, "agent is suspended"
+    operator_id = (agent.get("operator_id") or "").strip()
+    if operator_id and operator_id != "platform-managed":
+        operator = store.market_operator_get(operator_id)
+        if operator and (operator.get("status") or "").strip().lower() in {"suspended", "disabled"}:
+            return True, "operator is suspended"
+    return False, ""
+
+
+def _record_reputation_from_submission(submission: dict, decision: str) -> None:
+    agent_id = (submission.get("agent_id") or "").strip()
+    if not agent_id:
+        return
+    agent = store.market_agent_profile_get(agent_id) or {}
+    operator_id = (agent.get("operator_id") or "").strip()
+    if decision == "accepted":
+        store.market_reputation_record("agent", agent_id, wins_delta=1, jobs_delta=1)
+        if operator_id:
+            store.market_reputation_record("operator", operator_id, wins_delta=1, jobs_delta=1)
+        return
+    store.market_reputation_record("agent", agent_id, rejects_delta=1, jobs_delta=1)
+    if operator_id:
+        store.market_reputation_record("operator", operator_id, rejects_delta=1, jobs_delta=1)
+
+
+def _record_reputation_dispute(dispute: dict, ruling: str) -> None:
+    settlement = store.market_settlement_get((dispute.get("settlement_id") or "").strip()) or {}
+    agent_id = (settlement.get("agent_id") or "").strip()
+    operator_id = (settlement.get("operator_id") or "").strip()
+    disputes_won_delta = 1 if ruling in {"uphold_agent", "agent_wins"} else 0
+    if agent_id:
+        store.market_reputation_record(
+            "agent",
+            agent_id,
+            disputes_delta=1,
+            disputes_won_delta=disputes_won_delta,
+        )
+    if operator_id:
+        store.market_reputation_record(
+            "operator",
+            operator_id,
+            disputes_delta=1,
+            disputes_won_delta=disputes_won_delta,
+        )
+
+
+def _record_reputation_refund(settlement: dict) -> None:
+    agent_id = (settlement.get("agent_id") or "").strip()
+    operator_id = (settlement.get("operator_id") or "").strip()
+    if agent_id:
+        store.market_reputation_record("agent", agent_id, refunds_delta=1)
+    if operator_id:
+        store.market_reputation_record("operator", operator_id, refunds_delta=1)
 
 
 def _validate_mode(raw_mode: str) -> str | None:
@@ -618,10 +676,8 @@ def _opportunity_to_job(account: dict, opportunity: dict) -> dict:
 
 @market_bp.route("/marketplace", methods=["GET"])
 def marketplace_ui():
-    asset = Path(__file__).resolve().parents[1] / "market_ui.html"
-    if asset.is_file():
-        return Response(asset.read_text(encoding="utf-8"), mimetype="text/html")
-    return Response("<h1>Agent Market</h1><p>market_ui.html missing</p>", mimetype="text/html")
+    web_marketplace_url = (os.getenv("WEB_MARKETPLACE_URL") or "http://127.0.0.1:5173/marketplace").strip()
+    return redirect(web_marketplace_url, code=302)
 
 
 @market_bp.route("/market/repositories", methods=["GET"])
@@ -1461,6 +1517,10 @@ def get_job(job_id: str):
         "submissions": store.market_submissions_list(job_id),
         "submission_reviews": store.market_submission_reviews_list_by_job(job_id),
         "payouts": store.market_payout_ledger_list(job_id),
+        "offers": store.market_offers_list(job_id),
+        "award": store.market_award_get_by_job(job_id),
+        "settlements": store.market_settlements_list(job_id),
+        "disputes": store.market_disputes_list(job_id),
         "recommendations": store.market_job_recommendations_list(job_id),
         "runs": store.market_execution_runs_list(job_id),
         "invocations": store.market_agent_invocations_list(job_id),
@@ -1541,6 +1601,9 @@ def create_job_assignment(job_id: str):
     agent = store.market_agent_profile_get(agent_id)
     if not agent:
         return _error("agent not found", 404, "agent_not_found")
+    suspended, suspend_reason = _is_agent_or_operator_suspended(agent)
+    if suspended:
+        return _error(suspend_reason, 409, "agent_suspended")
 
     direct_violations = _agent_policy_violations(job, account, agent)
     if direct_violations and not recommendation:
@@ -1607,6 +1670,12 @@ def execute_job(job_id: str):
         return _error("assignment_id required", 400, "assignment_required")
     if assignment.get("status") not in {"active", "approved", "changes_requested"}:
         return _error("assignment is not executable", 409, "invalid_assignment_state")
+    agent = store.market_agent_profile_get(assignment["agent_id"])
+    if not agent:
+        return _error("assignment agent not found", 404, "agent_not_found")
+    suspended, suspend_reason = _is_agent_or_operator_suspended(agent)
+    if suspended:
+        return _error(suspend_reason, 409, "agent_suspended")
     mode = _validate_mode(body.get("mode") or "dry_run")
     if mode is None:
         return _error("mode must be dry_run or apply", 400, "invalid_mode")
@@ -1672,6 +1741,483 @@ def autopilot_job(job_id: str):
         current_app.logger.exception("market autopilot failed", extra={"job_id": job_id})
         return _error("autopilot execution failed; see gateway logs for details", 400, "execution_failed")
     return jsonify({"status": "autopilot_complete", "recommendation": recommendation, "plan": store.market_job_plan_get(plan_id), "assignment": store.market_job_assignments_list(job_id)[0], "run": run, "submission": submission})
+
+
+@market_bp.route("/market/jobs/<job_id>/offers", methods=["GET"])
+def list_job_offers(job_id: str):
+    if not store.market_job_get(job_id):
+        return _error("job not found", 404, "job_not_found")
+    return jsonify({"offers": store.market_offers_list(job_id)})
+
+
+@market_bp.route("/market/jobs/<job_id>/offers", methods=["POST"])
+def create_job_offer(job_id: str):
+    job = store.market_job_get(job_id)
+    if not job:
+        return _error("job not found", 404, "job_not_found")
+    body = request.json or {}
+    agent_id = (body.get("agent_id") or "").strip()
+    if not agent_id:
+        return _error("agent_id required", 400, "missing_required_fields")
+    agent = store.market_agent_profile_get(agent_id)
+    if not agent:
+        return _error("agent not found", 404, "agent_not_found")
+    if (agent.get("status") or "").strip().lower() != "active":
+        return _error("agent must be active to offer", 409, "agent_inactive")
+    suspended, suspend_reason = _is_agent_or_operator_suspended(agent)
+    if suspended:
+        return _error(suspend_reason, 409, "agent_suspended")
+    account = store.market_repository_account_get_by_repo(job["repo_full_name"])
+    if not account:
+        return _error("repository_account missing for job", 404, "repository_not_found")
+    violations = _agent_policy_violations(job, account, agent)
+    if violations:
+        return _error("; ".join(violations), 400, "agent_policy_violation")
+    offer_id = _make_id("offer")
+    store.market_offer_create(
+        offer_id=offer_id,
+        job_id=job_id,
+        agent_id=agent_id,
+        operator_id=(agent.get("operator_id") or "").strip(),
+        amount=int(body.get("amount") or 0),
+        currency=(body.get("currency") or "credits").strip(),
+        eta_seconds=int(body.get("eta_seconds") or 0),
+        sla_summary=(body.get("sla_summary") or "").strip(),
+        notes=(body.get("notes") or "").strip(),
+        status="open",
+    )
+    return jsonify({"status": "created", "offer": store.market_offer_get(offer_id)}), 201
+
+
+@market_bp.route("/market/jobs/<job_id>/award", methods=["GET"])
+def get_job_award(job_id: str):
+    if not store.market_job_get(job_id):
+        return _error("job not found", 404, "job_not_found")
+    return jsonify({"award": store.market_award_get_by_job(job_id)})
+
+
+@market_bp.route("/market/jobs/<job_id>/award", methods=["POST"])
+def award_job_offer(job_id: str):
+    job = store.market_job_get(job_id)
+    if not job:
+        return _error("job not found", 404, "job_not_found")
+    account = store.market_repository_account_get_by_repo(job["repo_full_name"])
+    if not account:
+        return _error("repository_account missing for job", 404, "repository_not_found")
+    can_write, owner_error = _check_repo_owner_access(account)
+    if not can_write:
+        return _error(owner_error, 403, "owner_mismatch")
+    body = request.json or {}
+    offer_id = (body.get("offer_id") or "").strip()
+    offer = store.market_offer_get(offer_id) if offer_id else None
+    if not offer or offer.get("job_id") != job_id:
+        return _error("valid offer_id required", 400, "invalid_offer")
+    if offer.get("status") != "open":
+        return _error("offer is not open", 409, "invalid_offer_state")
+    agent = store.market_agent_profile_get(offer["agent_id"])
+    if not agent:
+        return _error("offered agent not found", 404, "agent_not_found")
+    suspended, suspend_reason = _is_agent_or_operator_suspended(agent)
+    if suspended:
+        return _error(suspend_reason, 409, "agent_suspended")
+    award_id = _make_id("award")
+    store.market_award_upsert(
+        award_id=award_id,
+        job_id=job_id,
+        offer_id=offer_id,
+        awarded_agent_id=offer["agent_id"],
+        awarded_by=(body.get("awarded_by") or "").strip(),
+        decision_notes=(body.get("decision_notes") or "").strip(),
+        status="awarded",
+    )
+    store.market_offer_update_status(offer_id, "accepted")
+    for other in store.market_offers_list(job_id):
+        if other["id"] != offer_id and other["status"] == "open":
+            store.market_offer_update_status(other["id"], "rejected")
+    if not _set_job_status(job, "awarded"):
+        return _error("job status transition to awarded is not allowed", 409, "invalid_job_state")
+    return jsonify({"status": "awarded", "award": store.market_award_get_by_job(job_id)})
+
+
+@market_bp.route("/market/settlements", methods=["GET"])
+def list_settlements():
+    return jsonify({"settlements": store.market_settlements_list()})
+
+
+@market_bp.route("/market/jobs/<job_id>/settlements", methods=["GET"])
+def list_job_settlements(job_id: str):
+    if not store.market_job_get(job_id):
+        return _error("job not found", 404, "job_not_found")
+    return jsonify({"settlements": store.market_settlements_list(job_id)})
+
+
+@market_bp.route("/market/settlements/<settlement_id>/pay", methods=["POST"])
+def pay_settlement(settlement_id: str):
+    settlement = store.market_settlement_get(settlement_id)
+    if not settlement:
+        return _error("settlement not found", 404, "settlement_not_found")
+    if settlement.get("frozen"):
+        return _error("settlement is frozen", 409, "settlement_frozen")
+    body = request.json or {}
+    store.market_settlement_update(
+        settlement_id,
+        status="paid",
+        resolution_notes=(body.get("notes") or "").strip(),
+    )
+    store.market_payout_ledger_create(
+        payout_id=_make_id("pay"),
+        job_id=settlement["job_id"],
+        submission_id=settlement.get("submission_id", ""),
+        agent_id=settlement.get("agent_id", ""),
+        operator_id=settlement.get("operator_id", ""),
+        amount=int(settlement.get("amount") or 0),
+        currency=(settlement.get("currency") or "credits"),
+        funding_source=(settlement.get("funding_source") or ""),
+        status="paid",
+        notes=(body.get("notes") or "settlement paid"),
+    )
+    return jsonify({"status": "paid", "settlement": store.market_settlement_get(settlement_id)})
+
+
+@market_bp.route("/market/settlements/<settlement_id>/refund", methods=["POST"])
+def refund_settlement(settlement_id: str):
+    settlement = store.market_settlement_get(settlement_id)
+    if not settlement:
+        return _error("settlement not found", 404, "settlement_not_found")
+    if settlement.get("frozen"):
+        return _error("settlement is frozen", 409, "settlement_frozen")
+    body = request.json or {}
+    store.market_settlement_update(
+        settlement_id,
+        status="refunded",
+        resolution_notes=(body.get("notes") or "").strip(),
+    )
+    store.market_payout_ledger_create(
+        payout_id=_make_id("pay"),
+        job_id=settlement["job_id"],
+        submission_id=settlement.get("submission_id", ""),
+        agent_id=settlement.get("agent_id", ""),
+        operator_id=settlement.get("operator_id", ""),
+        amount=int(settlement.get("amount") or 0),
+        currency=(settlement.get("currency") or "credits"),
+        funding_source=(settlement.get("funding_source") or ""),
+        status="refunded",
+        notes=(body.get("notes") or "settlement refunded"),
+    )
+    _record_reputation_refund(settlement)
+    return jsonify({"status": "refunded", "settlement": store.market_settlement_get(settlement_id)})
+
+
+@market_bp.route("/market/jobs/<job_id>/disputes", methods=["GET"])
+def list_job_disputes(job_id: str):
+    if not store.market_job_get(job_id):
+        return _error("job not found", 404, "job_not_found")
+    disputes = store.market_disputes_list(job_id)
+    for dispute in disputes:
+        dispute["events"] = store.market_dispute_events_list(dispute["id"])
+    return jsonify({"disputes": disputes})
+
+
+@market_bp.route("/market/jobs/<job_id>/disputes", methods=["POST"])
+def open_job_dispute(job_id: str):
+    if not store.market_job_get(job_id):
+        return _error("job not found", 404, "job_not_found")
+    body = request.json or {}
+    dispute_id = _make_id("disp")
+    settlement_id = (body.get("settlement_id") or "").strip()
+    submission_id = (body.get("submission_id") or "").strip()
+    store.market_dispute_create(
+        dispute_id=dispute_id,
+        job_id=job_id,
+        settlement_id=settlement_id,
+        submission_id=submission_id,
+        opened_by=(body.get("opened_by") or "").strip(),
+        reason_code=(body.get("reason_code") or "").strip(),
+        reason=(body.get("reason") or "").strip(),
+        status="open",
+    )
+    store.market_dispute_event_create(
+        event_id=_make_id("dispev"),
+        dispute_id=dispute_id,
+        actor_id=(body.get("opened_by") or "").strip(),
+        event_type="opened",
+        detail={"reason": (body.get("reason") or "").strip()},
+    )
+    if settlement_id:
+        store.market_settlement_update(settlement_id, status="hold")
+    dispute = store.market_dispute_get(dispute_id)
+    dispute["events"] = store.market_dispute_events_list(dispute_id)
+    return jsonify({"status": "opened", "dispute": dispute}), 201
+
+
+@market_bp.route("/market/disputes/<dispute_id>/evidence", methods=["POST"])
+def add_dispute_evidence(dispute_id: str):
+    dispute = store.market_dispute_get(dispute_id)
+    if not dispute:
+        return _error("dispute not found", 404, "dispute_not_found")
+    body = request.json or {}
+    store.market_dispute_event_create(
+        event_id=_make_id("dispev"),
+        dispute_id=dispute_id,
+        actor_id=(body.get("actor_id") or "").strip(),
+        event_type="evidence",
+        detail={
+            "summary": (body.get("summary") or "").strip(),
+            "payload": body.get("payload") or {},
+        },
+    )
+    return jsonify({"status": "evidence_recorded", "events": store.market_dispute_events_list(dispute_id)})
+
+
+@market_bp.route("/market/disputes/<dispute_id>/resolve", methods=["POST"])
+def resolve_dispute(dispute_id: str):
+    dispute = store.market_dispute_get(dispute_id)
+    if not dispute:
+        return _error("dispute not found", 404, "dispute_not_found")
+    body = request.json or {}
+    ruling = (body.get("ruling") or "").strip()
+    if ruling not in {"uphold_agent", "refund_buyer", "split"}:
+        return _error("ruling must be uphold_agent, refund_buyer, or split", 400, "invalid_ruling")
+    settlement_id = (dispute.get("settlement_id") or "").strip()
+    if settlement_id:
+        if ruling == "refund_buyer":
+            store.market_settlement_update(settlement_id, status="refunded", resolution_notes=(body.get("notes") or "").strip())
+            settlement = store.market_settlement_get(settlement_id)
+            if settlement:
+                _record_reputation_refund(settlement)
+        elif ruling == "uphold_agent":
+            store.market_settlement_update(settlement_id, status="approved", resolution_notes=(body.get("notes") or "").strip())
+        else:
+            store.market_settlement_update(settlement_id, status="paid", resolution_notes=(body.get("notes") or "").strip())
+    store.market_dispute_update(dispute_id, status="resolved", ruling=ruling)
+    store.market_dispute_event_create(
+        event_id=_make_id("dispev"),
+        dispute_id=dispute_id,
+        actor_id=(body.get("resolved_by") or "").strip(),
+        event_type="resolved",
+        detail={"ruling": ruling, "notes": (body.get("notes") or "").strip()},
+    )
+    updated = store.market_dispute_get(dispute_id)
+    _record_reputation_dispute(updated or {}, ruling)
+    return jsonify({"status": "resolved", "dispute": updated, "events": store.market_dispute_events_list(dispute_id)})
+
+
+@market_bp.route("/market/reputation/agents", methods=["GET"])
+def list_agent_reputation():
+    return jsonify({"reputation": store.market_reputation_list("agent")})
+
+
+@market_bp.route("/market/reputation/operators", methods=["GET"])
+def list_operator_reputation():
+    return jsonify({"reputation": store.market_reputation_list("operator")})
+
+
+@market_bp.route("/market/reputation/agents/<agent_id>", methods=["GET"])
+def get_agent_reputation(agent_id: str):
+    record = store.market_reputation_get("agent", agent_id)
+    if not record:
+        return _error("reputation not found", 404, "reputation_not_found")
+    return jsonify({"reputation": record})
+
+
+@market_bp.route("/ops/market/operators/<operator_id>/suspend", methods=["POST"])
+def suspend_operator(operator_id: str):
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    operator = store.market_operator_get(operator_id)
+    if not operator:
+        return _error("operator not found", 404, "operator_not_found")
+    body = request.json or {}
+    store.market_operator_upsert(
+        operator_id=operator["id"],
+        slug=operator["slug"],
+        display_name=operator["display_name"],
+        summary=operator.get("summary", ""),
+        status="suspended",
+        onboarding_status=operator.get("onboarding_status", "completed"),
+        identity_anchor=operator.get("identity_anchor", ""),
+        wallet=operator.get("wallet", ""),
+        ens_name=operator.get("ens_name", ""),
+        verification_status=operator.get("verification_status", "verified"),
+        contact_email=operator.get("contact_email", ""),
+        website_url=operator.get("website_url", ""),
+        metadata=operator.get("metadata") or {},
+    )
+    store.market_admin_action_create(
+        action_id=_make_id("adm"),
+        action_type="suspend_operator",
+        target_type="operator",
+        target_id=operator_id,
+        actor=(body.get("actor") or "admin").strip(),
+        notes=(body.get("notes") or "").strip(),
+    )
+    return jsonify({"status": "suspended", "operator": store.market_operator_get(operator_id)})
+
+
+@market_bp.route("/ops/market/operators/<operator_id>/unsuspend", methods=["POST"])
+def unsuspend_operator(operator_id: str):
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    operator = store.market_operator_get(operator_id)
+    if not operator:
+        return _error("operator not found", 404, "operator_not_found")
+    body = request.json or {}
+    store.market_operator_upsert(
+        operator_id=operator["id"],
+        slug=operator["slug"],
+        display_name=operator["display_name"],
+        summary=operator.get("summary", ""),
+        status="active",
+        onboarding_status=operator.get("onboarding_status", "completed"),
+        identity_anchor=operator.get("identity_anchor", ""),
+        wallet=operator.get("wallet", ""),
+        ens_name=operator.get("ens_name", ""),
+        verification_status=operator.get("verification_status", "verified"),
+        contact_email=operator.get("contact_email", ""),
+        website_url=operator.get("website_url", ""),
+        metadata=operator.get("metadata") or {},
+    )
+    store.market_admin_action_create(
+        action_id=_make_id("adm"),
+        action_type="unsuspend_operator",
+        target_type="operator",
+        target_id=operator_id,
+        actor=(body.get("actor") or "admin").strip(),
+        notes=(body.get("notes") or "").strip(),
+    )
+    return jsonify({"status": "active", "operator": store.market_operator_get(operator_id)})
+
+
+@market_bp.route("/ops/market/agents/<agent_id>/suspend", methods=["POST"])
+def suspend_agent(agent_id: str):
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    agent = store.market_agent_profile_get(agent_id)
+    if not agent:
+        return _error("agent not found", 404, "agent_not_found")
+    body = request.json or {}
+    store.market_agent_profile_upsert(
+        agent_id=agent["id"],
+        slug=agent["slug"],
+        display_name=agent["display_name"],
+        operator_id=agent.get("operator_id", ""),
+        summary=agent.get("summary", ""),
+        agent_kind=agent.get("agent_kind", "generic"),
+        pod=agent.get("pod", ""),
+        lane=agent.get("lane", ""),
+        supported_job_classes=agent.get("supported_job_classes", []),
+        supported_ecosystems=agent.get("supported_ecosystems", []),
+        supported_budget_types=agent.get("supported_budget_types", []),
+        model=agent.get("model", ""),
+        execution_backend=agent.get("execution_backend", ""),
+        specialist_id=agent.get("specialist_id", ""),
+        trust_tier=agent.get("trust_tier", "standard"),
+        pricing_profile=agent.get("pricing_profile", "per_accepted_change"),
+        acceptance_rate_30d=float(agent.get("acceptance_rate_30d") or 0),
+        median_time_to_pr_seconds=int(agent.get("median_time_to_pr_seconds") or 0),
+        revert_rate_90d=float(agent.get("revert_rate_90d") or 0),
+        badges=agent.get("badges", []),
+        status="suspended",
+    )
+    store.market_admin_action_create(
+        action_id=_make_id("adm"),
+        action_type="suspend_agent",
+        target_type="agent",
+        target_id=agent_id,
+        actor=(body.get("actor") or "admin").strip(),
+        notes=(body.get("notes") or "").strip(),
+    )
+    return jsonify({"status": "suspended", "agent": store.market_agent_profile_get(agent_id)})
+
+
+@market_bp.route("/ops/market/agents/<agent_id>/unsuspend", methods=["POST"])
+def unsuspend_agent(agent_id: str):
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    agent = store.market_agent_profile_get(agent_id)
+    if not agent:
+        return _error("agent not found", 404, "agent_not_found")
+    body = request.json or {}
+    store.market_agent_profile_upsert(
+        agent_id=agent["id"],
+        slug=agent["slug"],
+        display_name=agent["display_name"],
+        operator_id=agent.get("operator_id", ""),
+        summary=agent.get("summary", ""),
+        agent_kind=agent.get("agent_kind", "generic"),
+        pod=agent.get("pod", ""),
+        lane=agent.get("lane", ""),
+        supported_job_classes=agent.get("supported_job_classes", []),
+        supported_ecosystems=agent.get("supported_ecosystems", []),
+        supported_budget_types=agent.get("supported_budget_types", []),
+        model=agent.get("model", ""),
+        execution_backend=agent.get("execution_backend", ""),
+        specialist_id=agent.get("specialist_id", ""),
+        trust_tier=agent.get("trust_tier", "standard"),
+        pricing_profile=agent.get("pricing_profile", "per_accepted_change"),
+        acceptance_rate_30d=float(agent.get("acceptance_rate_30d") or 0),
+        median_time_to_pr_seconds=int(agent.get("median_time_to_pr_seconds") or 0),
+        revert_rate_90d=float(agent.get("revert_rate_90d") or 0),
+        badges=agent.get("badges", []),
+        status="active",
+    )
+    store.market_admin_action_create(
+        action_id=_make_id("adm"),
+        action_type="unsuspend_agent",
+        target_type="agent",
+        target_id=agent_id,
+        actor=(body.get("actor") or "admin").strip(),
+        notes=(body.get("notes") or "").strip(),
+    )
+    return jsonify({"status": "active", "agent": store.market_agent_profile_get(agent_id)})
+
+
+@market_bp.route("/ops/market/settlements/<settlement_id>/freeze", methods=["POST"])
+def freeze_settlement(settlement_id: str):
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    settlement = store.market_settlement_get(settlement_id)
+    if not settlement:
+        return _error("settlement not found", 404, "settlement_not_found")
+    body = request.json or {}
+    store.market_settlement_update(settlement_id, frozen=True, status="hold", resolution_notes=(body.get("notes") or "").strip())
+    store.market_admin_action_create(
+        action_id=_make_id("adm"),
+        action_type="freeze_settlement",
+        target_type="settlement",
+        target_id=settlement_id,
+        actor=(body.get("actor") or "admin").strip(),
+        notes=(body.get("notes") or "").strip(),
+    )
+    return jsonify({"status": "frozen", "settlement": store.market_settlement_get(settlement_id)})
+
+
+@market_bp.route("/ops/market/settlements/<settlement_id>/unfreeze", methods=["POST"])
+def unfreeze_settlement(settlement_id: str):
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    settlement = store.market_settlement_get(settlement_id)
+    if not settlement:
+        return _error("settlement not found", 404, "settlement_not_found")
+    body = request.json or {}
+    target_status = (body.get("status") or "approved").strip() or "approved"
+    store.market_settlement_update(settlement_id, frozen=False, status=target_status, resolution_notes=(body.get("notes") or "").strip())
+    store.market_admin_action_create(
+        action_id=_make_id("adm"),
+        action_type="unfreeze_settlement",
+        target_type="settlement",
+        target_id=settlement_id,
+        actor=(body.get("actor") or "admin").strip(),
+        notes=(body.get("notes") or "").strip(),
+    )
+    return jsonify({"status": "unfrozen", "settlement": store.market_settlement_get(settlement_id)})
+
+
+@market_bp.route("/ops/market/incidents", methods=["GET"])
+def list_market_incidents():
+    if not _ops_authorized():
+        return _error("admin authentication required", 401, "unauthorized")
+    return jsonify({"incidents": store.market_admin_actions_list(limit=request.args.get("limit", default=100, type=int))})
 
 
 @market_bp.route("/market/submissions", methods=["POST"])
@@ -1796,13 +2342,48 @@ def decide_submission(submission_id: str):
         evidence["decision_notes"] = body["notes"]
     store.market_submission_update(submission_id, status=decision, acceptance_attribution=(body.get("acceptance_attribution") or "").strip(), evidence=evidence)
     matching = [a for a in store.market_job_assignments_list(job["id"]) if a["agent_id"] == submission["agent_id"]]
+    award = store.market_award_get_by_job(job["id"])
+    settlement = store.market_settlement_get_by_submission(submission_id)
     if decision == "accepted":
         if not _set_job_status(job, "completed"):
             return _error("job status transition to completed is not allowed", 409, "invalid_job_state")
         for assignment in matching:
             store.market_job_assignment_update_status(assignment["id"], "completed")
-        if int(body.get("payout_amount") or 0) > 0:
-            store.market_payout_ledger_create(payout_id=_make_id("pay"), job_id=job["id"], submission_id=submission_id, agent_id=submission["agent_id"], operator_id=(body.get("operator_id") or "").strip(), amount=int(body.get("payout_amount") or 0), currency=(body.get("currency") or "credits").strip(), funding_source=(body.get("funding_source") or "").strip(), status="approved", notes=(body.get("notes") or "").strip())
+        payout_amount = int(body.get("payout_amount") or 0)
+        if payout_amount > 0:
+            if settlement:
+                store.market_settlement_update(
+                    settlement["id"],
+                    status="approved",
+                    resolution_notes=(body.get("notes") or "").strip(),
+                )
+            else:
+                store.market_settlement_create(
+                    settlement_id=_make_id("set"),
+                    job_id=job["id"],
+                    submission_id=submission_id,
+                    award_id=(award or {}).get("id", ""),
+                    agent_id=submission["agent_id"],
+                    operator_id=(body.get("operator_id") or "").strip(),
+                    amount=payout_amount,
+                    currency=(body.get("currency") or "credits").strip(),
+                    funding_source=(body.get("funding_source") or "").strip(),
+                    status="approved",
+                    resolution_notes=(body.get("notes") or "").strip(),
+                )
+            store.market_payout_ledger_create(
+                payout_id=_make_id("pay"),
+                job_id=job["id"],
+                submission_id=submission_id,
+                agent_id=submission["agent_id"],
+                operator_id=(body.get("operator_id") or "").strip(),
+                amount=payout_amount,
+                currency=(body.get("currency") or "credits").strip(),
+                funding_source=(body.get("funding_source") or "").strip(),
+                status="approved",
+                notes=(body.get("notes") or "").strip() or "settlement approved",
+            )
+        _record_reputation_from_submission(submission, "accepted")
     else:
         other_accepted = [
             row for row in store.market_submissions_list(job["id"])
@@ -1813,6 +2394,7 @@ def decide_submission(submission_id: str):
                 return _error("job status transition to open is not allowed", 409, "invalid_job_state")
         for assignment in matching:
             store.market_job_assignment_update_status(assignment["id"], "rejected")
+        _record_reputation_from_submission(submission, "rejected")
     trace_id = (submission.get("evidence") or {}).get("langfuse_trace_id", "")
     score_contract_acceptance(
         trace_id=trace_id,

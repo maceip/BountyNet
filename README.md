@@ -74,8 +74,18 @@ Use the new helper scripts to get a laptop environment up quickly:
 # install Python/Node/Rust dependencies
 ./scripts/bootstrap-local.sh
 
-# start gateway + console UI
-./scripts/run-local-stack.sh
+# start dockerized infra slice (default dev mode)
+npm run dev
+
+# start fuller local stack profile (includes auth verifier + oracle tee)
+npm run dev:full
+
+# run behavioral smoke against running slice/full
+npm run dev:test
+npm run dev:test:full
+
+# stop local dockerized stack
+npm run dev:down
 ```
 
 PowerShell equivalents:
@@ -83,6 +93,17 @@ PowerShell equivalents:
 ```powershell
 .\scripts\bootstrap-local.ps1
 .\scripts\run-local-stack.ps1 -DegradedHealth
+```
+
+For cloud fleet service lifecycle after Terraform apply:
+
+```bash
+# all nodes
+./scripts/fleet-services.sh status
+./scripts/fleet-services.sh restart
+
+# one node
+./scripts/fleet-services.sh restart na_east-1
 ```
 
 Environment variable reference:

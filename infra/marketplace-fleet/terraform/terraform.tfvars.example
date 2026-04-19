@@ -19,17 +19,19 @@ droplet_image = "ubuntu-24-04-x64"
 ssh_key_fingerprints = ["aa:bb:cc:dd"]
 gateway_docker_image = "ghcr.io/berriai/litellm:main-stable"
 
-model_api_region = "us-west-2"
-aws_control_plane_region = "us-east-1"
-enable_managed_secret_bootstrap = true
-aws_secrets_region = "us-west-2"
-aws_kms_key_arn = "arn:aws:kms:us-west-2:123456789012:key/xxxx-xxxx"
+model_api_region = "eu-central-1"
+aws_control_plane_region = "eu-central-1"
+enable_managed_secret_bootstrap = false
+aws_secrets_region = "eu-central-1"
+aws_kms_key_arn = "arn:aws:kms:eu-central-1:123456789012:key/xxxx-xxxx"
 secret_parameter_names = {
   openai    = "/bountynet/market/edge/openai_api_key"
   anthropic = "/bountynet/market/edge/anthropic_api_key"
   gemini    = "/bountynet/market/edge/gemini_api_key"
   openrouter = "/bountynet/market/edge/openrouter_api_key"
 }
+litellm_master_key = ""
+litellm_salt_key = ""
 
 regional_plan = {
   na_west = {
@@ -74,17 +76,49 @@ backup_hostname = "llm-backup"
 
 listener_port = 443
 endpoint_port = 8000
+# AWS anycast endpoint order: Frankfurt primary, Ireland secondary, London tertiary.
 endpoint_groups = {
-  na_west = {
-    region                  = "us-west-2"
-    nlb_arn                 = "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/bountynet-na-west/..."
-    traffic_dial_percentage = 20
+  frankfurt_primary = {
+    region                  = "eu-central-1"
+    nlb_arn                 = "arn:aws:elasticloadbalancing:eu-central-1:123456789012:loadbalancer/net/bountynet-frankfurt/..."
+    traffic_dial_percentage = 60
     weight                  = 128
   }
-  na_east = {
-    region                  = "us-east-1"
-    nlb_arn                 = "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/net/bountynet-na-east/..."
-    traffic_dial_percentage = 20
+  ireland_secondary = {
+    region                  = "eu-west-1"
+    nlb_arn                 = "arn:aws:elasticloadbalancing:eu-west-1:123456789012:loadbalancer/net/bountynet-ireland/..."
+    traffic_dial_percentage = 25
+    weight                  = 128
+  }
+  london_tertiary = {
+    region                  = "eu-west-2"
+    nlb_arn                 = "arn:aws:elasticloadbalancing:eu-west-2:123456789012:loadbalancer/net/bountynet-london/..."
+    traffic_dial_percentage = 15
     weight                  = 128
   }
 }
+
+# Optional AWS model-plane lanes
+provision_aws_inf2_serving = false
+aws_inf2_region = "eu-central-1"
+aws_inf2_instance_type = "inf2.xlarge"
+aws_inf2_ssh_key_name = "your-keypair"
+aws_inf2_runtime_image = "vllm/vllm-openai:latest"
+aws_inf2_model_id = "Qwen/Qwen3.6-35B-A3B"
+aws_inf2_served_model_name = "base-coder"
+aws_inf2_api_key = ""
+aws_inf2_adapter_bucket = "s3://marketplace-trajectories/adapters"
+aws_inf2_agent_id_header = "X-Agent-ID"
+aws_inf2_ssh_cidrs = ["0.0.0.0/0"]
+aws_inf2_inference_cidrs = ["0.0.0.0/0"]
+
+provision_aws_c8g_cpu_worker = false
+aws_c8g_region = "eu-central-1"
+aws_c8g_instance_type = "c8g.xlarge"
+aws_c8g_ssh_key_name = "your-keypair"
+aws_c8g_gguf_model_uri = "s3://marketplace-models/gguf/qwen3.6-worker.gguf"
+aws_c8g_served_model_name = "cpu-worker"
+aws_c8g_api_key = ""
+aws_c8g_llamacpp_image = "ghcr.io/ggml-org/llama.cpp:server"
+aws_c8g_ssh_cidrs = ["0.0.0.0/0"]
+aws_c8g_inference_cidrs = ["0.0.0.0/0"]

@@ -27,16 +27,34 @@ variable "do_edge_origins" {
   default     = {}
 }
 
+variable "create_primary_global_lb_record" {
+  description = "Create/maintain the primary global LB A record."
+  type        = bool
+  default     = false
+}
+
 variable "primary_global_lb_ip" {
   description = "Optional primary global ingress LB IPv4."
   type        = string
   default     = ""
 }
 
+variable "create_backup_global_lb_record" {
+  description = "Create/maintain the backup global LB A record."
+  type        = bool
+  default     = false
+}
+
 variable "backup_global_lb_ip" {
   description = "Optional backup global ingress LB IPv4."
   type        = string
   default     = ""
+}
+
+variable "create_aws_anycast_alias" {
+  description = "Create/maintain the optional AWS Global Accelerator CNAME alias."
+  type        = bool
+  default     = false
 }
 
 variable "backup_hostname" {

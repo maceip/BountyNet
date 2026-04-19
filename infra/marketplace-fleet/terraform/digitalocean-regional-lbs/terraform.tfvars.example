@@ -7,17 +7,19 @@ droplet_image = "ubuntu-24-04-x64"
 
 ssh_key_fingerprints = ["aa:bb:cc:dd"]
 gateway_docker_image = "ghcr.io/berriai/litellm:main-stable"
-model_api_region = "us-west-2"
+model_api_region = "eu-central-1"
 
-enable_managed_secret_bootstrap = true
-aws_secrets_region              = "us-west-2"
-aws_kms_key_arn                 = "arn:aws:kms:us-west-2:123456789012:key/xxxx-xxxx"
+enable_managed_secret_bootstrap = false
+aws_secrets_region              = "eu-central-1"
+aws_kms_key_arn                 = "arn:aws:kms:eu-central-1:123456789012:key/xxxx-xxxx"
 secret_parameter_names = {
   openai    = "/bountynet/market/edge/openai_api_key"
   anthropic = "/bountynet/market/edge/anthropic_api_key"
   gemini    = "/bountynet/market/edge/gemini_api_key"
   openrouter = "/bountynet/market/edge/openrouter_api_key"
 }
+litellm_master_key = ""
+litellm_salt_key = ""
 
 regional_plan = {
   na_west = {

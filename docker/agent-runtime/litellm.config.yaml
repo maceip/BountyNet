@@ -65,26 +65,25 @@ model_list:
           agent_slug: rust-optimizer
           adapter_id: rust-optimizer
 
-  - model_name: openrouter/anthropic/claude-sonnet-4.5
-    litellm_params:
-      model: openrouter/anthropic/claude-sonnet-4.5
-      api_key: os.environ/OPENROUTER_API_KEY
-
-  - model_name: openai/gpt-5-mini
+  - model_name: agents/fallback
     litellm_params:
       model: openai/gpt-5-mini
       api_key: os.environ/OPENAI_API_KEY
 
 router_settings:
+  allowed_fails: 1
+  cooldown_time: 10
   fallbacks:
-    - agents/default: ["openrouter/anthropic/claude-sonnet-4.5"]
-    - agents/ts-migrator: ["openrouter/anthropic/claude-sonnet-4.5"]
-    - agents/ts-auditor: ["openrouter/anthropic/claude-sonnet-4.5"]
-    - agents/ts-architect: ["openrouter/anthropic/claude-sonnet-4.5"]
-    - agents/rust-porter: ["openrouter/anthropic/claude-sonnet-4.5"]
-    - agents/rust-sentinel: ["openrouter/anthropic/claude-sonnet-4.5"]
-    - agents/rust-optimizer: ["openrouter/anthropic/claude-sonnet-4.5"]
+    - agents/default: ["agents/fallback"]
+    - agents/ts-migrator: ["agents/fallback"]
+    - agents/ts-auditor: ["agents/fallback"]
+    - agents/ts-architect: ["agents/fallback"]
+    - agents/rust-porter: ["agents/fallback"]
+    - agents/rust-sentinel: ["agents/fallback"]
+    - agents/rust-optimizer: ["agents/fallback"]
 
 litellm_settings:
+  request_timeout: 30
+  num_retries: 0
   success_callback: ["langfuse"]
   json_logs: true

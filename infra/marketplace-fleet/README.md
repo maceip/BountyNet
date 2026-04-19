@@ -48,6 +48,11 @@ This scaffold is optimized for your marketplace control plane:
 
 - Enable `liger_rope: true` in Axolotl configs for 256k-stability workstreams.
 - Use FSDP sharding in Trainium jobs so long-sequence tuning can be distributed across accelerator cores.
+- Roll context in stages to keep runs stable:
+  - stage1: `32768`
+  - stage2: `65536`
+  - stage3: `131072`
+  - stage4: `262144`
 
 ## Folder layout
 
@@ -117,8 +122,37 @@ bash scripts/check-serving.sh
 bash scripts/train-specialist.sh axolotl/configs/rust-sentinel-qlora.yml
 ```
 
+Optional staged override without editing config files:
+
+```bash
+AXOLOTL_SEQUENCE_LEN=65536 bash scripts/train-specialist.sh axolotl/configs/rust-sentinel-qlora.yml
+```
+
+Memory preflight guard is enabled by default and will fail fast on high OOM risk.
+You can tune or bypass it with:
+
+```bash
+AXOLOTL_AVAILABLE_GPU_MEM_GB=120 AXOLOTL_SEQUENCE_LEN=65536 bash scripts/train-specialist.sh axolotl/configs/rust-sentinel-qlora.yml
+# or (not recommended for normal runs)
+AXOLOTL_PREFLIGHT=0 bash scripts/train-specialist.sh axolotl/configs/rust-sentinel-qlora.yml
+```
+
 3. Export generated LoRA adapters from `axolotl/output/`.
 4. Mount/sync adapters into serving nodes when you wire runtime hot-swaps.
+
+### Weekly evolution loop (Trainium/Axolotl pattern)
+
+Use this script to run the "successful traces -> refreshed adapters" cadence:
+
+```bash
+bash scripts/train-weekly-adapters.sh
+```
+
+Expected env:
+
+- `TRAJECTORY_BUCKET` with curated JSONL datasets per identity.
+- `ADAPTER_BUCKET` (or `VLLM_ADAPTER_BUCKET`) for published adapter artifacts.
+- `HF_TOKEN` if model/tokenizer pulls require auth.
 
 ## Kubernetes bootstrap
 
@@ -152,6 +186,11 @@ Terraform modules are included for the production edge topology:
 - `terraform/` is the single root stack.
 - The provider-specific directories under `terraform/` are child modules.
 
+Additional AWS model-plane modules are available:
+
+- `aws-inf2-serving` — Inferentia serving lane with adapter-aware front proxy.
+- `aws-c8g-llamacpp` — Graviton CPU worker lane using `llama.cpp` + GGUF.
+
 Start from the unified root:
 
 ```bash
@@ -162,12 +201,19 @@ bash scripts/terraform-sanity.sh
 
 Then fill the values and apply from `infra/marketplace-fleet/terraform/`.
 
+To enable AWS lanes, set:
+
+- `provision_aws_inf2_serving = true`
+- `provision_aws_c8g_cpu_worker = true`
+
+and provide model/API/instance variables in `terraform.tfvars`.
+
 ## Notes for gateway integration
 
-- Each DigitalOcean edge droplet boots LiteLLM as an OpenRouter-style gateway with:
+- Each DigitalOcean edge droplet boots LiteLLM as a provider-agnostic gateway with:
   - Redis-backed prompt prefix caching.
-  - Circuit-break fallback routes across Qwen lanes (supervisor flash + universal worker) and external API backups.
-  - Managed secret bootstrap via AWS SSM SecureString + KMS decrypt (no plaintext API keys in cloud-init).
+  - Circuit-break fallback routes across Qwen lanes (supervisor flash + universal worker) and optional external API backups.
+  - Optional post-boot secret sync from AWS SSM/KMS (`enable_managed_secret_bootstrap=true`); default mode has no AWS dependency at boot.
 - Primary/backup DigitalOcean global LBs are intended to front NA East/NA West lanes, with DNS failover hostname (`llm-backup`) for operator-directed switchover.
 - Qwen model lanes are intended as:
   - Supervisor: Qwen3.6-Flash API for rapid triage.

@@ -17,7 +17,7 @@ variable "endpoint_port" {
 }
 
 variable "endpoint_groups" {
-  description = "Global accelerator endpoint groups keyed by lane."
+  description = "Global accelerator endpoint groups keyed by lane (default: Frankfurt -> Ireland -> London failover)."
   type = map(object({
     region                  = string
     nlb_arn                 = string
@@ -25,34 +25,22 @@ variable "endpoint_groups" {
     weight                  = number
   }))
   default = {
-    na_west = {
-      region                  = "us-west-2"
+    frankfurt_primary = {
+      region                  = "eu-central-1"
       nlb_arn                 = ""
-      traffic_dial_percentage = 20
+      traffic_dial_percentage = 60
       weight                  = 128
     }
-    na_east = {
-      region                  = "us-east-1"
-      nlb_arn                 = ""
-      traffic_dial_percentage = 20
-      weight                  = 128
-    }
-    eu = {
+    ireland_secondary = {
       region                  = "eu-west-1"
       nlb_arn                 = ""
-      traffic_dial_percentage = 30
+      traffic_dial_percentage = 25
       weight                  = 128
     }
-    asia = {
-      region                  = "ap-southeast-1"
+    london_tertiary = {
+      region                  = "eu-west-2"
       nlb_arn                 = ""
-      traffic_dial_percentage = 20
-      weight                  = 128
-    }
-    australia = {
-      region                  = "ap-southeast-2"
-      nlb_arn                 = ""
-      traffic_dial_percentage = 10
+      traffic_dial_percentage = 15
       weight                  = 128
     }
   }

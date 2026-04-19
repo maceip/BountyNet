@@ -10,6 +10,8 @@ modules=(
   "${TF_ROOT}/digitalocean-global-lb"
   "${TF_ROOT}/digitalocean-global-dns"
   "${TF_ROOT}/aws-global-accelerator"
+  "${TF_ROOT}/aws-inf2-serving"
+  "${TF_ROOT}/aws-c8g-llamacpp"
 )
 
 echo "== Terraform sanity =="

@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+apt-get update
+apt-get install -y --no-install-recommends ca-certificates curl git jq unzip awscli
+
+curl -fsSL https://get.docker.com | sh
+systemctl enable docker
+systemctl start docker
+
+mkdir -p /opt/bountynet-c8g/models
+
+if [[ -n "${gguf_model_uri}" ]]; then
+  if [[ "${gguf_model_uri}" == s3://* ]]; then
+    aws s3 cp "${gguf_model_uri}" /opt/bountynet-c8g/models/model.gguf
+  fi
+fi
+
+cat >/opt/bountynet-c8g/.env <<'EOF'
+LLAMACPP_IMAGE=${llamacpp_image}
+INFERENCE_PORT=${inference_port}
+MODEL_PATH=/models/model.gguf
+SERVED_MODEL_NAME=${served_model_name}
+API_KEY=${api_key}
+N_CTX=${context_size}
+N_THREADS=${threads}
+EOF
+
+cat >/opt/bountynet-c8g/docker-compose.yml <<'EOF'
+services:
+  llamacpp:
+    image: ${LLAMACPP_IMAGE}
+    restart: unless-stopped
+    command:
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --model
+      - ${MODEL_PATH}
+      - --alias
+      - ${SERVED_MODEL_NAME}
+      - --ctx-size
+      - "${N_CTX}"
+      - --threads
+      - "${N_THREADS}"
+      - --api-key
+      - ${API_KEY}
+    ports:
+      - "${INFERENCE_PORT}:8080"
+    volumes:
+      - /opt/bountynet-c8g/models:/models:ro
+EOF
+
+cd /opt/bountynet-c8g
+docker compose pull || true
+docker compose up -d

@@ -1,8 +1,10 @@
 services:
   anvil:
+    profiles: ["slice", "full"]
     image: ghcr.io/foundry-rs/foundry:latest
-    command:
+    entrypoint:
       - anvil
+    command:
       - --host
       - 0.0.0.0
       - --port
@@ -15,6 +17,7 @@ services:
       - "8545:8545"
 
   aws-model-node:
+    profiles: ["slice"]
     image: python:3.12-slim
     working_dir: /app
     command:
@@ -32,14 +35,34 @@ services:
       - ./mock_openai_server.py:/app/mock_openai_server.py:ro
     ports:
       - "8000:8000"
+    networks:
+      default:
+        aliases:
+          - model-node
+
+  local-cpu-model:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: tiny-model/Dockerfile
+    volumes:
+      - tiny_model_hf_cache:/root/.cache/huggingface
+    ports:
+      - "8000:8000"
+    networks:
+      default:
+        aliases:
+          - model-node
 
   do-edge-redis:
+    profiles: ["slice", "full"]
     image: redis:7
     command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
 
   do-edge-litellm:
+    profiles: ["slice", "full"]
     image: ghcr.io/berriai/litellm:main-latest
     command:
       - "--config"
@@ -47,8 +70,10 @@ services:
       - "--port"
       - "4000"
     environment:
-      AWS_VLLM_API_BASE: "http://aws-model-node:8000"
+      AWS_VLLM_API_BASE: "http://model-node:8000/v1"
       AWS_VLLM_API_KEY: "local-vllm"
+      ANTHROPIC_API_BASE: "http://local-anthropic:8100"
+      ANTHROPIC_API_KEY: "local-anthropic"
       LITELLM_MASTER_KEY: "local-litellm-master-key"
       LITELLM_SALT_KEY: "local-litellm-salt-key"
       STORE_MODEL_IN_DB: "False"
@@ -57,10 +82,10 @@ services:
     ports:
       - "4000:4000"
     depends_on:
-      - aws-model-node
       - do-edge-redis
 
   oracle-tee:
+    profiles: ["full"]
     build:
       context: ../../services/oracle-tee
       dockerfile: Dockerfile
@@ -72,6 +97,7 @@ services:
       - "8095:8095"
 
   auth-verifier:
+    profiles: ["full"]
     image: python:3.12-slim
     working_dir: /app
     command: ["/bin/sh", "-lc", "pip install --no-cache-dir flask eth-account && python adapter_service.py"]
@@ -84,7 +110,18 @@ services:
     ports:
       - "8099:8099"
 
+  local-anthropic:
+    profiles: ["full"]
+    image: python:3.12-slim
+    working_dir: /app
+    command: ["/bin/sh", "-lc", "pip install --no-cache-dir flask && python /app/mock_anthropic_server.py --host 0.0.0.0 --port 8100"]
+    volumes:
+      - ./mock_anthropic_server.py:/app/mock_anthropic_server.py:ro
+    ports:
+      - "8100:8100"
+
   gateway:
+    profiles: ["slice", "full"]
     build:
       context: ../..
       dockerfile: docker/gateway/Dockerfile
@@ -102,9 +139,6 @@ services:
       IDENTITY_REGISTRY: "0x0000000000000000000000000000000000000001"
       AGENT_RUNTIME_PROVIDER: "litellm"
       AGENT_RUNTIME_API_BASE: "http://do-edge-litellm:4000"
-      AGENT_RUNTIME_MODEL: "agents/default"
-      AGENT_RUNTIME_FALLBACK_MODEL: "aws-vllm/base-coder"
-      AGENT_RUNTIME_REASONING_EFFORT: "medium"
       ORACLE_TEE_URL: "http://oracle-tee:8095"
       BOUNTYNET_AUTH_PASSKEY_VERIFY_URL: "http://auth-verifier:8099/verify"
       BOUNTYNET_AUTH_ETH_VERIFY_URL: "http://auth-verifier:8099/verify"
@@ -118,8 +152,24 @@ services:
     depends_on:
       - anvil
       - do-edge-litellm
-      - oracle-tee
-      - auth-verifier
+
+  web-client:
+    profiles: ["full"]
+    image: node:22-bookworm-slim
+    working_dir: /app
+    command: ["/bin/sh", "-lc", "npm install && npm run dev"]
+    environment:
+      PORT: "5173"
+      BOUNTYNET_GATEWAY_URL: "http://gateway:8090"
+    volumes:
+      - ../../clients/web:/app
+      - web_node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - gateway
 
 volumes:
   gateway_data:
+  tiny_model_hf_cache:
+  web_node_modules:
