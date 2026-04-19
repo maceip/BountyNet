@@ -5,10 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { Content } from '@carbon/react';
 import { Suspense } from 'react';
-import { Nav } from '../components/nav/Nav';
 import classNames from 'classnames';
+import { NavLink } from 'react-router';
+import { navItems } from '../routes/config.js';
+import { VoiceStatusRail } from '../components/voice/VoiceStatusRail.jsx';
 
 /**
  * PageLayout component provides a consistent layout structure for pages in the application.
@@ -28,13 +29,25 @@ import classNames from 'classnames';
  */
 
 export const PageLayout = ({ children, className, fallback }) => {
+  const links = navItems.filter((item) => !item.children);
   return (
     <Suspense fallback={fallback}>
       <div className={classNames('cs--page-layout', className)}>
-        <Nav />
-        <Content className="cs--content cs--page-layout__content">
-          {children}
-        </Content>
+        <header className="bn-shell-header">
+          <div className="bn-shell-brand">
+            <img src="/brand/globe-64.png" alt="BountyNet globe" />
+            <strong>BountyNet</strong>
+          </div>
+          <nav className="bn-shell-nav" aria-label="Primary">
+            {links.map((item) => (
+              <NavLink key={item.path} to={item.path}>
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        </header>
+        <main className="cs--content cs--page-layout__content">{children}</main>
+        <VoiceStatusRail />
       </div>
     </Suspense>
   );

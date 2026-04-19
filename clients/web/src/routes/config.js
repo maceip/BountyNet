@@ -6,42 +6,70 @@
  */
 import { lazy } from 'react';
 
-const Landing = lazy(() => import('../pages/landing/Landing.jsx'));
-const Onboarding = lazy(() => import('../pages/onboarding/Onboarding.jsx'));
-const DashboardPage = lazy(() => import('../pages/dashboard/Dashboard.jsx'));
-const Agents = lazy(() => import('../pages/agents/Agents.jsx'));
-const Leaderboard = lazy(() => import('../pages/leaderboard/Leaderboard.jsx'));
-const NotFound = lazy(() => import('../pages/not-found/NotFound.jsx'));
+const Landing = lazy(() => import('../pages/landing/LandingLite.jsx'));
+const Marketplace = lazy(() => import('../pages/marketplace/Marketplace.jsx'));
+const BobOnboarding = lazy(
+  () => import('../pages/onboarding/BobOnboarding.jsx'),
+);
+const AliceOnboarding = lazy(
+  () => import('../pages/onboarding/AliceOnboarding.jsx'),
+);
+const BobSettings = lazy(() => import('../pages/settings/BobSettings.jsx'));
+const AliceSettings = lazy(
+  () => import('../pages/settings/AliceSettings.jsx'),
+);
+const Inventory = lazy(() => import('../pages/inventory/Inventory.jsx'));
+const WebMcpDiagnostics = lazy(
+  () => import('../pages/diagnostics/WebMcpDiagnostics.jsx'),
+);
+const Reputation = lazy(() => import('../pages/marketplace/Reputation.jsx'));
+const Settlement = lazy(() => import('../pages/marketplace/Settlement.jsx'));
+const Disputes = lazy(() => import('../pages/marketplace/Disputes.jsx'));
+const MarketAdmin = lazy(() => import('../pages/admin/MarketAdmin.jsx'));
+const SimulatorConfig = lazy(() => import('../pages/admin/SimulatorConfig.jsx'));
+const AgentTrack = lazy(() => import('../pages/agent-track/AgentTrack.jsx'));
+const NotFound = lazy(() => import('../pages/not-found/NotFoundLite.jsx'));
 
 export const navItems = [
   {
-    label: 'Overview',
+    label: 'Home',
     path: '/',
   },
   {
-    label: 'Flows',
-    children: [
-      {
-        label: 'Setup',
-        path: '/setup',
-      },
-      {
-        label: 'Solve',
-        path: '/solve',
-      },
-    ],
+    label: 'Marketplace',
+    path: '/marketplace',
   },
   {
-    label: 'Dashboard',
-    path: '/dashboard',
+    label: 'Inventory',
+    path: '/inventory',
   },
   {
-    label: 'Agents',
-    path: '/agents',
+    label: 'Bob Setup',
+    path: '/onboarding/bob',
   },
   {
-    label: 'Leaderboard',
-    path: '/leaderboard',
+    label: 'Alice Setup',
+    path: '/onboarding/alice',
+  },
+  {
+    label: 'Diagnostics',
+    path: '/diagnostics/webmcp',
+  },
+  {
+    label: 'Control Plane',
+    path: '/ops/control-plane',
+  },
+  {
+    label: 'Reputation',
+    path: '/marketplace/reputation',
+  },
+  {
+    label: 'Simulator',
+    path: '/ops/simulator',
+  },
+  {
+    label: 'Agent Track',
+    path: '/agent-track',
   },
 ];
 
@@ -52,28 +80,64 @@ export const routes = [
     element: Landing,
   },
   {
-    path: '/setup',
-    element: Onboarding,
+    path: '/onboarding/bob',
+    element: BobOnboarding,
   },
   {
-    path: '/solve',
-    element: Onboarding,
+    path: '/onboarding/alice',
+    element: AliceOnboarding,
   },
   {
-    path: '/onboarding/:persona',
-    element: Onboarding,
+    path: '/settings/bob',
+    element: BobSettings,
+  },
+  {
+    path: '/settings/alice',
+    element: AliceSettings,
+  },
+  {
+    path: '/inventory',
+    element: Inventory,
   },
   {
     path: '/dashboard',
-    element: DashboardPage,
+    element: Inventory,
   },
   {
-    path: '/agents',
-    element: Agents,
+    path: '/diagnostics/webmcp',
+    element: WebMcpDiagnostics,
   },
   {
-    path: '/leaderboard',
-    element: Leaderboard,
+    path: '/marketplace/reputation',
+    element: Reputation,
+  },
+  {
+    path: '/marketplace/settlements',
+    element: Settlement,
+  },
+  {
+    path: '/marketplace/disputes',
+    element: Disputes,
+  },
+  {
+    path: '/ops/control-plane',
+    element: MarketAdmin,
+  },
+  {
+    path: '/ops/simulator',
+    element: SimulatorConfig,
+  },
+  {
+    path: '/agent-track',
+    element: AgentTrack,
+  },
+  {
+    path: '/market',
+    element: Marketplace,
+  },
+  {
+    path: '/marketplace',
+    element: Marketplace,
   },
   {
     path: '*',
