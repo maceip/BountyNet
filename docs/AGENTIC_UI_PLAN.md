@@ -2,7 +2,15 @@
 
 ## Executive Summary
 
-This document defines the plan for optimizing BountyNet's UI for agentic coding needs. The scope covers six interlocking surfaces: **Agent Studio** (creation), **Identity & Registration**, **Evals**, **Review**, **Token Spend Tracking**, and **Operator Dashboard**. Each surface is designed for a collaborative human-agent workflow where agents are first-class participants — not just tools — and humans retain policy, budget, and approval authority.
+This document defines the plan for optimizing BountyNet's UI for agentic coding needs. The scope covers seven interlocking surfaces: **Agent Studio** (managed creation with visual flow editor), **Bring Your Own Agent (BYOA)** (external agent registration), **Identity & Registration**, **Evals**, **Review**, **Token Spend Tracking**, and **Operator Dashboard**.
+
+There are two distinct agent onboarding paths:
+
+1. **Managed Agent Studio** — a fully hosted visual builder (modeled after Google Cloud Vertex AI Agent Studio) where operators compose agents from system prompts, tool selections, file restrictions, validator recipes, sub-agent hierarchies, and model configs. BountyNet's own first-party agents (`ts-migrator`, `rust-sentinel`, etc. defined in `gateway/agent_fleet.py`) are the reference implementation and are themselves built using this studio.
+
+2. **Bring Your Own Agent (BYOA)** — operators register externally-hosted agents by declaring a webhook endpoint, capability manifest, and auth credentials. The platform routes jobs to the external agent's endpoint and tracks spend/evals uniformly.
+
+Both paths converge on the same identity, eval, review, and spend-tracking surfaces.
 
 The guiding constraint: prefer the simplest design that solves the requirement. Every screen described here should be implementable as a single page component backed by one or two API calls.
 
@@ -11,40 +19,70 @@ The guiding constraint: prefer the simplest design that solves the requirement. 
 ## 1. Design Principles
 
 1. **Agent-first, not AI-assistant**. Agents have identities, histories, and economic stakes. The UI treats them as participants, not features.
-2. **Human-in-the-loop by default**. Every agent action that mutates a repository, spends budget, or earns credit requires a reviewable record.
-3. **Observable spend**. Token costs are visible at every level: per-call, per-job, per-agent, per-repository.
-4. **Progressive trust**. New agents start with tight policy constraints. The UI makes trust tiers visible and configurable.
-5. **Vocabulary compliance**. Use the v0 vocabulary (`VOCABULARY.md`): job, agent, operator, accepted contribution, budget, earnings. Avoid staker/solver/escrow/mint terminology in user-facing surfaces.
+2. **Two tracks, one marketplace**. Managed and BYOA agents compete on the same jobs, get the same evals, and earn through the same ledger. The studio is a convenience, not a gate.
+3. **Human-in-the-loop by default**. Every agent action that mutates a repository, spends budget, or earns credit requires a reviewable record.
+4. **Observable spend**. Token costs are visible at every level: per-call, per-job, per-agent, per-repository. BYOA agents self-report usage; managed agents are metered automatically.
+5. **Progressive trust**. New agents start with tight policy constraints. The UI makes trust tiers visible and configurable.
+6. **Vocabulary compliance**. Use the v0 vocabulary (`VOCABULARY.md`): job, agent, operator, accepted contribution, budget, earnings. Avoid staker/solver/escrow/mint terminology in user-facing surfaces.
+7. **Reference implementation as product**. BountyNet's own fleet (the `AgentServingProfile` agents in `agent_fleet.py`) are built using the same Studio UI that third-party operators use. This ensures the Studio is always production-grade.
 
 ---
 
 ## 2. Surface Map
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                         BountyNet Console                            │
-│                                                                      │
-│  ┌────────────┐  ┌──────────────┐  ┌───────┐  ┌──────────────────┐  │
-│  │  Dashboard  │  │ Agent Studio │  │ Jobs  │  │  Token Tracker   │  │
-│  │  (landing)  │  │  (creation)  │  │       │  │  (spend/earn)    │  │
-│  └─────┬──────┘  └──────┬───────┘  └───┬───┘  └────────┬─────────┘  │
-│        │                │              │               │             │
-│  ┌─────▼──────┐  ┌──────▼───────┐  ┌──▼────┐  ┌───────▼──────────┐  │
-│  │  Identity   │  │  Capability  │  │Review │  │  Eval Results    │  │
-│  │  (profile)  │  │  Manifest    │  │ Queue │  │  (per-agent)     │  │
-│  └────────────┘  └──────────────┘  └───────┘  └──────────────────┘  │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────────────┐│
-│  │                    Operator Controls (admin)                     ││
-│  └──────────────────────────────────────────────────────────────────┘│
-└──────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                            BountyNet Console                                 │
+│                                                                              │
+│  ┌────────────┐  ┌─────────────────────────────┐  ┌───────┐  ┌───────────┐  │
+│  │  Dashboard  │  │       Agent Studio          │  │ Jobs  │  │  Token    │  │
+│  │  (landing)  │  │  ┌─────────┐ ┌──────────┐  │  │       │  │  Tracker  │  │
+│  └─────┬──────┘  │  │ Managed │ │  BYOA    │  │  └───┬───┘  └─────┬─────┘  │
+│        │         │  │ (flow)  │ │(register)│  │      │            │        │
+│  ┌─────▼──────┐  │  └────┬────┘ └────┬─────┘  │  ┌──▼────┐  ┌───▼──────┐  │
+│  │  Identity   │  │       └─────┬─────┘        │  │Review │  │  Eval    │  │
+│  │  (profile)  │  │         Unified Agent       │  │ Queue │  │  Results │  │
+│  └────────────┘  └─────────────────────────────┘  └───────┘  └──────────┘  │
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────────────────────┐│
+│  │                       Operator Controls (admin)                          ││
+│  └──────────────────────────────────────────────────────────────────────────┘│
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Wireframes
+## 3. Agent Onboarding: Two Tracks
 
-### 3.1 Dashboard (Landing)
+### 3.a How BountyNet builds its own agents (reference implementation)
+
+BountyNet's first-party agents are defined as `AgentServingProfile` dataclasses in `gateway/agent_fleet.py`. Each profile specifies:
+
+- **System prompt** — the agent's personality and behavioral constraints
+- **Allowed tools** — which tools the agent can invoke (`repo_context`, `cargo_update`, etc.)
+- **Allowed files** — glob patterns restricting which files the agent can touch
+- **Validator recipe** — which checks run after the agent produces output (`typecheck`, `tests`, `audit`)
+- **Runtime config** — model, fallback model, provider, adapter, reasoning effort
+- **Pod/lane** — organizational grouping (e.g. `rust`/`security_patch`)
+
+The Managed Agent Studio exposes all of these fields through a visual UI. Our own agents serve as templates that third-party operators can clone and customize.
+
+### 3.b BYOA (Bring Your Own Agent)
+
+External operators register agents by providing:
+
+- **Webhook URL** — the endpoint the platform POSTs job payloads to
+- **Auth method** — how the platform authenticates to the webhook (bearer token, HMAC, mTLS)
+- **Capability manifest** — same schema as managed agents (job classes, ecosystems, trust tier)
+- **Response contract** — the agent must return a standard response shape (diff, summary, evidence)
+
+The platform treats BYOA agents identically after registration: they appear in the marketplace, receive job routing, accumulate eval history, and earn through the payout ledger.
+
+---
+
+## 4. Wireframes
+
+### 4.1 Dashboard (Landing)
 
 The entry point after login. Shows the operator's fleet health at a glance.
 
@@ -56,105 +94,339 @@ The entry point after login. Shows the operator's fleet health at a glance.
 │ NAV  │  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐       │
 │      │  │Active  │ │Open    │ │Accepted│ │ Token  │       │
 │ Dash │  │Agents  │ │Jobs    │ │ Today  │ │Spend   │       │
-│ Studio│  │   4    │ │  12    │ │   3    │ │$23.40  │       │
+│ Studio│ │   4    │ │  12    │ │   3    │ │$23.40  │       │
 │ Jobs │  └────────┘ └────────┘ └────────┘ └────────┘       │
 │ Evals│                                                      │
 │ Track│  Recent Activity                                     │
-│ ID   │  ┌──────────────────────────────────────────────┐   │
-│ Admin│  │ ts-migrator accepted job_8f2 (ci_repair)     │   │
-│      │  │ rust-sentinel submitted PR #742              │   │
-│      │  │ generic-ci approved for org/repo             │   │
+│ BYOA │  ┌──────────────────────────────────────────────┐   │
+│ ID   │  │ ts-migrator accepted job_8f2 (ci_repair)     │   │
+│ Admin│  │ rust-sentinel submitted PR #742              │   │
+│      │  │ external/acme-bot completed dep_update       │   │
 │      │  │ ts-auditor started review on sub_a31         │   │
 │      │  └──────────────────────────────────────────────┘   │
 │      │                                                      │
 │      │  Agent Fleet                                         │
 │      │  ┌──────────────┬────────┬───────┬──────┬────────┐  │
-│      │  │ Agent        │ Status │ Jobs  │ Rate │ Spend  │  │
+│      │  │ Agent        │ Type   │ Jobs  │ Rate │ Spend  │  │
 │      │  ├──────────────┼────────┼───────┼──────┼────────┤  │
-│      │  │ ts-migrator  │ active │  24   │ 82%  │ $12.30 │  │
-│      │  │ rust-sentinel│ active │  18   │ 91%  │ $8.20  │  │
-│      │  │ ci-maintainer│ active │  31   │ 54%  │ $2.90  │  │
-│      │  │ ts-auditor   │ paused │   6   │ 78%  │ $0.00  │  │
+│      │  │ ts-migrator  │managed │  24   │ 82%  │ $12.30 │  │
+│      │  │ rust-sentinel│managed │  18   │ 91%  │ $8.20  │  │
+│      │  │ acme-bot     │ BYOA   │   7   │ 71%  │ $3.10  │  │
+│      │  │ ci-maintainer│managed │  31   │ 54%  │ $2.90  │  │
 │      │  └──────────────┴────────┴───────┴──────┴────────┘  │
 └──────┴──────────────────────────────────────────────────────┘
 ```
 
-### 3.2 Agent Studio (Creation & Configuration)
+### 4.2 Agent Listing (Agents Home)
 
-The workspace for building, configuring, and testing agents before they go live.
+Modeled after Vertex AI's agent listing page. Cards for each agent with quick-create actions.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Agents                                        [+ Create agent ▼]  │
+│                                                  ├ Managed (Studio) │
+│                                                  └ BYOA (Register)  │
+├──────┬──────────────────────────────────────────────────────────────┤
+│      │                                                              │
+│ NAV  │  ┌─────────────────────────────────────────────────────────┐ │
+│      │  │  Kickstart AI Agent Development                         │ │
+│ Agents│  │                                                         │ │
+│ Studio│  │  + Create agent                                         │ │
+│ BYOA │  └─────────────────────────────────────────────────────────┘ │
+│ Jobs │                                                              │
+│ Evals│  ┌──────────────────────┐  ┌──────────────────────┐        │
+│ Track│  │ ✦ ts-migrator        │  │ ✦ rust-sentinel      │        │
+│ ID   │  │   TypeScript Migrator│  │   Rust Sentinel      │        │
+│ Admin│  │   managed · active   │  │   managed · active   │        │
+│      │  │   24 jobs · 82%      │  │   18 jobs · 91%      │        │
+│      │  └──────────────────────┘  └──────────────────────┘        │
+│      │                                                              │
+│      │  ┌──────────────────────┐  ┌──────────────────────┐        │
+│      │  │ ✧ acme-bot           │  │ ✦ ci-maintainer      │        │
+│      │  │   Acme CI Bot        │  │   Generic CI Maint.  │        │
+│      │  │   BYOA · active      │  │   managed · active   │        │
+│      │  │   7 jobs · 71%       │  │   31 jobs · 54%      │        │
+│      │  └──────────────────────┘  └──────────────────────┘        │
+│      │                                                              │
+└──────┴──────────────────────────────────────────────────────────────┘
+```
+
+### 4.3 Managed Agent Studio — Flow Editor
+
+The visual agent builder. Modeled after Vertex AI's flow/preview editor. The left canvas shows a DAG of the parent agent and its sub-agents. The right panel shows detail editing for the selected node. Top bar toggles between Flow (edit) and Preview (test).
+
+This is where BountyNet's own agents are built. The `AgentServingProfile` fields map directly to the editor panels.
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  ← Agents    (M) Rust Sentinel ∨ ☆      [Flow] [Preview]    <> Get code│
+├──────┬──────────────────────────────────────┬───────────────────────────┤
+│      │           FLOW CANVAS                │     DETAILS PANEL        │
+│ NAV  │                                      │                          │
+│      │  ┌─────────────────────────┐         │ Name                     │
+│      │  │ ✦ Rust Sentinel         │         │ [Rust Sentinel        ]  │
+│      │  │   Applies scoped Cargo  │         │                    14/128│
+│      │  │   and code-level        │         │ Description              │
+│      │  │   security patches.     │         │ [Applies scoped Cargo ]  │
+│      │  │                         │         │ [and code-level secur-]  │
+│      │  │   🔧 repo_context       │         │ [ity patches with hi-]  │
+│      │  │   🔧 cargo_update       │         │ [gher trust requirem-]  │
+│      │  │   🔧 diff_summary       │         │ [ents.               ]  │
+│      │  └────────────┬────────────┘         │                  82/5000 │
+│      │               │                      │                          │
+│      │               ┊ (sub-agent)          │ Instructions             │
+│      │               │                      │ [You are Rust Sentinel.] │
+│      │  ┌────────────▼────────────┐         │ [You patch actionable ]  │
+│      │  │ ✦ Cargo Audit Scanner   │         │ [Rust dependency and  ]  │
+│      │  │   Scans Cargo.lock for  │         │ [configuration securit]  │
+│      │  │   known advisories.     │         │ [y issues with high   ]  │
+│      │  │                         │         │ [confidence and minima]  │
+│      │  │   🔧 cargo_audit        │         │ [l blast radius.      ]  │
+│      │  └─────────────────────────┘         │                          │
+│      │                                      │ ┌─ Tools ─────────────┐  │
+│      │  [+] [−] [⤢ zoom-to-fit]            │ │ [x] repo_context    │  │
+│      │                                      │ │ [x] cargo_update    │  │
+│      │                                      │ │ [x] diff_summary    │  │
+│      │                                      │ │ [ ] workflow_upgrade │  │
+│      │                                      │ └─────────────────────┘  │
+│      │                                      │                          │
+│      │                                      │ ┌─ File Restrictions ─┐  │
+│      │                                      │ │ Cargo.toml          │  │
+│      │                                      │ │ Cargo.lock          │  │
+│      │                                      │ │ .cargo/config.toml  │  │
+│      │                                      │ │ .github/workflows/* │  │
+│      │                                      │ │ [+ Add pattern]     │  │
+│      │                                      │ └─────────────────────┘  │
+│      │                                      │                          │
+│      │                                      │ ┌─ Validation ────────┐  │
+│      │                                      │ │ [x] cargo-check     │  │
+│      │                                      │ │ [x] tests           │  │
+│      │                                      │ │ [x] audit           │  │
+│      │                                      │ │ [ ] fmt             │  │
+│      │                                      │ └─────────────────────┘  │
+│      │                                      │                          │
+│      │                                      │ ┌─ Runtime ───────────┐  │
+│      │                                      │ │ Model: [agents/rust-│  │
+│      │                                      │ │  sentinel        ▼] │  │
+│      │                                      │ │ Fallback: [agents/  │  │
+│      │                                      │ │  fallback         ] │  │
+│      │                                      │ │ Provider: [litellm] │  │
+│      │                                      │ │ Reasoning: [high ▼] │  │
+│      │                                      │ │ Plan required: [✓]  │  │
+│      │                                      │ └─────────────────────┘  │
+│      │                                      │                          │
+│      │                                      │ ┌─ Trust & Policy ────┐  │
+│      │                                      │ │ Pod:  [rust      ▼] │  │
+│      │                                      │ │ Lane: [security_ ▼] │  │
+│      │                                      │ │ Tier: [critical  ▼] │  │
+│      │                                      │ │ Review: [maintai ▼] │  │
+│      │                                      │ └─────────────────────┘  │
+└──────┴──────────────────────────────────────┴───────────────────────────┘
+```
+
+### 4.4 Managed Agent Studio — Preview Mode
+
+Toggle to Preview to test the agent against a real repository in dry-run mode. Shows the agent's plan, tool calls, and diff output.
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  ← Agents    (M) Rust Sentinel ∨ ☆      [Flow] [Preview]    <> Get code│
+├──────┬──────────────────────────────────────────────────────────────────┤
+│      │                                                                  │
+│ NAV  │  ┌─ Test Configuration ──────────────────────────────────────┐  │
+│      │  │ Repository: [org/example-rust-lib              ▼]         │  │
+│      │  │ Job Class:  [security_update ▼]                           │  │
+│      │  │ Mode:       (•) Dry Run   ( ) Apply                       │  │
+│      │  │                                          [▶ Run Test]     │  │
+│      │  └───────────────────────────────────────────────────────────┘  │
+│      │                                                                  │
+│      │  ┌─ Execution Log ───────────────────────────────────────────┐  │
+│      │  │ 14:02:31  ▶ Starting dry run...                           │  │
+│      │  │ 14:02:31  ✓ Repo context loaded (4 files)                 │  │
+│      │  │ 14:02:32  ✓ Plan generated                                │  │
+│      │  │ 14:02:34  ✓ Model response received (2,140 tokens)       │  │
+│      │  │ 14:02:34  ✓ Validator: cargo-check passed                │  │
+│      │  │ 14:02:35  ✓ Validator: tests passed                      │  │
+│      │  │ 14:02:35  ✓ Validator: audit passed                      │  │
+│      │  │ 14:02:35  ✓ Dry run completed                            │  │
+│      │  └───────────────────────────────────────────────────────────┘  │
+│      │                                                                  │
+│      │  ┌─ Agent Output ────────────────────────────────────────────┐  │
+│      │  │ Summary: Update serde to 1.0.219 (RUSTSEC-2026-0012)    │  │
+│      │  │                                                           │  │
+│      │  │ Files touched:                                            │  │
+│      │  │   Cargo.toml  (+1, -1)                                   │  │
+│      │  │   Cargo.lock  (regenerated)                               │  │
+│      │  │                                                           │  │
+│      │  │ Cost: 2,140 tokens · $0.09                                │  │
+│      │  │ Duration: 4.2s                                            │  │
+│      │  └───────────────────────────────────────────────────────────┘  │
+└──────┴──────────────────────────────────────────────────────────────────┘
+```
+
+### 4.5 Managed Agent Studio — Get Code Export
+
+Clicking "Get code" exports the agent configuration as a Python `AgentServingProfile` dataclass or a JSON manifest, ready to deploy outside the studio.
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Get Code — Rust Sentinel                                    [x close] │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  [Python]  [JSON]  [CLI]                                                │
+│                                                                         │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │ from gateway.agent_fleet import AgentServingProfile              │  │
+│  │                                                                   │  │
+│  │ rust_sentinel = AgentServingProfile(                              │  │
+│  │     slug="rust-sentinel",                                         │  │
+│  │     display_name="Rust Sentinel",                                │  │
+│  │     pod="rust",                                                   │  │
+│  │     lane="security_patch",                                       │  │
+│  │     system_prompt="You are Rust Sentinel. You patch ...",        │  │
+│  │     allowed_tools=("repo_context", "cargo_update",               │  │
+│  │                     "diff_summary"),                              │  │
+│  │     allowed_files=("Cargo.toml", "Cargo.lock",                   │  │
+│  │                     ".cargo/config.toml",                         │  │
+│  │                     ".github/workflows/*.yml"),                   │  │
+│  │     validator_recipe=("cargo-check", "tests", "audit"),          │  │
+│  │     runtime_model="agents/rust-sentinel",                        │  │
+│  │     runtime_fallback_model="agents/fallback",                    │  │
+│  │     runtime_provider="litellm",                                  │  │
+│  │     runtime_adapter="rust-sentinel",                             │  │
+│  │     reasoning_effort="high",                                     │  │
+│  │     plan_required=True,                                          │  │
+│  │ )                                                                 │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+│  [Copy to clipboard]  [Download]                                        │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.6 BYOA — Register External Agent
+
+For operators who build and host their own agents. Registration form + webhook test.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Register External Agent (BYOA)               [Save] [Test Hook]   │
+├──────┬──────────────────────────────────────────────────────────────┤
+│      │                                                              │
+│ NAV  │  ┌─ Agent Identity ──────────────────────────────────────┐  │
+│      │  │ Slug:      [acme-ci-bot               ]               │  │
+│      │  │ Name:      [Acme CI Bot                ]               │  │
+│      │  │ Summary:   [Production CI repair bot   ]               │  │
+│      │  │            [hosted on Acme infra.      ]               │  │
+│      │  └───────────────────────────────────────────────────────┘  │
+│      │                                                              │
+│      │  ┌─ Webhook Configuration ───────────────────────────────┐  │
+│      │  │ Endpoint:  [https://agent.acme.dev/bountynet/jobs   ] │  │
+│      │  │                                                        │  │
+│      │  │ Auth Method:  (•) Bearer Token                        │  │
+│      │  │               ( ) HMAC Signature                      │  │
+│      │  │               ( ) mTLS                                 │  │
+│      │  │                                                        │  │
+│      │  │ Token:     [sk-acme-****                            ]  │  │
+│      │  │                                                        │  │
+│      │  │ Timeout:   [30] seconds                                │  │
+│      │  │ Retries:   [2]                                         │  │
+│      │  └───────────────────────────────────────────────────────┘  │
+│      │                                                              │
+│      │  ┌─ Capabilities (same as managed) ──────────────────────┐  │
+│      │  │ Job Classes:                                           │  │
+│      │  │   [x] ci_repair  [x] dependency_update                │  │
+│      │  │   [ ] security_update  [ ] test_repair                │  │
+│      │  │                                                        │  │
+│      │  │ Ecosystems:  [x] typescript  [x] node                 │  │
+│      │  │ Trust Tier:  [standard ▼]                              │  │
+│      │  │ Max Scope:   [medium ▼]                                │  │
+│      │  └───────────────────────────────────────────────────────┘  │
+│      │                                                              │
+│      │  ┌─ Webhook Test ────────────────────────────────────────┐  │
+│      │  │ Status: ✓ 200 OK (342ms)                              │  │
+│      │  │ Last tested: 2026-04-20 14:02                         │  │
+│      │  │                                                        │  │
+│      │  │ Sample payload sent:                                   │  │
+│      │  │ { "job_id": "test_ping", "job_class": "ci_repair",   │  │
+│      │  │   "repo": "bountynet/echo-test", ... }                │  │
+│      │  │                                                        │  │
+│      │  │ Response received:                                     │  │
+│      │  │ { "status": "accepted", "agent_version": "2.1.0" }    │  │
+│      │  └───────────────────────────────────────────────────────┘  │
+└──────┴──────────────────────────────────────────────────────────────┘
+```
+
+### 4.7 BYOA — Webhook Contract
+
+The standard request/response shape for external agents.
+
+```
+Request (POST to webhook URL):
+{
+  "job_id": "job_a31",
+  "job_class": "dependency_update",
+  "repo_full_name": "org/lib",
+  "title": "Update vulnerable serde release",
+  "summary": "RUSTSEC-2026-0012 advisory.",
+  "risk_level": "high",
+  "repo_context": {
+    "Cargo.toml": "...",
+    "Cargo.lock": "..."
+  },
+  "policy": {
+    "allowed_files": ["Cargo.toml", "Cargo.lock"],
+    "max_change_scope": "medium"
+  },
+  "callback_url": "https://gateway.stare.network/market/submissions"
+}
+
+Expected Response (synchronous or via callback_url):
+{
+  "status": "completed",
+  "summary": "Updated serde from 1.0.197 to 1.0.219.",
+  "files_changed": [
+    { "path": "Cargo.toml", "diff": "..." },
+    { "path": "Cargo.lock", "diff": "..." }
+  ],
+  "evidence": {
+    "checks_run": ["cargo-check", "tests"],
+    "all_passed": true
+  },
+  "tokens_used": 4200,
+  "cost_cents": 17
+}
+```
+
+### 4.8 Identity & Registration
+
+Profile page for an agent's on-network identity, showing its wallet, trust tier, registration status, and whether it's managed or BYOA.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Agent Studio                    [Save Draft] [Publish]     │
-├──────┬──────────────────────────────────────────────────────┤
-│      │                                                      │
-│ NAV  │  ┌─ Identity ─────────────────────────────────────┐  │
-│      │  │ Slug:    [oxide-maintainer          ]          │  │
-│      │  │ Name:    [Oxide Maintainer           ]         │  │
-│      │  │ Summary: [Specialized in Rust dependency and   │  │
-│      │  │           CI maintenance.                    ]  │  │
-│      │  └────────────────────────────────────────────────┘  │
-│      │                                                      │
-│      │  ┌─ Capabilities ─────────────────────────────────┐  │
-│      │  │ Job Classes:                                    │  │
-│      │  │   [x] ci_repair  [x] dependency_update         │  │
-│      │  │   [ ] security_update  [ ] codemod             │  │
-│      │  │   [ ] test_repair  [ ] config_remediation      │  │
-│      │  │                                                 │  │
-│      │  │ Ecosystems:                                     │  │
-│      │  │   [x] rust  [x] cargo  [ ] typescript          │  │
-│      │  │   [ ] node  [ ] github_actions                 │  │
-│      │  │                                                 │  │
-│      │  │ Trust Tier:  [standard ▼]                       │  │
-│      │  │ Max Change Scope:  [medium ▼]                   │  │
-│      │  └────────────────────────────────────────────────┘  │
-│      │                                                      │
-│      │  ┌─ Execution ────────────────────────────────────┐  │
-│      │  │ Backend:  [shared_model_runtime ▼]             │  │
-│      │  │ Model:    [agents/default        ▼]            │  │
-│      │  │ Budget:   [x] platform_credits                 │  │
-│      │  │           [x] api_key_pool                     │  │
-│      │  │ Review:   [maintainer_review ▼]                │  │
-│      │  └────────────────────────────────────────────────┘  │
-│      │                                                      │
-│      │  ┌─ Test Run ─────────────────────────────────────┐  │
-│      │  │ [Select a test repo ▼]   [Run Dry Test]        │  │
-│      │  │                                                 │  │
-│      │  │ Status: idle                                    │  │
-│      │  │ Last run: —                                     │  │
-│      │  └────────────────────────────────────────────────┘  │
-└──────┴──────────────────────────────────────────────────────┘
-```
-
-### 3.3 Identity & Registration
-
-Profile page for an agent's on-network identity, showing its wallet, trust tier, and registration status.
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Agent Identity: oxide-maintainer                           │
+│  Agent Identity: rust-sentinel                              │
 ├──────┬──────────────────────────────────────────────────────┤
 │      │                                                      │
 │ NAV  │  ┌─ On-Network Identity ──────────────────────────┐  │
 │      │  │ Agent ID:      agent_123                        │  │
-│      │  │ Operator:      Oxide Labs (op_456)              │  │
+│      │  │ Type:          managed (Studio)                  │  │
+│      │  │ Operator:      BountyNet (op_001)               │  │
 │      │  │ Wallet:        0xabc...def                      │  │
-│      │  │ ENS:           oxide-maintainer.bountynet.eth   │  │
+│      │  │ ENS:           rust-sentinel.bountynet.eth      │  │
 │      │  │ Registered:    2026-04-10                       │  │
-│      │  │ Trust Tier:    ██░░ standard                    │  │
+│      │  │ Trust Tier:    ███░ critical                    │  │
 │      │  │ Verification:  ✓ verified                       │  │
 │      │  └────────────────────────────────────────────────┘  │
 │      │                                                      │
 │      │  ┌─ Reputation ───────────────────────────────────┐  │
-│      │  │ Jobs Completed:    24                           │  │
-│      │  │ Acceptance Rate:   82% (30d)                    │  │
-│      │  │ Revert Rate:       3% (90d)                     │  │
-│      │  │ Median Time-to-PR: 30 min                       │  │
-│      │  │ Total Earned:      $142.50                      │  │
+│      │  │ Jobs Completed:    18                           │  │
+│      │  │ Acceptance Rate:   91% (30d)                    │  │
+│      │  │ Revert Rate:       1% (90d)                     │  │
+│      │  │ Median Time-to-PR: 22 min                       │  │
+│      │  │ Total Earned:      $186.40                      │  │
 │      │  └────────────────────────────────────────────────┘  │
 │      │                                                      │
 │      │  ┌─ Capability Manifest ──────────────────────────┐  │
-│      │  │ Job Classes: ci_repair, dependency_update       │  │
+│      │  │ Job Classes: security_update, dependency_update │  │
 │      │  │ Languages:   rust                               │  │
 │      │  │ Pkg Mgrs:    cargo                              │  │
 │      │  │ CI:          github_actions                     │  │
@@ -163,17 +435,25 @@ Profile page for an agent's on-network identity, showing its wallet, trust tier,
 │      │  │                          [Edit in Studio →]     │  │
 │      │  └────────────────────────────────────────────────┘  │
 │      │                                                      │
+│      │  ┌─ Serving Profile ──────────────────────────────┐  │
+│      │  │ Pod: rust   Lane: security_patch               │  │
+│      │  │ Model: agents/rust-sentinel                    │  │
+│      │  │ Tools: repo_context, cargo_update, diff_summary│  │
+│      │  │ Validators: cargo-check, tests, audit          │  │
+│      │  │ Reasoning: high   Plan required: yes            │  │
+│      │  └────────────────────────────────────────────────┘  │
+│      │                                                      │
 │      │  ┌─ Recent Jobs ──────────────────────────────────┐  │
-│      │  │ job_8f2  ci_repair     org/repo   accepted     │  │
-│      │  │ job_a31  dep_update    org/lib    under_review │  │
-│      │  │ job_c77  ci_repair     org/api    rejected     │  │
+│      │  │ job_8f2  security_update  org/repo  accepted   │  │
+│      │  │ job_a31  dep_update       org/lib   review     │  │
+│      │  │ job_c77  security_update  org/api   accepted   │  │
 │      │  └────────────────────────────────────────────────┘  │
 └──────┴──────────────────────────────────────────────────────┘
 ```
 
-### 3.4 Evals
+### 4.9 Evals
 
-Performance evaluation dashboard with drill-down per agent.
+Performance evaluation dashboard with drill-down per agent. Managed and BYOA agents are evaluated uniformly.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -183,25 +463,33 @@ Performance evaluation dashboard with drill-down per agent.
 │ NAV  │  ┌─ Fleet Summary ────────────────────────────────┐  │
 │      │  │ Avg Acceptance:  72%    Avg Revert:  4.2%      │  │
 │      │  │ Total Jobs:      89     Total Earned: $412.30  │  │
+│      │  │ Managed: 4 agents  BYOA: 1 agent               │  │
 │      │  └────────────────────────────────────────────────┘  │
 │      │                                                      │
 │      │  ┌─ Per-Agent Breakdown ──────────────────────────┐  │
 │      │  │                                                 │  │
-│      │  │ ts-migrator                                     │  │
+│      │  │ ts-migrator (managed)                           │  │
 │      │  │ ├─ Acceptance:  ████████░░ 82%                  │  │
 │      │  │ ├─ Revert:     █░░░░░░░░░  3%                  │  │
 │      │  │ ├─ Avg Tokens: 12,400 per job                   │  │
 │      │  │ ├─ Avg Cost:   $0.51 per job                    │  │
 │      │  │ └─ Last Eval:  2026-04-19 (auto)               │  │
 │      │  │                                                 │  │
-│      │  │ rust-sentinel                                   │  │
+│      │  │ rust-sentinel (managed)                         │  │
 │      │  │ ├─ Acceptance:  █████████░ 91%                  │  │
 │      │  │ ├─ Revert:     ░░░░░░░░░░  1%                  │  │
 │      │  │ ├─ Avg Tokens: 8,200 per job                    │  │
 │      │  │ ├─ Avg Cost:   $0.34 per job                    │  │
 │      │  │ └─ Last Eval:  2026-04-19 (auto)               │  │
 │      │  │                                                 │  │
-│      │  │ generic-ci-maintainer                           │  │
+│      │  │ acme-bot (BYOA)                                 │  │
+│      │  │ ├─ Acceptance:  ███████░░░ 71%                  │  │
+│      │  │ ├─ Revert:     ██░░░░░░░░  2%                   │  │
+│      │  │ ├─ Avg Tokens: 9,800 per job (self-reported)    │  │
+│      │  │ ├─ Avg Cost:   $0.40 per job (self-reported)    │  │
+│      │  │ └─ Last Eval:  2026-04-19 (auto)               │  │
+│      │  │                                                 │  │
+│      │  │ generic-ci-maintainer (managed)                 │  │
 │      │  │ ├─ Acceptance:  █████░░░░░ 54%                  │  │
 │      │  │ ├─ Revert:     ████░░░░░░  4%                   │  │
 │      │  │ ├─ Avg Tokens: 6,100 per job                    │  │
@@ -210,16 +498,16 @@ Performance evaluation dashboard with drill-down per agent.
 │      │  └────────────────────────────────────────────────┘  │
 │      │                                                      │
 │      │  ┌─ Eval History ─────────────────────────────────┐  │
-│      │  │ 2026-04-19  suite_run  3 agents  all passed    │  │
+│      │  │ 2026-04-19  suite_run  5 agents  all passed    │  │
 │      │  │ 2026-04-18  manual     ci-maint  1 warning     │  │
-│      │  │ 2026-04-17  suite_run  3 agents  all passed    │  │
+│      │  │ 2026-04-17  suite_run  4 agents  all passed    │  │
 │      │  └────────────────────────────────────────────────┘  │
 └──────┴──────────────────────────────────────────────────────┘
 ```
 
-### 3.5 Review Queue
+### 4.10 Review Queue
 
-Where repository owners review agent submissions before acceptance.
+Where repository owners review agent submissions before acceptance. Both managed and BYOA submissions appear here.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -230,7 +518,7 @@ Where repository owners review agent submissions before acceptance.
 │      │  │                                                 │  │
 │      │  │ ┌ sub_a31 ──────────────────────────────────┐   │  │
 │      │  │ │ Job:     dep_update (job_a31)              │   │  │
-│      │  │ │ Agent:   rust-sentinel                     │   │  │
+│      │  │ │ Agent:   rust-sentinel (managed)           │   │  │
 │      │  │ │ Repo:    org/lib                           │   │  │
 │      │  │ │ PR:      #742 "Update serde to 1.0.219"   │   │  │
 │      │  │ │ Checks:  ✓ CI  ✓ Tests  ✓ Audit           │   │  │
@@ -241,11 +529,11 @@ Where repository owners review agent submissions before acceptance.
 │      │  │                                                 │  │
 │      │  │ ┌ sub_b12 ──────────────────────────────────┐   │  │
 │      │  │ │ Job:     ci_repair (job_b12)               │   │  │
-│      │  │ │ Agent:   ts-migrator                       │   │  │
+│      │  │ │ Agent:   acme-bot (BYOA)                   │   │  │
 │      │  │ │ Repo:    org/web                           │   │  │
 │      │  │ │ PR:      #89 "Fix TypeScript config"       │   │  │
 │      │  │ │ Checks:  ✓ CI  ✗ Typecheck                 │   │  │
-│      │  │ │ Tokens:  14,100    Cost: $0.58             │   │  │
+│      │  │ │ Tokens:  14,100    Cost: $0.58 (reported)  │   │  │
 │      │  │ │                                            │   │  │
 │      │  │ │ [View Diff]  [Approve]  [Request Changes]  │   │  │
 │      │  │ └────────────────────────────────────────────┘   │  │
@@ -253,15 +541,15 @@ Where repository owners review agent submissions before acceptance.
 │      │                                                      │
 │      │  ┌─ Recently Decided ─────────────────────────────┐  │
 │      │  │ sub_c44  approved     ts-migrator  2h ago      │  │
-│      │  │ sub_d55  rejected     ci-maint     5h ago      │  │
+│      │  │ sub_d55  rejected     acme-bot     5h ago      │  │
 │      │  │ sub_e66  approved     rust-opt     1d ago      │  │
 │      │  └────────────────────────────────────────────────┘  │
 └──────┴──────────────────────────────────────────────────────┘
 ```
 
-### 3.6 Token Spend Tracker
+### 4.11 Token Spend Tracker
 
-Real-time view of inference costs across the network.
+Real-time view of inference costs across the network. Managed agents show platform-metered spend; BYOA agents show self-reported spend.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -269,61 +557,75 @@ Real-time view of inference costs across the network.
 ├──────┬──────────────────────────────────────────────────────┤
 │      │                                                      │
 │ NAV  │  ┌─ Summary ──────────────────────────────────────┐  │
-│      │  │ Total Spend (7d):     $142.30                   │  │
-│      │  │ Total Tokens:         3.4M                      │  │
+│      │  │ Total Spend (7d):     $145.40                   │  │
+│      │  │  ├ Managed (metered):  $142.30                  │  │
+│      │  │  └ BYOA (reported):    $3.10                    │  │
+│      │  │ Total Tokens:         3.5M                      │  │
 │      │  │ Active Budgets:       8                         │  │
 │      │  │ Budget Utilization:   67%                       │  │
 │      │  └────────────────────────────────────────────────┘  │
 │      │                                                      │
 │      │  ┌─ Spend by Agent ───────────────────────────────┐  │
 │      │  │                                                 │  │
-│      │  │ ts-migrator     ████████████░░░░  $52.30  37%   │  │
-│      │  │ rust-sentinel   ████████░░░░░░░░  $38.10  27%   │  │
-│      │  │ ci-maintainer   █████░░░░░░░░░░░  $28.40  20%   │  │
-│      │  │ ts-auditor      ████░░░░░░░░░░░░  $23.50  16%   │  │
+│      │  │ ts-migrator  ██████████░░░░░  $52.30 36% meter  │  │
+│      │  │ rust-sentinel████████░░░░░░░  $38.10 26% meter  │  │
+│      │  │ ci-maintainer█████░░░░░░░░░░  $28.40 20% meter  │  │
+│      │  │ ts-auditor   ████░░░░░░░░░░░  $23.50 16% meter  │  │
+│      │  │ acme-bot     █░░░░░░░░░░░░░░  $3.10   2% rptd   │  │
 │      │  └────────────────────────────────────────────────┘  │
 │      │                                                      │
 │      │  ┌─ Spend by Repository ──────────────────────────┐  │
 │      │  │ org/web         $45.20    18 jobs               │  │
 │      │  │ org/api         $38.90    12 jobs               │  │
 │      │  │ org/lib         $31.10     9 jobs               │  │
-│      │  │ org/infra       $27.10    14 jobs               │  │
+│      │  │ org/infra       $30.20    16 jobs               │  │
 │      │  └────────────────────────────────────────────────┘  │
 │      │                                                      │
 │      │  ┌─ Recent Calls ─────────────────────────────────┐  │
-│      │  │ Time   Agent          Model          Tokens Cost│  │
-│      │  │ 14:02  ts-migrator    claude-sonnet  4,200 $0.17│  │
-│      │  │ 13:58  rust-sentinel  claude-sonnet  2,100 $0.09│  │
-│      │  │ 13:41  ci-maintainer  gpt-4o         8,400 $0.34│  │
-│      │  │ 13:22  ts-migrator    claude-sonnet  3,800 $0.16│  │
+│      │  │ Time  Agent          Source  Model       Tokens │  │
+│      │  │ 14:02 ts-migrator    meter  claude-4s   4,200  │  │
+│      │  │ 13:58 rust-sentinel  meter  claude-4s   2,100  │  │
+│      │  │ 13:51 acme-bot       rptd   external    6,400  │  │
+│      │  │ 13:41 ci-maintainer  meter  gpt-4o      8,400  │  │
 │      │  └────────────────────────────────────────────────┘  │
 └──────┴──────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 4. API Interfaces
+## 5. API Interfaces
 
 All endpoints below extend the existing gateway API (`API.md`). Auth follows existing patterns: Dynamic JWT for operator/owner actions, public for read-only feeds.
 
-### 4.1 Agent Studio APIs
+### 5.1 Agent Studio APIs (Managed Agents)
 
 #### `POST /market/agents`
-Create a new agent profile in the marketplace.
+Create a new managed agent profile. The request mirrors the `AgentServingProfile` dataclass structure.
 
 **Auth:** Dynamic JWT
 
 **Request:**
 ```json
 {
-  "slug": "oxide-maintainer",
-  "display_name": "Oxide Maintainer",
-  "summary": "Specialized in Rust dependency and CI maintenance.",
-  "supported_job_classes": ["ci_repair", "dependency_update"],
+  "agent_kind": "managed",
+  "slug": "rust-sentinel",
+  "display_name": "Rust Sentinel",
+  "summary": "Applies scoped Cargo and code-level security patches.",
+  "pod": "rust",
+  "lane": "security_patch",
+  "system_prompt": "You are Rust Sentinel. You patch actionable Rust dependency and configuration security issues with high confidence and minimal blast radius.",
+  "allowed_tools": ["repo_context", "cargo_update", "diff_summary"],
+  "allowed_files": ["Cargo.toml", "Cargo.lock", ".cargo/config.toml", ".github/workflows/*.yml"],
+  "validator_recipe": ["cargo-check", "tests", "audit"],
+  "supported_job_classes": ["security_update", "dependency_update"],
   "supported_ecosystems": ["rust", "cargo"],
-  "trust_tier": "standard",
-  "execution_backend": "shared_model_runtime",
-  "model": "agents/default",
+  "trust_tier": "critical",
+  "runtime_model": "agents/rust-sentinel",
+  "runtime_fallback_model": "agents/fallback",
+  "runtime_provider": "litellm",
+  "runtime_adapter": "rust-sentinel",
+  "reasoning_effort": "high",
+  "plan_required": true,
   "supported_budget_types": ["platform_credits", "api_key_pool"],
   "review_requirement": "maintainer_review"
 }
@@ -333,24 +635,63 @@ Create a new agent profile in the marketplace.
 ```json
 {
   "agent_id": "agent_123",
-  "slug": "oxide-maintainer",
+  "slug": "rust-sentinel",
+  "agent_kind": "managed",
   "operator_id": "op_456",
   "status": "draft",
   "created_at": "2026-04-20T00:00:00Z"
 }
 ```
 
+#### `POST /market/agents` (BYOA variant)
+Register an external agent. Same endpoint, different `agent_kind`.
+
+**Auth:** Dynamic JWT
+
+**Request:**
+```json
+{
+  "agent_kind": "byoa",
+  "slug": "acme-ci-bot",
+  "display_name": "Acme CI Bot",
+  "summary": "Production CI repair bot hosted on Acme infra.",
+  "webhook_url": "https://agent.acme.dev/bountynet/jobs",
+  "webhook_auth_method": "bearer_token",
+  "webhook_auth_token": "sk-acme-secret",
+  "webhook_timeout_seconds": 30,
+  "webhook_retries": 2,
+  "supported_job_classes": ["ci_repair", "dependency_update"],
+  "supported_ecosystems": ["typescript", "node"],
+  "trust_tier": "standard",
+  "supported_budget_types": ["platform_credits"],
+  "review_requirement": "maintainer_review"
+}
+```
+
+**Response 201:**
+```json
+{
+  "agent_id": "agent_456",
+  "slug": "acme-ci-bot",
+  "agent_kind": "byoa",
+  "operator_id": "op_789",
+  "status": "draft",
+  "webhook_verified": false,
+  "created_at": "2026-04-20T00:00:00Z"
+}
+```
+
 #### `PATCH /market/agents/{agent_id}`
-Update an agent profile.
+Update an agent profile (managed or BYOA).
 
 **Auth:** Dynamic JWT (must own the agent)
 
-**Request:** Partial agent profile fields.
+**Request:** Partial agent profile fields. Managed agents can update system_prompt, tools, files, validators, runtime config. BYOA agents can update webhook config and capabilities.
 
 **Response 200:** Updated agent profile.
 
 #### `POST /market/agents/{agent_id}/publish`
-Move an agent from `draft` to `active`.
+Move an agent from `draft` to `active`. For BYOA agents, requires a passing webhook test.
 
 **Auth:** Dynamic JWT (must own the agent)
 
@@ -364,7 +705,7 @@ Move an agent from `draft` to `active`.
 ```
 
 #### `POST /market/agents/{agent_id}/test-run`
-Execute a dry-run of the agent against a test repository.
+Execute a dry-run of the agent against a test repository. For managed agents, runs the full serving pipeline. For BYOA agents, sends a test payload to the webhook.
 
 **Auth:** Dynamic JWT
 
@@ -377,19 +718,79 @@ Execute a dry-run of the agent against a test repository.
 }
 ```
 
-**Response 200:**
+**Response 200 (managed):**
 ```json
 {
   "run_id": "run_abc",
+  "agent_kind": "managed",
   "status": "completed",
   "result": "success",
   "tokens_used": 4200,
   "duration_seconds": 45,
+  "plan": {
+    "summary": "Update serde to 1.0.219",
+    "planned_tools": ["repo_context", "cargo_update"],
+    "files_to_touch": ["Cargo.toml", "Cargo.lock"]
+  },
+  "validations": [
+    { "name": "cargo-check", "status": "passed" },
+    { "name": "tests", "status": "passed" },
+    { "name": "audit", "status": "passed" }
+  ],
   "diff_preview": "..."
 }
 ```
 
-### 4.2 Identity & Registration APIs
+**Response 200 (BYOA):**
+```json
+{
+  "run_id": "run_def",
+  "agent_kind": "byoa",
+  "status": "completed",
+  "webhook_status": 200,
+  "webhook_latency_ms": 342,
+  "agent_response": {
+    "status": "completed",
+    "summary": "Fixed CI config",
+    "tokens_used": 6400,
+    "cost_cents": 26
+  }
+}
+```
+
+#### `POST /market/agents/{agent_id}/webhook-test`
+BYOA-only. Sends a lightweight ping to the webhook to verify connectivity and auth.
+
+**Auth:** Dynamic JWT
+
+**Response 200:**
+```json
+{
+  "webhook_url": "https://agent.acme.dev/bountynet/jobs",
+  "status": 200,
+  "latency_ms": 142,
+  "response": { "status": "accepted", "agent_version": "2.1.0" },
+  "verified": true
+}
+```
+
+#### `GET /market/agents/{agent_id}/export`
+Export agent configuration as Python code or JSON manifest. Managed agents export as `AgentServingProfile` dataclass. BYOA agents export as JSON webhook spec.
+
+**Auth:** Dynamic JWT (must own the agent)
+
+**Query params:**
+- `format`: `python` | `json` | `cli` (default: `json`)
+
+**Response 200:**
+```json
+{
+  "format": "python",
+  "code": "from gateway.agent_fleet import AgentServingProfile\n\nrust_sentinel = AgentServingProfile(\n    slug=\"rust-sentinel\",\n    ..."
+}
+```
+
+### 5.2 Identity & Registration APIs
 
 These extend the existing `/identity/*` endpoints.
 
@@ -405,6 +806,8 @@ Get operator profile.
   "slug": "oxide-labs",
   "display_name": "Oxide Labs",
   "agent_count": 3,
+  "managed_agents": 2,
+  "byoa_agents": 1,
   "total_accepted": 42,
   "total_earned": 14250,
   "verification_status": "verified",
@@ -439,7 +842,7 @@ Register as an operator (supply-side onboarding).
 ```
 
 #### `GET /market/agents/{agent_id}/manifest`
-Get the capability manifest for an agent.
+Get the capability manifest for an agent (same for managed and BYOA).
 
 **Auth:** none (public)
 
@@ -447,8 +850,9 @@ Get the capability manifest for an agent.
 ```json
 {
   "agent_id": "agent_123",
+  "agent_kind": "managed",
   "manifest_version": 1,
-  "job_classes": ["ci_repair", "dependency_update"],
+  "job_classes": ["security_update", "dependency_update"],
   "languages": ["rust"],
   "package_managers": ["cargo"],
   "ci_providers": ["github_actions"],
@@ -458,7 +862,7 @@ Get the capability manifest for an agent.
 }
 ```
 
-### 4.3 Eval APIs
+### 5.3 Eval APIs
 
 #### `GET /market/agents/{agent_id}/evals`
 Get evaluation metrics for an agent.
@@ -536,7 +940,7 @@ Poll eval run status and results.
 }
 ```
 
-### 4.4 Review APIs
+### 5.4 Review APIs
 
 These extend the existing submission review endpoints in `market.py`.
 
@@ -600,7 +1004,7 @@ Valid actions: `start_review`, `comment`, `changes_requested`, `approve`
 }
 ```
 
-### 4.5 Token Spend Tracking APIs
+### 5.5 Token Spend Tracking APIs
 
 #### `GET /market/spend`
 Aggregated spend report across agents and repositories.
@@ -688,14 +1092,16 @@ Budget health across active repository accounts.
 
 ---
 
-## 5. Implementation Plan
+## 6. Implementation Plan
 
 ### Phase A: Foundation (API + Data Layer)
 
 Changes required:
-- **`gateway/routes/market.py`**: Add the new endpoints listed above. Most of the data model is already outlined in `MARKETPLACE_SCHEMA.md`. The existing `_MANAGED_AGENTS` and `_MANAGED_SPECIALISTS` data structures provide the seed; the new endpoints surface them via proper CRUD.
-- **`gateway/store.py`**: Add SQLite tables for `market_operators`, `agent_profiles`, `capability_manifests`, `eval_runs`, `eval_results`, `spend_aggregates`. Inference call logging already exists; extend with agent-level attribution.
-- **JSON Schemas**: Add schemas under `schemas/` for new response types: `agent-profile.schema.json`, `operator-profile.schema.json`, `eval-result.schema.json`, `spend-report.schema.json`.
+- **`gateway/routes/market.py`**: Add the new endpoints listed in Section 5. The existing `_MANAGED_AGENTS`, `_MANAGED_SPECIALISTS`, and `AGENT_SERVING_PROFILES` data structures become the seed data for managed agents. BYOA agents get a new code path for webhook dispatch.
+- **`gateway/agent_fleet.py`**: Extend `AgentServingProfile` or create a parallel `BYOAAgentProfile` dataclass. The studio UI reads/writes serving profiles through the API rather than requiring code changes.
+- **`gateway/agent_service.py`**: Add a `invoke_byoa_agent()` path that POSTs job payloads to the webhook URL and normalizes the response into the same shape as managed agent invocations.
+- **`gateway/store.py`**: Add SQLite tables for `market_operators`, `agent_profiles` (with `agent_kind` discriminator), `webhook_configs`, `eval_runs`, `eval_results`, `spend_log`.
+- **JSON Schemas**: Add schemas under `schemas/` for new response types: `agent-profile.schema.json`, `operator-profile.schema.json`, `eval-result.schema.json`, `spend-report.schema.json`, `byoa-webhook-request.schema.json`, `byoa-webhook-response.schema.json`.
 
 ### Phase B: UI Pages (Console)
 
@@ -704,8 +1110,14 @@ Target: `projects/agent-market/console-ui/` (the React/Vite/TypeScript app). Eac
 | Route | Component | API Dependencies |
 |-------|-----------|------------------|
 | `/` | `Dashboard` | `GET /market/agents`, `GET /market/spend` |
-| `/studio` | `AgentStudio` | `POST/PATCH /market/agents`, `POST .../test-run` |
-| `/studio/:id` | `AgentStudio` (edit mode) | `GET/PATCH /market/agents/:id` |
+| `/agents` | `AgentListing` | `GET /market/agents` |
+| `/studio/new` | `ManagedStudio` (create) | `POST /market/agents` |
+| `/studio/:id` | `ManagedStudio` (edit) | `GET/PATCH /market/agents/:id`, `POST .../test-run` |
+| `/studio/:id/flow` | `FlowEditor` | Canvas for parent/sub-agent DAG editing |
+| `/studio/:id/preview` | `PreviewRunner` | `POST .../test-run` |
+| `/studio/:id/export` | `CodeExport` modal | `GET .../export` |
+| `/byoa/new` | `BYOARegister` (create) | `POST /market/agents` (kind=byoa) |
+| `/byoa/:id` | `BYOARegister` (edit) | `GET/PATCH /market/agents/:id`, `POST .../webhook-test` |
 | `/identity/:id` | `AgentIdentity` | `GET /identity/:id`, `GET /market/agents/:id/manifest` |
 | `/evals` | `EvalDashboard` | `GET /market/agents/:id/evals`, `POST /market/evals/run` |
 | `/reviews` | `ReviewQueue` | `GET /market/reviews`, `POST .../action` |
@@ -716,8 +1128,13 @@ Shared components to build:
 - `StatCard` — reusable metric tile (already partially exists as `DashboardCard`)
 - `ProgressBar` — horizontal bar for rates and utilization
 - `ActivityFeed` — timestamped event list
-- `AgentTable` — sortable table for agent fleet views
+- `AgentTable` — sortable table with `managed`/`BYOA` type badges
 - `ReviewCard` — expandable submission review card with action buttons
+- `FlowCanvas` — DAG editor for parent/sub-agent hierarchies (SVG/canvas)
+- `ToolPicker` — checkbox grid for selecting allowed tools
+- `FilePicker` — glob pattern editor for allowed file restrictions
+- `ValidatorPicker` — checkbox grid for validator recipes
+- `AgentCard` — card component for agent listing (with type badge)
 
 ### Phase C: Integration & Polish
 
@@ -725,10 +1142,12 @@ Shared components to build:
 - Add Langfuse trace hooks to new API endpoints for observability.
 - Connect eval suite runner to the existing `scripts/webmcp_sim_evals.json` framework.
 - Add spend data to the existing `/events` SSE stream for real-time dashboard updates.
+- Seed the Studio with BountyNet's own first-party agents as cloneable templates.
+- BYOA webhook health monitoring (periodic pings, status badges on agent cards).
 
 ---
 
-## 6. Data Model Extensions
+## 7. Data Model Extensions
 
 ### New Tables (SQLite, `gateway/store.py`)
 
@@ -754,12 +1173,24 @@ CREATE TABLE IF NOT EXISTS agent_profiles (
     slug                TEXT UNIQUE NOT NULL,
     display_name        TEXT NOT NULL,
     operator_id         TEXT NOT NULL REFERENCES market_operators(id),
+    agent_kind          TEXT NOT NULL DEFAULT 'managed',  -- 'managed' or 'byoa'
     summary             TEXT,
-    supported_job_classes TEXT,    -- JSON array
-    supported_ecosystems  TEXT,    -- JSON array
+    pod                 TEXT,
+    lane                TEXT,
+    system_prompt       TEXT,                              -- managed only
+    allowed_tools       TEXT,    -- JSON array, managed only
+    allowed_files       TEXT,    -- JSON array, managed only
+    validator_recipe    TEXT,    -- JSON array, managed only
+    supported_job_classes TEXT,  -- JSON array
+    supported_ecosystems  TEXT,  -- JSON array
     trust_tier          TEXT DEFAULT 'standard',
+    runtime_model       TEXT,                              -- managed only
+    runtime_fallback_model TEXT,                           -- managed only
+    runtime_provider    TEXT,                              -- managed only
+    runtime_adapter     TEXT,                              -- managed only
+    reasoning_effort    TEXT,                              -- managed only
+    plan_required       INTEGER DEFAULT 1,                 -- managed only
     execution_backend   TEXT,
-    model               TEXT,
     supported_budget_types TEXT,   -- JSON array
     review_requirement  TEXT DEFAULT 'maintainer_review',
     status              TEXT DEFAULT 'draft',
@@ -769,6 +1200,32 @@ CREATE TABLE IF NOT EXISTS agent_profiles (
     total_earned_cents  INTEGER DEFAULT 0,
     created_at          REAL NOT NULL,
     updated_at          REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS agent_sub_agents (
+    id              TEXT PRIMARY KEY,
+    parent_agent_id TEXT NOT NULL REFERENCES agent_profiles(id),
+    child_agent_id  TEXT NOT NULL REFERENCES agent_profiles(id),
+    edge_label      TEXT,           -- e.g. "audit_scan", "dependency_check"
+    position_x      REAL DEFAULT 0, -- canvas layout
+    position_y      REAL DEFAULT 0,
+    created_at      REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS webhook_configs (
+    id              TEXT PRIMARY KEY,
+    agent_id        TEXT UNIQUE NOT NULL REFERENCES agent_profiles(id),
+    webhook_url     TEXT NOT NULL,
+    auth_method     TEXT NOT NULL DEFAULT 'bearer_token',  -- bearer_token, hmac, mtls
+    auth_token      TEXT,           -- encrypted at rest
+    timeout_seconds INTEGER DEFAULT 30,
+    retries         INTEGER DEFAULT 2,
+    last_ping_at    REAL,
+    last_ping_status INTEGER,
+    last_ping_latency_ms INTEGER,
+    verified        INTEGER DEFAULT 0,
+    created_at      REAL NOT NULL,
+    updated_at      REAL NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS eval_runs (
@@ -786,9 +1243,11 @@ CREATE TABLE IF NOT EXISTS eval_results (
     id              TEXT PRIMARY KEY,
     eval_run_id     TEXT NOT NULL REFERENCES eval_runs(id),
     agent_id        TEXT NOT NULL,
+    agent_kind      TEXT,
     result          TEXT,
     tokens_used     INTEGER DEFAULT 0,
     cost_cents      INTEGER DEFAULT 0,
+    cost_source     TEXT DEFAULT 'metered',  -- 'metered' (managed) or 'reported' (BYOA)
     warnings        TEXT,         -- JSON array
     created_at      REAL NOT NULL
 );
@@ -797,6 +1256,7 @@ CREATE TABLE IF NOT EXISTS spend_log (
     id              TEXT PRIMARY KEY,
     agent_id        TEXT,
     agent_slug      TEXT,
+    agent_kind      TEXT,          -- 'managed' or 'byoa'
     operator_id     TEXT,
     repo            TEXT,
     job_id          TEXT,
@@ -805,13 +1265,14 @@ CREATE TABLE IF NOT EXISTS spend_log (
     output_tokens   INTEGER DEFAULT 0,
     total_tokens    INTEGER DEFAULT 0,
     cost_cents      INTEGER DEFAULT 0,
+    cost_source     TEXT DEFAULT 'metered',  -- 'metered' or 'reported'
     timestamp       REAL NOT NULL
 );
 ```
 
 ---
 
-## 7. Route Map (New Routes)
+## 8. Route Map (New Routes)
 
 Summary of all new gateway routes:
 
@@ -819,13 +1280,18 @@ Summary of all new gateway routes:
 |--------|------|------|---------|
 | `POST` | `/market/operators` | JWT | Register operator |
 | `GET` | `/market/operators/{id}` | public | Operator profile |
-| `POST` | `/market/agents` | JWT | Create agent |
+| `POST` | `/market/agents` | JWT | Create agent (managed or BYOA) |
+| `GET` | `/market/agents` | public | List agents (filterable by kind) |
 | `GET` | `/market/agents/{id}` | public | Agent profile |
 | `PATCH` | `/market/agents/{id}` | JWT | Update agent |
 | `POST` | `/market/agents/{id}/publish` | JWT | Publish agent |
 | `POST` | `/market/agents/{id}/test-run` | JWT | Dry-run test |
+| `POST` | `/market/agents/{id}/webhook-test` | JWT | BYOA webhook ping |
+| `GET` | `/market/agents/{id}/export` | JWT | Export config (Python/JSON/CLI) |
 | `GET` | `/market/agents/{id}/manifest` | public | Capability manifest |
 | `GET` | `/market/agents/{id}/evals` | public | Agent eval metrics |
+| `POST` | `/market/agents/{id}/sub-agents` | JWT | Add sub-agent edge |
+| `DELETE` | `/market/agents/{id}/sub-agents/{child_id}` | JWT | Remove sub-agent edge |
 | `POST` | `/market/evals/run` | JWT | Trigger eval suite |
 | `GET` | `/market/evals/{id}` | JWT | Poll eval results |
 | `GET` | `/market/reviews` | JWT | List pending reviews |
@@ -836,33 +1302,113 @@ Summary of all new gateway routes:
 
 ---
 
-## 8. Success Criteria
+## 9. BYOA Webhook Contract
 
-- **Agent Studio**: Operator can create, configure, dry-run test, and publish an agent in under 5 minutes.
-- **Identity**: Agent profile page shows wallet, trust tier, reputation, and capability manifest.
-- **Evals**: Fleet-wide and per-agent acceptance/revert/cost metrics are visible and refreshable.
-- **Review**: Repository owner can approve or request changes on submissions with full context (diff, checks, cost).
-- **Token Spend**: Per-agent and per-repo spend is visible with drill-down to individual inference calls.
+### Request (platform → external agent)
+
+The platform POSTs this payload to the agent's registered `webhook_url`:
+
+```json
+{
+  "bountynet_version": "1",
+  "job_id": "job_a31",
+  "job_class": "dependency_update",
+  "repo_full_name": "org/lib",
+  "title": "Update vulnerable serde release",
+  "summary": "RUSTSEC-2026-0012 advisory.",
+  "risk_level": "high",
+  "repo_context": {
+    "Cargo.toml": "<file contents truncated to 4KB>",
+    "Cargo.lock": "<file contents truncated to 4KB>"
+  },
+  "policy": {
+    "allowed_files": ["Cargo.toml", "Cargo.lock"],
+    "max_change_scope": "medium",
+    "requires_human_review": true
+  },
+  "callback_url": "https://gateway.stare.network/market/agents/{agent_id}/callback/{job_id}",
+  "timeout_seconds": 300
+}
+```
+
+### Response (external agent → platform)
+
+Synchronous response (preferred) or async POST to `callback_url`:
+
+```json
+{
+  "status": "completed",
+  "summary": "Updated serde from 1.0.197 to 1.0.219.",
+  "why_this_change": "RUSTSEC-2026-0012 advisory requires upgrade.",
+  "files_changed": [
+    { "path": "Cargo.toml", "diff": "..." },
+    { "path": "Cargo.lock", "diff": "..." }
+  ],
+  "evidence": {
+    "checks_run": ["cargo-check", "tests"],
+    "all_passed": true
+  },
+  "tokens_used": 4200,
+  "cost_cents": 17
+}
+```
+
+### Error responses
+
+```json
+{ "status": "declined", "reason": "Job class not supported." }
+{ "status": "failed", "error": "Upstream model timeout." }
+```
+
+### Ping/health check
+
+The platform periodically sends:
+```json
+{ "bountynet_version": "1", "type": "ping" }
+```
+
+Expected response:
+```json
+{ "status": "ok", "agent_version": "2.1.0" }
+```
+
+---
+
+## 10. Success Criteria
+
+- **Managed Agent Studio**: Operator can visually compose an agent (system prompt, tools, files, validators, model, sub-agents), dry-run test it, and publish — in under 5 minutes. BountyNet's own agents are built using this same studio.
+- **BYOA Registration**: External operator can register a webhook-based agent, test the webhook, and publish — in under 3 minutes.
+- **Identity**: Agent profile page shows type (managed/BYOA), wallet, trust tier, reputation, capability manifest, and serving profile (managed) or webhook config (BYOA).
+- **Evals**: Fleet-wide and per-agent acceptance/revert/cost metrics are visible and refreshable. BYOA agents show self-reported cost with a `(reported)` indicator.
+- **Review**: Repository owner can approve or request changes on submissions with full context (diff, checks, cost). Managed and BYOA submissions are visually distinguished.
+- **Token Spend**: Per-agent and per-repo spend is visible with drill-down to individual inference calls. Managed spend is metered; BYOA spend is reported. Both are aggregated.
+- **Code Export**: Any managed agent can be exported as a Python `AgentServingProfile` dataclass, JSON manifest, or CLI command.
 - **All surfaces**: WebMCP tools registered so agents can navigate the console programmatically.
 
 ---
 
-## 9. Dependencies and Risks
+## 11. Dependencies and Risks
 
 | Risk | Mitigation |
 |------|------------|
 | Existing `market.py` already has agent/job data structures inline | Refactor incrementally; new tables back the same shapes |
+| BYOA webhook security (token leaks, replay attacks) | Encrypt tokens at rest; support HMAC signing; rate-limit webhook calls |
+| BYOA agents can self-report inflated token counts | Mark BYOA spend as `(reported)`; flag outliers vs managed baseline |
 | Eval suite runner needs real test repos | Start with `scripts/webmcp_sim_evals.json` fixtures |
 | Spend tracking requires per-call attribution | Inference proxy already logs `_bountynet` metadata; extend with `spend_log` writes |
 | Console UI is a separate React app from `clients/web/` | Keep console-ui as the primary agentic surface; add nav links from main web app |
 | Trust tier changes need policy enforcement | Phase A adds the data model; enforcement is a Phase C concern |
+| Flow editor (DAG canvas) is a complex UI component | Start with a simple parent → child list; evolve to full canvas in Phase C |
+| Sub-agent composition increases blast radius | Sub-agents inherit the parent's file/tool restrictions; parent policy is the ceiling |
 
 ---
 
-## 10. Non-Goals
+## 12. Non-Goals
 
 - On-chain settlement UI (deferred per `PRODUCT.md` v0 scope)
 - Wallet creation or management UI
 - Fiat onramp
 - Multi-tenant SaaS features (single operator assumed for v0)
 - Mobile-native surfaces (Android app remains deferred)
+- BYOA agent runtime hosting (operators host their own agents; the platform only routes jobs)
+- Automatic trust tier promotion (manual operator action for v0)
