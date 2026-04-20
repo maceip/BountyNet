@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document defines the plan for optimizing BountyNet's UI for agentic coding needs. The scope covers seven interlocking surfaces: **Agent Studio** (managed creation with visual flow editor), **Bring Your Own Agent (BYOA)** (external agent registration), **Identity & Registration**, **Evals**, **Review**, **Token Spend Tracking**, and **Operator Dashboard**.
+This document defines the plan for optimizing BountyNet's UI for agentic coding needs. The scope covers eight interlocking surfaces: **Agent Studio** (managed creation with visual flow editor), **Bring Your Own Agent (BYOA)** (external agent registration), **Identity & Registration**, **Evals**, **Code Review Lane** (inline Monaco diff + agent chat), **Review Queue**, **Token Spend Tracking**, and **Operator Dashboard**.
 
 There are two distinct agent onboarding paths:
 
@@ -507,7 +507,7 @@ Performance evaluation dashboard with drill-down per agent. Managed and BYOA age
 
 ### 4.10 Review Queue
 
-Where repository owners review agent submissions before acceptance. Both managed and BYOA submissions appear here.
+Where repository owners review agent submissions before acceptance. Both managed and BYOA submissions appear here. Clicking "View Diff" on any submission opens the Code Review lane (4.11).
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -547,7 +547,173 @@ Where repository owners review agent submissions before acceptance. Both managed
 └──────┴──────────────────────────────────────────────────────┘
 ```
 
-### 4.11 Token Spend Tracker
+### 4.11 Code Review Lane
+
+The primary review surface. A split-pane view with an **agent chat/timeline** on the left and an **inline Monaco diff editor** on the right. Modeled after the Jules code review pattern: the left panel shows the agent's reasoning, commit history, and review conversation thread; the right panel shows the actual code diff with syntax highlighting and inline commenting.
+
+This is the view that opens when a reviewer clicks "View Diff" from the Review Queue, or when navigating directly to `/reviews/:submission_id`.
+
+#### Full-page layout
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  ← Review Queue    sub_a31: Update serde to 1.0.219    [Tabbed] [Unified]  │
+│  rust-sentinel (managed) · org/lib · PR #742         [Approve] [Req Changes]│
+├──────────────────────────────────┬───────────────────────────────────────────┤
+│                                  │                                           │
+│  AGENT CHAT / TIMELINE           │  CODE DIFF (Monaco Editor)               │
+│                                  │                                           │
+│  ┌─ Agent Context ─────────────┐ │  Cargo.toml                    1/2 files │
+│  │ ✦ rust-sentinel             │ │  ─────────────────────────────────────── │
+│  │   Rust Sentinel · managed   │ │                                           │
+│  │   Trust: ███░ critical      │ │   38│  [dependencies]                     │
+│  │   Acceptance: 91% (30d)     │ │   39│  serde = { version = "1.0.197",    │
+│  │   This agent's 18th job     │ │     │                 ▲ REMOVED (red)     │
+│  └─────────────────────────────┘ │   39│  serde = { version = "1.0.219",    │
+│                                  │     │                 ▲ ADDED (green)     │
+│  ┌─ Job Summary ───────────────┐ │   40│    features = ["derive"] }         │
+│  │ Job:    dep_update          │ │   41│  serde_json = "1.0.140"            │
+│  │ Risk:   high                │ │   42│  tokio = { version = "1",          │
+│  │ Reason: RUSTSEC-2026-0012   │ │   43│    features = ["full"] }           │
+│  │ Budget: $2.00 ceiling       │ │   44│                                     │
+│  │ Cost:   $0.34 (8,240 tok)   │ │                                           │
+│  └─────────────────────────────┘ │  ─────────────────────────────────────── │
+│                                  │                                           │
+│  ┌─ Agent Reasoning ───────────┐ │  Cargo.lock                    2/2 files │
+│  │                              │ │  ─────────────────────────────────────── │
+│  │ "RUSTSEC-2026-0012 advisory │ │                                           │
+│  │  requires serde >= 1.0.219. │ │  142│  [[package]]                        │
+│  │  Bumping Cargo.toml and     │ │  143│  name = "serde"                     │
+│  │  regenerating lockfile.     │ │  144│  version = "1.0.197"                │
+│  │  No API changes — derive    │ │     │            ▲ REMOVED (red)          │
+│  │  macro interface unchanged  │ │  144│  version = "1.0.219"                │
+│  │  between these versions.    │ │     │            ▲ ADDED (green)          │
+│  │  cargo-check, tests, and    │ │  145│  source = "registry+https://       │
+│  │  audit all pass."           │ │  146│    github.com/rust-lang/            │
+│  │                              │ │  147│    crates.io-index"                │
+│  └─────────────────────────────┘ │  148│  checksum = "a]5c28..."            │
+│                                  │     │            ▲ REMOVED (red)          │
+│  ┌─ Validation Results ────────┐ │  148│  checksum = "e8c01..."             │
+│  │ ✓ cargo-check    passed     │ │     │            ▲ ADDED (green)          │
+│  │ ✓ tests          passed     │ │  149│                                     │
+│  │ ✓ audit          passed     │ │                                           │
+│  │ ✓ scope-check    2 files    │ │                                           │
+│  └─────────────────────────────┘ │                                           │
+│                                  │  ─ Inline Comments ──────────────────── │
+│  ┌─ Review Thread ─────────────┐ │                                           │
+│  │                              │ │  Click any line to add an inline         │
+│  │ 14:02  review started       │ │  comment. Comments are linked to the     │
+│  │        by maintainer_1      │ │  review thread on the left.              │
+│  │                              │ │                                           │
+│  │ [Type a review comment...]  │ │                                           │
+│  │                      [Send] │ │                                           │
+│  └─────────────────────────────┘ │                                           │
+│                                  │                                           │
+│  ┌─ Actions ───────────────────┐ │  ┌─ File Navigator ────────────────────┐ │
+│  │ [✓ Approve]                 │ │  │  Cargo.toml        +1  -1  modified │ │
+│  │ [✗ Request Changes]         │ │  │  Cargo.lock       +12  -12 modified │ │
+│  │ [💬 Comment Only]           │ │  └─────────────────────────────────────┘ │
+│  └─────────────────────────────┘ │                                           │
+├──────────────────────────────────┴───────────────────────────────────────────┤
+│  PR #742 · org/lib · Checks: ✓ CI  ✓ Tests  ✓ Audit     [View on GitHub →] │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Left panel: Agent Chat / Timeline
+
+The left panel is a scrollable timeline that shows everything the reviewer needs to understand what the agent did and why:
+
+1. **Agent Context** — identity card showing the agent's name, type (managed/BYOA), trust tier, acceptance rate, and how many jobs this agent has completed. This builds reviewer confidence.
+
+2. **Job Summary** — the job that triggered this submission: class, risk level, advisory reference, budget ceiling, actual cost.
+
+3. **Agent Reasoning** — the agent's own explanation of its changes. For managed agents this comes from the `why_this_change` field in the model response. For BYOA agents this comes from the webhook response `summary`. Displayed in a quote-style block to distinguish agent voice from human voice.
+
+4. **Validation Results** — which validators ran and their pass/fail status. For managed agents these come from the `validator_recipe` pipeline. Clicking a validation opens its full log.
+
+5. **Review Thread** — chronological list of review actions (start_review, comment, changes_requested, approve). Each entry shows timestamp, actor, and message. Maps directly to the `submission_review` records in `market.py`.
+
+6. **Actions** — the three terminal actions: Approve, Request Changes, Comment Only. Approve triggers payout flow. Request Changes sends the submission back (agent can re-submit). Comment Only adds to the thread without changing status.
+
+#### Right panel: Monaco Diff Editor
+
+An embedded Monaco editor instance configured in diff mode:
+
+- **Unified or side-by-side** toggle (Tabbed = side-by-side, Unified = inline) matching the header controls
+- **Syntax highlighting** per file type (Rust, TOML, TypeScript, YAML, etc.)
+- **Red/green diff highlighting** — removed lines in red background, added lines in green background, with line numbers for both old and new
+- **File navigator** — bottom bar listing all changed files with +/- line counts, click to jump
+- **Inline comments** — click any diff line to open a comment input anchored to that line. Comments appear in both the diff gutter and the left-panel review thread. Maps to the `submission_review` `payload.line_comments` field.
+- **Read-only by default** — reviewers see the diff but cannot edit. The diff data comes from the submission's `diff_summary` or is fetched from the PR via GitHub API.
+
+#### Interaction flow
+
+```
+Review Queue card          Code Review Lane               Gateway API
+     │                          │                              │
+     │  [View Diff] click       │                              │
+     ├─────────────────────────►│                              │
+     │                          │  GET /market/submissions/:id │
+     │                          ├─────────────────────────────►│
+     │                          │  ◄── submission + reviews    │
+     │                          │                              │
+     │                          │  GET /market/submissions/    │
+     │                          │    :id/diff                  │
+     │                          ├─────────────────────────────►│
+     │                          │  ◄── file diffs (unified)    │
+     │                          │                              │
+     │   reviewer types         │                              │
+     │   inline comment on L39  │                              │
+     │                          │  POST /market/submissions/   │
+     │                          │    :id/reviews               │
+     │                          ├─────────────────────────────►│
+     │                          │  { action: "comment",        │
+     │                          │    summary: "...",           │
+     │                          │    payload: {                │
+     │                          │      line_comments: [{       │
+     │                          │        file: "Cargo.toml",   │
+     │                          │        line: 39,             │
+     │                          │        body: "Looks good"    │
+     │                          │      }]                      │
+     │                          │    }                         │
+     │                          │  }                           │
+     │                          │  ◄── review_id               │
+     │                          │                              │
+     │   reviewer clicks        │                              │
+     │   [Approve]              │                              │
+     │                          │  POST /market/submissions/   │
+     │                          │    :id/reviews               │
+     │                          ├─────────────────────────────►│
+     │                          │  { action: "approve",        │
+     │                          │    summary: "LGTM" }         │
+     │                          │  ◄── status: approved        │
+     │                          │                              │
+     │  ◄── redirect to queue   │                              │
+```
+
+#### BYOA-specific considerations in Code Review
+
+When reviewing a BYOA agent's submission, the left panel shows additional context:
+
+```
+┌─ Agent Context ─────────────┐
+│ ✧ acme-bot                  │
+│   Acme CI Bot · BYOA        │
+│   Webhook: agent.acme.dev   │
+│   Trust: ██░░ standard      │
+│   Acceptance: 71% (30d)     │
+│   Cost source: self-reported│
+│                              │
+│   ⚠ BYOA agents run on      │
+│   external infrastructure.  │
+│   Token counts and costs    │
+│   are self-reported.        │
+└─────────────────────────────┘
+```
+
+The diff data for BYOA submissions comes from the `files_changed` array in the webhook response, not from a GitHub PR (though the agent may also have opened a PR, in which case both sources are available).
+
+### 4.12 Token Spend Tracker
 
 Real-time view of inference costs across the network. Managed agents show platform-metered spend; BYOA agents show self-reported spend.
 
@@ -940,7 +1106,7 @@ Poll eval run status and results.
 }
 ```
 
-### 5.4 Review APIs
+### 5.4 Review Queue APIs
 
 These extend the existing submission review endpoints in `market.py`.
 
@@ -964,6 +1130,7 @@ List pending reviews for the authenticated operator or repository owner.
       "job_id": "job_a31",
       "agent_id": "agent_123",
       "agent_slug": "rust-sentinel",
+      "agent_kind": "managed",
       "repo": "org/lib",
       "pr_number": 742,
       "pr_url": "https://github.com/org/lib/pull/742",
@@ -971,6 +1138,7 @@ List pending reviews for the authenticated operator or repository owner.
       "checks_passed": true,
       "tokens_used": 8240,
       "cost_cents": 34,
+      "cost_source": "metered",
       "submitted_at": "2026-04-20T13:00:00Z"
     }
   ],
@@ -978,17 +1146,184 @@ List pending reviews for the authenticated operator or repository owner.
 }
 ```
 
-#### `POST /market/reviews/{submission_id}/action`
-Take a review action on a submission.
+### 5.5 Code Review Lane APIs
 
-**Auth:** Dynamic JWT (must be a reviewer for this repository)
+These power the split-pane Code Review view (wireframe 4.11).
 
-**Request:**
+#### `GET /market/submissions/{submission_id}`
+Get full submission detail including agent reasoning, validation results, and review history. This is the primary data source for the Code Review left panel.
+
+**Auth:** Dynamic JWT
+
+**Response 200:**
+```json
+{
+  "submission_id": "sub_a31",
+  "job_id": "job_a31",
+  "agent_id": "agent_123",
+  "agent_slug": "rust-sentinel",
+  "agent_kind": "managed",
+  "agent_display_name": "Rust Sentinel",
+  "agent_trust_tier": "critical",
+  "agent_acceptance_rate_30d": 0.91,
+  "agent_total_jobs": 18,
+  "repo": "org/lib",
+  "pr_number": 742,
+  "pr_url": "https://github.com/org/lib/pull/742",
+  "status": "submitted",
+  "job": {
+    "id": "job_a31",
+    "job_class": "dependency_update",
+    "title": "Update vulnerable serde release",
+    "risk_level": "high",
+    "budget_ceiling_cents": 200
+  },
+  "agent_reasoning": {
+    "summary": "Updated serde from 1.0.197 to 1.0.219.",
+    "why_this_change": "RUSTSEC-2026-0012 advisory requires serde >= 1.0.219. No API changes — derive macro interface unchanged between these versions.",
+    "planned_tools": ["repo_context", "cargo_update"],
+    "files_to_touch": ["Cargo.toml", "Cargo.lock"],
+    "proposed_updates": [
+      { "package": "serde", "target_version": "1.0.219", "reason": "RUSTSEC-2026-0012" }
+    ]
+  },
+  "validations": [
+    { "name": "cargo-check", "status": "passed" },
+    { "name": "tests", "status": "passed" },
+    { "name": "audit", "status": "passed" }
+  ],
+  "checks_passed": true,
+  "tokens_used": 8240,
+  "cost_cents": 34,
+  "cost_source": "metered",
+  "reviews": [
+    {
+      "review_id": "review_101",
+      "action": "start_review",
+      "reviewer_id": "maintainer_1",
+      "summary": "",
+      "created_at": "2026-04-20T14:02:00Z"
+    }
+  ],
+  "submitted_at": "2026-04-20T13:00:00Z"
+}
+```
+
+#### `GET /market/submissions/{submission_id}/diff`
+Get the file-level diff data for the Monaco editor. Returns unified diff per file with line numbers.
+
+**Auth:** Dynamic JWT
+
+**Query params:**
+- `format`: `unified` | `side_by_side` (default: `unified`)
+
+**Response 200:**
+```json
+{
+  "submission_id": "sub_a31",
+  "repo": "org/lib",
+  "base_ref": "main",
+  "head_ref": "agent/rust-sentinel/job-a31",
+  "files": [
+    {
+      "path": "Cargo.toml",
+      "language": "toml",
+      "status": "modified",
+      "additions": 1,
+      "deletions": 1,
+      "hunks": [
+        {
+          "old_start": 39,
+          "old_lines": 1,
+          "new_start": 39,
+          "new_lines": 1,
+          "lines": [
+            { "type": "remove", "line_number_old": 39, "content": "serde = { version = \"1.0.197\", features = [\"derive\"] }" },
+            { "type": "add", "line_number_new": 39, "content": "serde = { version = \"1.0.219\", features = [\"derive\"] }" }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Cargo.lock",
+      "language": "toml",
+      "status": "modified",
+      "additions": 12,
+      "deletions": 12,
+      "hunks": [
+        {
+          "old_start": 142,
+          "old_lines": 6,
+          "new_start": 142,
+          "new_lines": 6,
+          "lines": [
+            { "type": "context", "line_number_old": 142, "line_number_new": 142, "content": "[[package]]" },
+            { "type": "context", "line_number_old": 143, "line_number_new": 143, "content": "name = \"serde\"" },
+            { "type": "remove", "line_number_old": 144, "content": "version = \"1.0.197\"" },
+            { "type": "add", "line_number_new": 144, "content": "version = \"1.0.219\"" }
+          ]
+        }
+      ]
+    }
+  ],
+  "total_additions": 13,
+  "total_deletions": 13,
+  "diff_source": "github_api"
+}
+```
+
+For BYOA submissions where the diff comes from the webhook response rather than GitHub, `diff_source` is `"agent_reported"` and the hunks are reconstructed from the `files_changed` array.
+
+#### `POST /market/submissions/{submission_id}/reviews`
+Submit a review action with optional inline line comments. This is the existing endpoint in `market.py` extended with `line_comments` support.
+
+**Auth:** Dynamic JWT
+
+**Request (comment with inline annotations):**
+```json
+{
+  "action": "comment",
+  "reviewer_id": "maintainer_1",
+  "summary": "Looks good overall, one question on the lockfile.",
+  "payload": {
+    "line_comments": [
+      {
+        "file": "Cargo.lock",
+        "line": 148,
+        "side": "new",
+        "body": "Is this checksum stable across platforms?"
+      }
+    ]
+  }
+}
+```
+
+**Request (approve):**
 ```json
 {
   "action": "approve",
-  "summary": "Clean update, all checks pass.",
-  "notes": ""
+  "reviewer_id": "maintainer_1",
+  "summary": "LGTM. Clean advisory-driven upgrade."
+}
+```
+
+**Request (request changes):**
+```json
+{
+  "action": "changes_requested",
+  "reviewer_id": "maintainer_1",
+  "summary": "Please also update serde_json to match.",
+  "notes": "serde_json 1.0.140 has a known compat issue with serde 1.0.219.",
+  "payload": {
+    "line_comments": [
+      {
+        "file": "Cargo.toml",
+        "line": 41,
+        "side": "old",
+        "body": "This should be bumped to 1.0.141+ for compat."
+      }
+    ]
+  }
 }
 ```
 
@@ -997,14 +1332,55 @@ Valid actions: `start_review`, `comment`, `changes_requested`, `approve`
 **Response 200:**
 ```json
 {
-  "submission_id": "sub_a31",
-  "status": "approved",
   "review_id": "review_123",
-  "reviewer_id": "maintainer_1"
+  "submission_id": "sub_a31",
+  "action": "comment",
+  "status": "under_review",
+  "line_comments_count": 1,
+  "reviewer_id": "maintainer_1",
+  "created_at": "2026-04-20T14:05:00Z"
 }
 ```
 
-### 5.5 Token Spend Tracking APIs
+#### `GET /market/submissions/{submission_id}/reviews`
+Get the full review thread for a submission, including inline line comments.
+
+**Auth:** Dynamic JWT
+
+**Response 200:**
+```json
+{
+  "submission_id": "sub_a31",
+  "status": "under_review",
+  "reviews": [
+    {
+      "review_id": "review_101",
+      "action": "start_review",
+      "reviewer_id": "maintainer_1",
+      "summary": "",
+      "line_comments": [],
+      "created_at": "2026-04-20T14:02:00Z"
+    },
+    {
+      "review_id": "review_123",
+      "action": "comment",
+      "reviewer_id": "maintainer_1",
+      "summary": "Looks good overall, one question on the lockfile.",
+      "line_comments": [
+        {
+          "file": "Cargo.lock",
+          "line": 148,
+          "side": "new",
+          "body": "Is this checksum stable across platforms?"
+        }
+      ],
+      "created_at": "2026-04-20T14:05:00Z"
+    }
+  ]
+}
+```
+
+### 5.6 Token Spend Tracking APIs
 
 #### `GET /market/spend`
 Aggregated spend report across agents and repositories.
@@ -1120,7 +1496,8 @@ Target: `projects/agent-market/console-ui/` (the React/Vite/TypeScript app). Eac
 | `/byoa/:id` | `BYOARegister` (edit) | `GET/PATCH /market/agents/:id`, `POST .../webhook-test` |
 | `/identity/:id` | `AgentIdentity` | `GET /identity/:id`, `GET /market/agents/:id/manifest` |
 | `/evals` | `EvalDashboard` | `GET /market/agents/:id/evals`, `POST /market/evals/run` |
-| `/reviews` | `ReviewQueue` | `GET /market/reviews`, `POST .../action` |
+| `/reviews` | `ReviewQueue` | `GET /market/reviews` |
+| `/reviews/:id` | `CodeReview` | `GET /market/submissions/:id`, `GET .../diff`, `POST .../reviews` |
 | `/spend` | `SpendTracker` | `GET /market/spend`, `GET .../calls`, `GET .../budgets` |
 | `/operators/:id` | `OperatorProfile` | `GET /market/operators/:id` |
 
@@ -1135,6 +1512,10 @@ Shared components to build:
 - `FilePicker` — glob pattern editor for allowed file restrictions
 - `ValidatorPicker` — checkbox grid for validator recipes
 - `AgentCard` — card component for agent listing (with type badge)
+- `DiffViewer` — Monaco-based diff editor with unified/side-by-side toggle, syntax highlighting, and inline commenting
+- `AgentContextCard` — identity card showing agent type, trust tier, acceptance rate (used in Code Review left panel)
+- `ReviewThread` — chronological list of review actions with inline comment rendering
+- `FileNavigator` — bottom bar showing changed files with +/- counts, click to jump within diff
 
 ### Phase C: Integration & Polish
 
@@ -1228,6 +1609,18 @@ CREATE TABLE IF NOT EXISTS webhook_configs (
     updated_at      REAL NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS submission_line_comments (
+    id              TEXT PRIMARY KEY,
+    review_id       TEXT NOT NULL,
+    submission_id   TEXT NOT NULL,
+    file            TEXT NOT NULL,
+    line            INTEGER NOT NULL,
+    side            TEXT DEFAULT 'new',  -- 'old' or 'new'
+    body            TEXT NOT NULL,
+    reviewer_id     TEXT,
+    created_at      REAL NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS eval_runs (
     id              TEXT PRIMARY KEY,
     suite           TEXT NOT NULL,
@@ -1295,7 +1688,10 @@ Summary of all new gateway routes:
 | `POST` | `/market/evals/run` | JWT | Trigger eval suite |
 | `GET` | `/market/evals/{id}` | JWT | Poll eval results |
 | `GET` | `/market/reviews` | JWT | List pending reviews |
-| `POST` | `/market/reviews/{id}/action` | JWT | Review action |
+| `GET` | `/market/submissions/{id}` | JWT | Submission detail (Code Review) |
+| `GET` | `/market/submissions/{id}/diff` | JWT | File diffs for Monaco editor |
+| `GET` | `/market/submissions/{id}/reviews` | JWT | Review thread + line comments |
+| `POST` | `/market/submissions/{id}/reviews` | JWT | Submit review action |
 | `GET` | `/market/spend` | JWT | Spend aggregation |
 | `GET` | `/market/spend/calls` | JWT | Call-level spend log |
 | `GET` | `/market/spend/budgets` | JWT | Budget health |
@@ -1380,7 +1776,8 @@ Expected response:
 - **BYOA Registration**: External operator can register a webhook-based agent, test the webhook, and publish — in under 3 minutes.
 - **Identity**: Agent profile page shows type (managed/BYOA), wallet, trust tier, reputation, capability manifest, and serving profile (managed) or webhook config (BYOA).
 - **Evals**: Fleet-wide and per-agent acceptance/revert/cost metrics are visible and refreshable. BYOA agents show self-reported cost with a `(reported)` indicator.
-- **Review**: Repository owner can approve or request changes on submissions with full context (diff, checks, cost). Managed and BYOA submissions are visually distinguished.
+- **Review Queue**: Repository owner can see all pending submissions with agent type, checks, and cost at a glance.
+- **Code Review Lane**: Reviewer can open any submission into a split-pane view with agent reasoning/timeline on the left and Monaco inline diff on the right. Supports inline line-level comments anchored to specific diff lines. Approve, Request Changes, and Comment actions are available without leaving the view.
 - **Token Spend**: Per-agent and per-repo spend is visible with drill-down to individual inference calls. Managed spend is metered; BYOA spend is reported. Both are aggregated.
 - **Code Export**: Any managed agent can be exported as a Python `AgentServingProfile` dataclass, JSON manifest, or CLI command.
 - **All surfaces**: WebMCP tools registered so agents can navigate the console programmatically.
