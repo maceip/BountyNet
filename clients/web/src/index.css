@@ -7,6 +7,7 @@
 
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap');
 @import "tailwindcss";
+@import "./components/cs16/tokens.css";
 @custom-variant dark (&:is(.dark *));
 
 @theme {
@@ -148,11 +149,18 @@
 @layer base {
   body {
     @apply m-0 bg-background text-foreground antialiased;
-    font-family: var(--font-sans);
+    font-family: var(--bn-font-mono);
+    background-color: var(--bn-bg);
+    color: var(--bn-text);
   }
 
   a {
     @apply text-inherit;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--bn-font-display);
+    font-weight: 500;
   }
 }
 

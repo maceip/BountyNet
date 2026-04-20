@@ -1,9 +1,70 @@
-import { useState } from 'react';
+/**
+ * Copyright IBM Corp. 2025, 2026
+ *
+ * Alice onboarding — register an operator, onboard identity/wallet, and
+ * register a specialist agent. Stepper structure.
+ */
+
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { PageLayout } from '../../layouts/page-layout.jsx';
-import { PopoverCommandSelect, Terminal } from '../../components/smui/index.jsx';
+import {
+  Button,
+  Chip,
+  Field,
+  Input,
+  KeyValueList,
+  Panel,
+  PopoverCommandSelect,
+  StatusDot,
+  Terminal,
+} from '../../components/cs16/index.js';
+
+const PODS = [
+  { value: 'typescript', label: 'typescript', icon: 'cpu' },
+  { value: 'rust', label: 'rust', icon: 'cpu' },
+  { value: 'github_actions', label: 'github_actions', icon: 'bolt' },
+];
+
+const Stepper = ({ active, steps }) => (
+  <div
+    className="bn-row"
+    style={{ gap: 0, alignItems: 'stretch', flexWrap: 'wrap' }}
+  >
+    {steps.map((step, index) => {
+      const isActive = active === step.id;
+      const isDone = steps.findIndex((s) => s.id === active) > index;
+      return (
+        <div
+          key={step.id}
+          className="bn-panel"
+          style={{
+            flex: '1 1 200px',
+            padding: '10px 14px',
+            display: 'grid',
+            gap: 2,
+            boxShadow: isActive ? 'inset 3px 0 0 var(--bn-accent)' : 'none',
+            opacity: isDone || isActive ? 1 : 0.75,
+          }}
+        >
+          <span className="bn-eyebrow">step {index + 1}</span>
+          <div className="bn-row" style={{ gap: 6 }}>
+            <strong style={{ color: 'var(--bn-text)' }}>{step.label}</strong>
+            {isDone ? (
+              <Chip tone="green">done</Chip>
+            ) : isActive ? (
+              <Chip tone="accent">active</Chip>
+            ) : null}
+          </div>
+          <span className="bn-meta">{step.hint}</span>
+        </div>
+      );
+    })}
+  </div>
+);
 
 const AliceOnboarding = () => {
+  const [step, setStep] = useState('operator');
   const [operator, setOperator] = useState({
     slug: `alice-operator-${Date.now()}`,
     displayName: 'Alice Operator',
@@ -18,6 +79,20 @@ const AliceOnboarding = () => {
   });
   const [output, setOutput] = useState('idle');
   const [busy, setBusy] = useState(false);
+
+  const reviewItems = useMemo(
+    () => [
+      { key: 'operator slug', value: operator.slug },
+      { key: 'operator name', value: operator.displayName },
+      { key: 'email', value: operator.email },
+      { key: 'wallet', value: operator.wallet },
+      { key: 'agent slug', value: agent.slug },
+      { key: 'agent name', value: agent.displayName },
+      { key: 'pod', value: agent.pod },
+      { key: 'lane', value: agent.lane },
+    ],
+    [operator, agent],
+  );
 
   const registerAlice = async () => {
     try {
@@ -37,13 +112,12 @@ const AliceOnboarding = () => {
         }),
       });
       const operatorPayload = await createOperator.json();
-      if (!createOperator.ok) {
-        throw new Error(operatorPayload.error || `operator failed (${createOperator.status})`);
-      }
+      if (!createOperator.ok)
+        throw new Error(
+          operatorPayload.error || `operator failed (${createOperator.status})`,
+        );
       const operatorId = operatorPayload?.operator?.id;
-      if (!operatorId) {
-        throw new Error('operator id missing');
-      }
+      if (!operatorId) throw new Error('operator id missing');
 
       const onboardOperator = await fetch(
         `/api/bountynet/market/operators/${encodeURIComponent(operatorId)}/onboard`,
@@ -61,9 +135,10 @@ const AliceOnboarding = () => {
         },
       );
       const onboardPayload = await onboardOperator.json();
-      if (!onboardOperator.ok) {
-        throw new Error(onboardPayload.error || `onboard failed (${onboardOperator.status})`);
-      }
+      if (!onboardOperator.ok)
+        throw new Error(
+          onboardPayload.error || `onboard failed (${onboardOperator.status})`,
+        );
 
       const createAgent = await fetch('/api/bountynet/market/agents', {
         method: 'POST',
@@ -78,16 +153,21 @@ const AliceOnboarding = () => {
           agent_kind: 'specialist',
           pod: agent.pod,
           lane: agent.lane,
-          supported_job_classes: ['ci_repair', 'dependency_update', 'security_update'],
+          supported_job_classes: [
+            'ci_repair',
+            'dependency_update',
+            'security_update',
+          ],
           supported_ecosystems: [agent.pod],
           supported_budget_types: ['platform_credits'],
           status: 'active',
         }),
       });
       const agentPayload = await createAgent.json();
-      if (!createAgent.ok) {
-        throw new Error(agentPayload.error || `agent failed (${createAgent.status})`);
-      }
+      if (!createAgent.ok)
+        throw new Error(
+          agentPayload.error || `agent failed (${createAgent.status})`,
+        );
 
       setOutput(
         JSON.stringify(
@@ -115,100 +195,211 @@ const AliceOnboarding = () => {
   };
 
   return (
-    <PageLayout fallback={<p>Loading Alice onboarding...</p>}>
-      <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
-        <p className="text-label">persona onboarding: alice</p>
-        <h1>register operators, agents, and payout identity.</h1>
-        <p>
-          This is the supply-side path. We launch as Alice first to establish quality
-          inventory and market credibility.
-        </p>
-      </section>
-
-      <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 desktop:grid-cols-3 fold:px-6 desktop:px-8">
-        <article className="border border-border bg-card p-4">
-          <h2 className="text-label">step 1: operator</h2>
-          <label htmlFor="alice-operator-slug">Operator Slug</label>
-          <input
-            id="alice-operator-slug"
-            value={operator.slug}
-            onChange={(e) => setOperator((s) => ({ ...s, slug: e.target.value }))}
-          />
-          <label htmlFor="alice-operator-name">Display Name</label>
-          <input
-            id="alice-operator-name"
-            value={operator.displayName}
-            onChange={(e) => setOperator((s) => ({ ...s, displayName: e.target.value }))}
-          />
-          <label htmlFor="alice-email">Contact Email</label>
-          <input
-            id="alice-email"
-            value={operator.email}
-            onChange={(e) => setOperator((s) => ({ ...s, email: e.target.value }))}
-          />
-          <label htmlFor="alice-wallet">Payout Wallet</label>
-          <input
-            id="alice-wallet"
-            value={operator.wallet}
-            onChange={(e) => setOperator((s) => ({ ...s, wallet: e.target.value }))}
-          />
-        </article>
-
-        <article className="border border-border bg-card p-4">
-          <h2 className="text-label">step 2: agent</h2>
-          <label htmlFor="alice-agent-slug">Agent Slug</label>
-          <input
-            id="alice-agent-slug"
-            value={agent.slug}
-            onChange={(e) => setAgent((s) => ({ ...s, slug: e.target.value }))}
-          />
-          <label htmlFor="alice-agent-name">Display Name</label>
-          <input
-            id="alice-agent-name"
-            value={agent.displayName}
-            onChange={(e) => setAgent((s) => ({ ...s, displayName: e.target.value }))}
-          />
-          <PopoverCommandSelect
-            id="alice-pod"
-            label="Pod"
-            value={agent.pod}
-            onChange={(pod) => setAgent((s) => ({ ...s, pod }))}
-            options={[
-              { value: 'typescript', label: 'typescript' },
-              { value: 'rust', label: 'rust' },
-              { value: 'github_actions', label: 'github_actions' },
+    <PageLayout
+      fallback={<div className="bn-empty">Loading Alice onboarding…</div>}
+    >
+      <div style={{ display: 'grid', gap: 20 }}>
+        <Panel
+          eyebrow="persona onboarding: alice"
+          title="Register operators, agents, and payout identity."
+          meta={<StatusDot tone="green" pulse label="supply-side path" />}
+        >
+          <p className="bn-body">
+            Alice-first launch seeds quality supply. Walk through operator,
+            agent, then review to register with the market.
+          </p>
+          <Stepper
+            active={step}
+            steps={[
+              {
+                id: 'operator',
+                label: 'Operator',
+                hint: 'slug, contact, payout',
+              },
+              { id: 'agent', label: 'Agent', hint: 'specialist pod + lane' },
+              { id: 'review', label: 'Review', hint: 'submit to marketplace' },
             ]}
           />
-          <label htmlFor="alice-lane">Lane</label>
-          <input
-            id="alice-lane"
-            value={agent.lane}
-            onChange={(e) => setAgent((s) => ({ ...s, lane: e.target.value }))}
-          />
-          <button
-            id="mcp-alice-register"
-            type="button"
-            onClick={registerAlice}
-            disabled={busy}
-          >
-            Register Alice operator + agent
-          </button>
-          <Terminal title="alice onboarding output" content={output} />
-        </article>
+        </Panel>
 
-        <article className="border border-border bg-card p-4">
-          <h2 className="text-label">next</h2>
-          <p>
-            After registration, track outcomes in inventory and tune payout/preferences
-            in Alice settings.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link to="/inventory">Open inventory</Link>
-            <Link to="/settings/alice">Alice settings</Link>
-            <Link to="/marketplace">Marketplace stream</Link>
+        <Panel
+          eyebrow="step 1"
+          title="Operator profile"
+          meta={
+            <Chip tone={step === 'operator' ? 'accent' : 'green'}>
+              {step === 'operator' ? 'current' : 'completed'}
+            </Chip>
+          }
+          actions={
+            <Button size="sm" icon="arrow" onClick={() => setStep('agent')}>
+              Next: agent
+            </Button>
+          }
+        >
+          <div
+            style={{
+              display: 'grid',
+              gap: 10,
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            }}
+          >
+            <Field label="Operator slug" htmlFor="alice-operator-slug">
+              <Input
+                id="alice-operator-slug"
+                value={operator.slug}
+                onChange={(e) =>
+                  setOperator((s) => ({ ...s, slug: e.target.value }))
+                }
+              />
+            </Field>
+            <Field label="Display name" htmlFor="alice-operator-name">
+              <Input
+                id="alice-operator-name"
+                value={operator.displayName}
+                onChange={(e) =>
+                  setOperator((s) => ({ ...s, displayName: e.target.value }))
+                }
+              />
+            </Field>
+            <Field label="Contact email" htmlFor="alice-email">
+              <Input
+                id="alice-email"
+                value={operator.email}
+                onChange={(e) =>
+                  setOperator((s) => ({ ...s, email: e.target.value }))
+                }
+              />
+            </Field>
+            <Field label="Payout wallet" htmlFor="alice-wallet">
+              <Input
+                id="alice-wallet"
+                value={operator.wallet}
+                onChange={(e) =>
+                  setOperator((s) => ({ ...s, wallet: e.target.value }))
+                }
+              />
+            </Field>
           </div>
-        </article>
-      </section>
+        </Panel>
+
+        <Panel
+          eyebrow="step 2"
+          title="Specialist agent"
+          meta={
+            <Chip
+              tone={
+                step === 'agent'
+                  ? 'accent'
+                  : step === 'review'
+                    ? 'green'
+                    : 'ghost'
+              }
+            >
+              {step === 'agent'
+                ? 'current'
+                : step === 'review'
+                  ? 'completed'
+                  : 'pending'}
+            </Chip>
+          }
+          actions={
+            <Button size="sm" icon="arrow" onClick={() => setStep('review')}>
+              Next: review
+            </Button>
+          }
+        >
+          <div
+            style={{
+              display: 'grid',
+              gap: 10,
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            }}
+          >
+            <Field label="Agent slug" htmlFor="alice-agent-slug">
+              <Input
+                id="alice-agent-slug"
+                value={agent.slug}
+                onChange={(e) =>
+                  setAgent((s) => ({ ...s, slug: e.target.value }))
+                }
+              />
+            </Field>
+            <Field label="Display name" htmlFor="alice-agent-name">
+              <Input
+                id="alice-agent-name"
+                value={agent.displayName}
+                onChange={(e) =>
+                  setAgent((s) => ({ ...s, displayName: e.target.value }))
+                }
+              />
+            </Field>
+            <Field label="Pod" htmlFor="alice-pod">
+              <PopoverCommandSelect
+                id="alice-pod"
+                value={agent.pod}
+                onChange={(pod) => setAgent((s) => ({ ...s, pod }))}
+                options={PODS}
+              />
+            </Field>
+            <Field label="Lane" htmlFor="alice-lane">
+              <Input
+                id="alice-lane"
+                value={agent.lane}
+                onChange={(e) =>
+                  setAgent((s) => ({ ...s, lane: e.target.value }))
+                }
+              />
+            </Field>
+          </div>
+        </Panel>
+
+        <Panel
+          eyebrow="step 3"
+          title="Review & register"
+          meta={
+            <Chip tone={step === 'review' ? 'accent' : 'ghost'}>
+              {step === 'review' ? 'current' : 'pending'}
+            </Chip>
+          }
+        >
+          <div style={{ display: 'grid', gap: 12 }}>
+            <KeyValueList items={reviewItems} columns={3} />
+            <div className="bn-row" style={{ gap: 8 }}>
+              <Button
+                id="mcp-alice-register"
+                variant="primary"
+                icon="check"
+                disabled={busy}
+                onClick={registerAlice}
+              >
+                Register Alice operator + agent
+              </Button>
+              <Button
+                variant="ghost"
+                icon="arrow"
+                onClick={() => setStep('agent')}
+              >
+                Back to agent
+              </Button>
+            </div>
+            <Terminal title="alice onboarding output" content={output} />
+          </div>
+        </Panel>
+
+        <Panel eyebrow="next" title="Where to go from here">
+          <div className="bn-row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <Button as={Link} to="/inventory" icon="graph">
+              Open inventory
+            </Button>
+            <Button as={Link} to="/settings/alice" icon="cpu">
+              Alice settings
+            </Button>
+            <Button as={Link} to="/marketplace" icon="bolt">
+              Marketplace stream
+            </Button>
+          </div>
+        </Panel>
+      </div>
     </PageLayout>
   );
 };

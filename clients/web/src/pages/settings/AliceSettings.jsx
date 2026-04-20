@@ -1,7 +1,24 @@
-import { useEffect, useState } from 'react';
+/**
+ * Copyright IBM Corp. 2025, 2026
+ *
+ * Alice settings — agent operator defaults + payout, with live preview and
+ * localStorage persistence.
+ */
+
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { PageLayout } from '../../layouts/page-layout.jsx';
-import { PopoverCommandSelect, Terminal } from '../../components/smui/index.jsx';
+import {
+  Button,
+  Chip,
+  Field,
+  Input,
+  KeyValueList,
+  Panel,
+  PopoverCommandSelect,
+  StatusDot,
+  Terminal,
+} from '../../components/cs16/index.js';
 
 const STORAGE_KEY = 'bn.settings.alice';
 
@@ -13,6 +30,24 @@ const DEFAULTS = {
   reputationGoal: 'trusted',
 };
 
+const PODS = [
+  { value: 'typescript', label: 'typescript', icon: 'cpu' },
+  { value: 'rust', label: 'rust', icon: 'cpu' },
+  { value: 'github_actions', label: 'github_actions', icon: 'bolt' },
+];
+
+const JOB_CLASSES = [
+  { value: 'ci_repair', label: 'ci_repair', icon: 'bolt' },
+  { value: 'dependency_update', label: 'dependency_update', icon: 'arrow' },
+  { value: 'security_update', label: 'security_update', icon: 'shield' },
+];
+
+const REPUTATION = [
+  { value: 'standard', label: 'standard', icon: 'dot' },
+  { value: 'trusted', label: 'trusted', icon: 'star' },
+  { value: 'critical', label: 'critical', icon: 'shield' },
+];
+
 const AliceSettings = () => {
   const [settings, setSettings] = useState(DEFAULTS);
   const [savedAt, setSavedAt] = useState('');
@@ -23,7 +58,7 @@ const AliceSettings = () => {
     try {
       setSettings({ ...DEFAULTS, ...JSON.parse(raw) });
     } catch {
-      // keep defaults
+      /* keep defaults */
     }
   }, []);
 
@@ -32,78 +67,144 @@ const AliceSettings = () => {
     setSavedAt(new Date().toISOString());
   };
 
-  return (
-    <PageLayout fallback={<p>Loading Alice settings...</p>}>
-      <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
-        <p className="text-label">settings: alice</p>
-        <h1>agent operator defaults and payout policy.</h1>
-        <p>Define payout identity and default lane strategy for Alice-managed agents.</p>
-      </section>
+  const preview = useMemo(
+    () => [
+      { key: 'payout wallet', value: settings.payoutWallet },
+      { key: 'preferred pod', value: settings.preferredPod },
+      { key: 'preferred lane', value: settings.preferredLane || '—' },
+      { key: 'minimum job class', value: settings.minJobClass },
+      { key: 'reputation tier goal', value: settings.reputationGoal },
+      { key: 'persisted at', value: savedAt || 'not saved yet' },
+    ],
+    [settings, savedAt],
+  );
 
-      <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 fold:px-6 desktop:px-8">
-        <article className="border border-border bg-card p-4">
-          <label htmlFor="alice-wallet">Payout Wallet</label>
-          <input
-            id="alice-wallet"
-            value={settings.payoutWallet}
-            onChange={(e) => setSettings((s) => ({ ...s, payoutWallet: e.target.value }))}
-          />
-          <PopoverCommandSelect
-            id="alice-pod-pref"
-            label="Preferred Pod"
-            value={settings.preferredPod}
-            onChange={(preferredPod) => setSettings((s) => ({ ...s, preferredPod }))}
-            options={[
-              { value: 'typescript', label: 'typescript' },
-              { value: 'rust', label: 'rust' },
-              { value: 'github_actions', label: 'github_actions' },
-            ]}
-          />
-          <label htmlFor="alice-lane-pref">Preferred Lane</label>
-          <input
-            id="alice-lane-pref"
-            value={settings.preferredLane}
-            onChange={(e) => setSettings((s) => ({ ...s, preferredLane: e.target.value }))}
-          />
-          <PopoverCommandSelect
-            id="alice-jobclass"
-            label="Minimum Job Class"
-            value={settings.minJobClass}
-            onChange={(minJobClass) => setSettings((s) => ({ ...s, minJobClass }))}
-            options={[
-              { value: 'ci_repair', label: 'ci_repair' },
-              { value: 'dependency_update', label: 'dependency_update' },
-              { value: 'security_update', label: 'security_update' },
-            ]}
-          />
-          <PopoverCommandSelect
-            id="alice-reputation"
-            label="Target Reputation Tier"
-            value={settings.reputationGoal}
-            onChange={(reputationGoal) => setSettings((s) => ({ ...s, reputationGoal }))}
-            options={[
-              { value: 'standard', label: 'standard' },
-              { value: 'trusted', label: 'trusted' },
-              { value: 'critical', label: 'critical' },
-            ]}
-          />
-          <button type="button" onClick={save}>
-            Save Alice settings
-          </button>
-          <Terminal title="settings save status" content={savedAt ? `saved_at=${savedAt}` : 'not saved yet'} />
-        </article>
-        <article className="border border-border bg-card p-4">
-          <h2 className="text-label">where this applies</h2>
-          <p>
-            These values are used as Alice defaults during operator/agent registration.
+  return (
+    <PageLayout
+      fallback={<div className="bn-empty">Loading Alice settings…</div>}
+    >
+      <div style={{ display: 'grid', gap: 20 }}>
+        <Panel
+          eyebrow="settings: alice"
+          title="Agent operator defaults and payout policy."
+          meta={
+            <StatusDot
+              tone={savedAt ? 'green' : 'yellow'}
+              pulse={!savedAt}
+              label={savedAt ? 'persisted' : 'unsaved changes'}
+            />
+          }
+          actions={<Chip tone="accent">localStorage: {STORAGE_KEY}</Chip>}
+        >
+          <p className="bn-body">
+            Define payout identity and default lane strategy for Alice-managed
+            agents.
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link to="/onboarding/alice">Alice onboarding</Link>
-            <Link to="/inventory">Inventory</Link>
-            <Link to="/marketplace">Marketplace</Link>
+        </Panel>
+
+        <div
+          style={{
+            display: 'grid',
+            gap: 16,
+            gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)',
+          }}
+        >
+          <Panel eyebrow="operator form" title="Defaults">
+            <div
+              style={{
+                display: 'grid',
+                gap: 10,
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              }}
+            >
+              <Field label="Payout wallet" htmlFor="alice-wallet">
+                <Input
+                  id="alice-wallet"
+                  value={settings.payoutWallet}
+                  onChange={(e) =>
+                    setSettings((s) => ({ ...s, payoutWallet: e.target.value }))
+                  }
+                />
+              </Field>
+              <Field label="Preferred pod" htmlFor="alice-pod-pref">
+                <PopoverCommandSelect
+                  id="alice-pod-pref"
+                  value={settings.preferredPod}
+                  onChange={(preferredPod) =>
+                    setSettings((s) => ({ ...s, preferredPod }))
+                  }
+                  options={PODS}
+                />
+              </Field>
+              <Field label="Preferred lane" htmlFor="alice-lane-pref">
+                <Input
+                  id="alice-lane-pref"
+                  value={settings.preferredLane}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      preferredLane: e.target.value,
+                    }))
+                  }
+                />
+              </Field>
+              <Field label="Minimum job class" htmlFor="alice-jobclass">
+                <PopoverCommandSelect
+                  id="alice-jobclass"
+                  value={settings.minJobClass}
+                  onChange={(minJobClass) =>
+                    setSettings((s) => ({ ...s, minJobClass }))
+                  }
+                  options={JOB_CLASSES}
+                />
+              </Field>
+              <Field label="Target reputation tier" htmlFor="alice-reputation">
+                <PopoverCommandSelect
+                  id="alice-reputation"
+                  value={settings.reputationGoal}
+                  onChange={(reputationGoal) =>
+                    setSettings((s) => ({ ...s, reputationGoal }))
+                  }
+                  options={REPUTATION}
+                />
+              </Field>
+            </div>
+            <div style={{ marginTop: 12 }} className="bn-row">
+              <Button variant="primary" icon="check" onClick={save}>
+                Save Alice settings
+              </Button>
+            </div>
+          </Panel>
+
+          <Panel eyebrow="policy preview" title="Current policy">
+            <div style={{ display: 'grid', gap: 12 }}>
+              <KeyValueList items={preview} columns={1} />
+              <Terminal
+                title="settings save status"
+                content={savedAt ? `saved_at=${savedAt}` : 'not saved yet'}
+              />
+            </div>
+          </Panel>
+        </div>
+
+        <Panel eyebrow="where this applies" title="Related surfaces">
+          <p className="bn-body">
+            These values are used as Alice defaults during operator/agent
+            registration.
+          </p>
+          <div className="bn-row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <Button as={Link} to="/onboarding/alice" icon="cpu">
+              Alice onboarding
+            </Button>
+            <Button as={Link} to="/inventory" icon="graph">
+              Inventory
+            </Button>
+            <Button as={Link} to="/marketplace" icon="bolt">
+              Marketplace
+            </Button>
           </div>
-        </article>
-      </section>
+        </Panel>
+      </div>
     </PageLayout>
   );
 };

@@ -5,60 +5,65 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { Suspense } from 'react';
-import classNames from 'classnames';
-import { CommandPalette, StatusRail, openCommandPalette } from '../components/smui/index.jsx';
+import { AppShell } from '../components/cs16/index.js';
+import { navItems } from '../routes/config.js';
 import { pushVoiceTranscript } from '../utils/voiceInbox.js';
 
-/**
- * PageLayout component provides a consistent layout structure for pages in the application.
- * It includes the navigation component and wraps content in Carbon's Content component.
- *
- * @component
- * @param {Object} props - Component props
- * @param {React.ReactNode} props.children - Child components to render within the layout
- * @param {string} [props.className] - Additional CSS class names to apply to the layout container
- * @param {React.ReactNode} [props.fallback] - Fallback content to display while Suspense is loading
- *
- * @example
- * <PageLayout>
- *   <h1>Page Content</h1>
- * </PageLayout>
- *
- */
+const BRAND = {
+  kicker: 'marketplace',
+  title: 'BountyNet',
+  logoSrc: '/brand/globe-64.png',
+};
 
-export const PageLayout = ({ children, className, fallback }) => {
+const NAV_WITH_ICONS = navItems.map((item) => ({
+  ...item,
+  icon:
+    item.label === 'Home'
+      ? 'globe'
+      : item.label.toLowerCase().includes('marketplace')
+        ? 'bolt'
+        : item.label.toLowerCase().includes('inventory')
+          ? 'graph'
+          : item.label.toLowerCase().includes('bob')
+            ? 'shield'
+            : item.label.toLowerCase().includes('alice')
+              ? 'cpu'
+              : item.label.toLowerCase().includes('diagnostics')
+                ? 'terminal'
+                : item.label.toLowerCase().includes('control')
+                  ? 'cpu'
+                  : item.label.toLowerCase().includes('reputation')
+                    ? 'star'
+                    : item.label.toLowerCase().includes('simulator')
+                      ? 'bolt'
+                      : item.label.toLowerCase().includes('agent track')
+                        ? 'mic'
+                        : 'arrow',
+}));
+
+/**
+ * Global page layout. Wraps every route with:
+ *   - Sticky app header (brand + primary nav + command palette trigger)
+ *   - Command palette (⌘/Ctrl+K)
+ *   - Voice-enabled status rail
+ *   - Suspense boundary for lazy routes
+ */
+export const PageLayout = ({ children, className, fallback, persona }) => {
   return (
-    <Suspense fallback={fallback}>
-      <div className={classNames('min-h-screen bg-background text-foreground', className)}>
-        <header className="sticky top-0 z-20 border-b border-border bg-card">
-          <div className="mx-auto flex w-full max-w-[90rem] items-center justify-between px-3 py-3 fold:px-6 desktop:px-8">
-            <div className="inline-flex items-center gap-2 text-foreground">
-            <img src="/brand/globe-64.png" alt="BountyNet globe" />
-            <strong>BountyNet</strong>
-          </div>
-            <nav aria-label="Primary">
-              <button
-                type="button"
-                className="border border-border bg-secondary px-3 py-2 text-label"
-                onClick={() => openCommandPalette()}
-              >
-              open command palette
-            </button>
-          </nav>
-          </div>
-        </header>
-        <main className="mx-auto min-h-[calc(100vh-4rem)] w-full max-w-[90rem] px-3 pt-4 pb-28 fold:px-6 fold:pt-6 fold:pb-28 desktop:px-8">
-          {children}
-        </main>
-        <CommandPalette />
-        <StatusRail
-          onTranscript={(text) => {
-            window.dispatchEvent(new CustomEvent('smui:status-rail-transcript', { detail: { text } }));
-            pushVoiceTranscript(text, 'status-rail');
-          }}
-        />
-      </div>
-    </Suspense>
+    <AppShell
+      brand={BRAND}
+      navItems={NAV_WITH_ICONS}
+      persona={persona}
+      fallback={fallback}
+      className={className}
+      onTranscript={(text) => {
+        window.dispatchEvent(
+          new CustomEvent('smui:status-rail-transcript', { detail: { text } }),
+        );
+        pushVoiceTranscript(text, 'status-rail');
+      }}
+    >
+      {children}
+    </AppShell>
   );
 };
