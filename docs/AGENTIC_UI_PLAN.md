@@ -4,6 +4,8 @@
 
 This document defines the plan for optimizing BountyNet's UI for agentic coding needs. The scope covers eight interlocking surfaces: **Agent Studio** (managed creation with visual flow editor), **Bring Your Own Agent (BYOA)** (external agent registration), **Identity & Registration**, **Evals**, **Code Review Lane** (inline Monaco diff + agent chat), **Review Queue**, **Token Spend Tracking**, and **Operator Dashboard**.
 
+The plan incorporates concrete runtime components from the `jules-chop` implementation: **Monaco Editor** (code + diff), **markdown-it** (secure markdown rendering), **JSZip** (repository packaging via Web Workers), a **Virtual File System**, **context/handle/plan/tool/runtime services**, and the **Data Forge RPC** wire protocol for cluster communication. These are documented in Sections 12–14.
+
 There are two distinct agent onboarding paths:
 
 1. **Managed Agent Studio** — a fully hosted visual builder (modeled after Google Cloud Vertex AI Agent Studio) where operators compose agents from system prompts, tool selections, file restrictions, validator recipes, sub-agent hierarchies, and model configs. BountyNet's own first-party agents (`ts-migrator`, `rust-sentinel`, etc. defined in `gateway/agent_fleet.py`) are the reference implementation and are themselves built using this studio.
@@ -635,16 +637,19 @@ The left panel is a scrollable timeline that shows everything the reviewer needs
 
 6. **Actions** — the three terminal actions: Approve, Request Changes, Comment Only. Approve triggers payout flow. Request Changes sends the submission back (agent can re-submit). Comment Only adds to the thread without changing status.
 
-#### Right panel: Monaco Diff Editor
+#### Right panel: Monaco Diff Editor (`DiffEditor.tsx`)
 
-An embedded Monaco editor instance configured in diff mode:
+Uses the concrete `DiffEditor` component from the `jules-chop` implementation (`components/DiffEditor.tsx`), which wraps `@monaco-editor/react`'s `DiffEditor` with:
 
-- **Unified or side-by-side** toggle (Tabbed = side-by-side, Unified = inline) matching the header controls
-- **Syntax highlighting** per file type (Rust, TOML, TypeScript, YAML, etc.)
-- **Red/green diff highlighting** — removed lines in red background, added lines in green background, with line numbers for both old and new
+- **Side-by-side / Inline toggle** — UI buttons in the header switch `renderSideBySide` option
+- **Auto language detection** — detects language from file extension (TypeScript, Rust, Python, TOML, YAML, etc.)
+- **VS Dark theme** with JetBrains Mono / Fira Code font stack
+- **Red/green diff highlighting** — Monaco's native diff rendering with removed lines in red, added lines in green
 - **File navigator** — bottom bar listing all changed files with +/- line counts, click to jump
 - **Inline comments** — click any diff line to open a comment input anchored to that line. Comments appear in both the diff gutter and the left-panel review thread. Maps to the `submission_review` `payload.line_comments` field.
 - **Read-only by default** — reviewers see the diff but cannot edit. The diff data comes from the submission's `diff_summary` or is fetched from the PR via GitHub API.
+
+Agent reasoning in the left panel uses the `MarkdownViewer` component (`components/MarkdownViewer.tsx`) for rendering agent explanations with syntax-highlighted code blocks, safe HTML escaping, and Prism.js theming.
 
 #### Interaction flow
 
@@ -1800,7 +1805,206 @@ Expected response:
 
 ---
 
-## 12. Non-Goals
+## 12. Core Runtime Components (from `jules-chop` implementation)
+
+The following components are already implemented in `jules-chop.zip` and must be grafted into the console-ui build. They provide the heavy-machinery layer that the wireframes in Sections 4.3–4.11 depend on: Monaco editing, diff rendering, markdown parsing, zip packaging, terminal streaming, and the client-side service layer for context management, tool orchestration, and VFS.
+
+### 12.1 Component Inventory
+
+Source: `jules-chop/src/components/` and `jules-chop/src/services/`
+
+| Component | File | Purpose | Plan Surface |
+|-----------|------|---------|--------------|
+| `CodeEditor` | `components/CodeEditor.tsx` | Monaco Editor wrapper with auto-language detection, VS Dark theme, configurable read-only mode | Agent Studio (4.3 flow editor code preview), Code Review (4.11 file viewing) |
+| `DiffEditor` | `components/DiffEditor.tsx` | Monaco DiffEditor with side-by-side/inline toggle, custom diff config | Code Review lane (4.11 right panel) — replaces the abstract `DiffViewer` component |
+| `MarkdownViewer` | `components/MarkdownViewer.tsx` | `markdown-it` + Prism.js syntax highlighting, XSS-safe (`html: false`), Graphviz/Mermaid placeholders | Agent reasoning display (Code Review left panel), eval reports, agent plan summaries |
+| `Terminal` | `components/Terminal.tsx` | Scrolling terminal for live `stdout`/`stderr` with line numbers, auto-scroll, clear/copy controls | Agent Studio preview mode (4.4 execution log), runtime validation output |
+| `ExecutionLog` | `components/ExecutionLog.tsx` | Tool call timeline with status (pending/running/success/error), approve button, result display | Agent Studio dry-run output, managed agent invocation trace |
+| `FileUploader` | `components/FileUploader.tsx` | File System Access API directory picker, recursive walk, `.git`/`node_modules` filtering, zip handoff | BYOA agent test context upload, eval suite fixture upload |
+| `ContextManager` | `components/ContextManager.tsx` | Pill-tag UI for active context items (files, links, shards), remove buttons, "Ready for Sharding" status | Agent Studio context panel, task context display |
+
+### 12.2 Integration Map
+
+These components replace or implement the abstract shared components listed in Section 6:
+
+| Plan Component (abstract) | Concrete Implementation |
+|---------------------------|------------------------|
+| `DiffViewer` | `DiffEditor.tsx` (Monaco DiffEditor) |
+| `FileNavigator` | Built into `DiffEditor` + file list from diff API response |
+| `ReviewThread` | New component, uses `MarkdownViewer` for comment rendering |
+| `AgentContextCard` | New component, uses `ContextManager` pattern for context display |
+
+### 12.3 Dependencies (from `package.json`)
+
+These packages must be added to `projects/agent-market/console-ui/package.json`:
+
+```json
+{
+  "monaco-editor": "^0.45.0",
+  "@monaco-editor/react": "^4.6.0",
+  "jszip": "^3.10.1",
+  "markdown-it": "^14.0.0",
+  "prismjs": "^1.29.0",
+  "lucide-react": "^0.300.0"
+}
+```
+
+Vite config must include `worker.format: 'es'` and `optimizeDeps.include: ['monaco-editor']` for correct Monaco bundling.
+
+---
+
+## 13. Client Service Layer (from `jules-chop` implementation)
+
+### 13.1 Service Inventory
+
+Source: `jules-chop/src/services/`
+
+| Service | File | Purpose | Integration Point |
+|---------|------|---------|-------------------|
+| `zipService` | `services/zip.service.ts` | Web Worker-backed zip packaging for repository context bootstrap | Repo context upload for eval runs, agent dry-run test fixtures |
+| `vfsService` | `services/vfs.service.ts` | Virtual File System — tracks file state, dirty flags, opaque handles, patch application | Code Review lane (tracks original vs modified state for diff rendering) |
+| `contextService` | `services/context.service.ts` | Manages active context items (files, issues, links, shards) with pub/sub notifications | Agent Studio context panel, task creation payload assembly |
+| `handleRegistry` | `services/handle.service.ts` | Opaque handle registry — registers sensitive context, returns IDs instead of raw data | Identity/security layer for context references in BYOA webhook payloads |
+| `planService` | `services/plan.service.ts` | Manages bot-generated plan steps with accept/reject workflow and associated diffs | Agent Studio preview output, Code Review agent reasoning panel |
+| `toolService` | `services/tool.service.ts` | Tool call orchestration — register, approve, execute, track status with pub/sub | Execution Log component, managed agent invocation pipeline |
+| `runtimeService` | `services/runtime.service.ts` | Secure VM lifecycle — provision, execute commands, stream stdout/stderr | Terminal component, agent dry-run execution |
+
+### 13.2 Web Worker: Zip Forge
+
+Source: `jules-chop/src/workers/zip.worker.ts`
+
+The zip worker uses `JSZip` to package repository contents into a transferable blob. It also integrates with the `DataPartitioner` for t-of-n cluster distribution (from `extracted_logic/data_partitioner.js`).
+
+**Integration**: The zip worker feeds into two flows:
+1. **Eval fixture packaging** — when an operator uploads a test repository for eval suite runs, the directory is zipped client-side and uploaded to the gateway.
+2. **BYOA context bootstrap** — when the platform dispatches a job to a BYOA agent, the repo context can be pre-packaged as a zip for the webhook payload.
+
+### 13.3 Data Partitioner
+
+Source: `jules-chop/extracted_logic/data_partitioner.js` and `sharding_helper.js`
+
+Implements Shamir's Secret Sharing over the Mersenne Prime field (2^127 - 1) for t-of-n data partitioning. Two modules:
+
+- `DataPartitioner` — creates partitions for cluster distribution of task descriptors
+- `MPCAuth_SSS` — full Shamir sharding with reconstruction for verification
+
+**Integration**: Not in the critical path for v0 but provides the foundation for:
+- Sharded context distribution to parallel compute nodes
+- Secure handle partitioning where no single node holds the full un-fragmented context
+- Future zero-knowledge proof integration for verification of bot-generated fixes
+
+### 13.4 Wire Protocol: Data Forge RPC (DFRPC)
+
+The spec defines a positional array-based serialization format for communication between the browser client and the parallel cluster:
+
+- **Transport**: HTTPS/2 + WebSockets (bidirectional terminal streaming)
+- **Pathing**: `/api/v1/data/{ServiceName}.{MethodName}`
+- **Serialization**: Positional Array-Proto — data transmitted as nested arrays where index N = Field Tag N
+- **Example**: `[null, "task_882", "Fix memory leak", ["hdl_001"]]`
+
+#### RPC Services
+
+**SweBotService** (`/SweBotService`) — task lifecycle:
+
+| Method | Purpose | Maps to Gateway API |
+|--------|---------|---------------------|
+| `CreateTask` | Initialize a compute task | `POST /market/agents/:id/test-run` |
+| `GetTask` | Poll task progress | `GET /market/evals/:id` |
+| `ListTasks` | Enumerate tasks | `GET /market/reviews` |
+| `UpdateUserSettings` | Sync preferences | `PATCH /market/operators/:id` |
+
+**ContextService** (`/ContextService`) — MCP tool orchestration:
+
+| Method | Purpose | Maps to Gateway API |
+|--------|---------|---------------------|
+| `GetContext` | Resolve handles to data fragments | `GET /market/submissions/:id` |
+| `ListToolProviders` | Discover cluster compute nodes | `GET /market/agents` |
+| `ListTools` | Enumerate MCP capabilities | `GET /market/agents/:id/manifest` |
+
+#### Core Data Types
+
+**TaskState** — maps to submission/job state:
+
+| Tag | Field | Type | Maps to |
+|-----|-------|------|---------|
+| 1 | `id` | String | `submission_id` or `job_id` |
+| 6 | `status` | Enum (QUEUED, PLANNING, EXECUTING, COMPLETED, ERROR) | submission status |
+| 7 | `title` | String | job title |
+| 13 | `context_handles` | Repeated HandleId | context references |
+| 17 | `environment` | Map | runtime variables |
+
+**OpaqueHandle** — maps to context references:
+
+| Field | Type | Maps to |
+|-------|------|---------|
+| `id` | String | `handle_id` from `handleRegistry` |
+| `is_partitioned` | Boolean | whether context is sharded |
+| `target_nodes` | Repeated Integer | cluster node IDs |
+
+### 13.5 Gateway API Bridge
+
+The client service layer maps to the gateway API through a typed RPC bridge. The bridge translates between the positional-array DFRPC format and the JSON REST API:
+
+```
+Browser Services                  RPC Bridge                    Gateway REST API
+─────────────────                 ──────────                    ────────────────
+contextService.prepareForRpc() → [tag13, ...]  →  POST /market/agents/:id/test-run
+planService.getSteps()          → [steps...]   →  GET /market/submissions/:id
+toolService.registerCall()      → [call...]    →  POST /market/submissions/:id/reviews
+runtimeService.runCommand()     → WS stream    →  GET /market/submissions/:id/diff
+vfsService.applyPatch()         → [patch...]   →  PATCH /market/agents/:id
+```
+
+### 13.6 SafeValue Sanitization
+
+All agent-generated content (markdown, HTML, code snippets) passes through a sanitization pipeline before rendering:
+
+- `MarkdownViewer` uses `markdown-it` with `html: false` — all HTML in agent output is escaped
+- Code blocks use Prism.js highlighting, not raw innerHTML
+- Future: Shadow DOM isolation for bot-generated diagrams (Graphviz, Pikchr) to prevent style leakage
+
+---
+
+## 14. Updated Implementation Plan (with Runtime Components)
+
+### Phase A: Foundation (API + Data + Components)
+
+All items from the original Phase A, plus:
+
+1. **Copy components**: Move `jules-chop/src/components/*` and `jules-chop/src/services/*` into `projects/agent-market/console-ui/src/`.
+2. **Install dependencies**: Add `monaco-editor`, `@monaco-editor/react`, `jszip`, `markdown-it`, `prismjs`, `lucide-react` to `console-ui/package.json`.
+3. **Configure Vite**: Update `console-ui/vite.config.ts` with worker format and Monaco optimizeDeps.
+4. **Copy workers**: Move `zip.worker.ts` and `extracted_logic/` into the console-ui source tree.
+5. **Wire services to gateway**: Create an API client layer that translates between the service interfaces and the gateway REST API (Section 13.5).
+
+### Phase B: UI Assembly
+
+Each wireframe now references concrete components:
+
+| Surface | Components Used |
+|---------|----------------|
+| Agent Studio — Flow Editor | `CodeEditor` (system prompt editing), `ContextManager` (context panel) |
+| Agent Studio — Preview Mode | `Terminal` (execution output), `ExecutionLog` (tool calls), `MarkdownViewer` (plan display) |
+| Agent Studio — Get Code | `CodeEditor` (read-only Python/JSON export display) |
+| BYOA Registration | `MarkdownViewer` (webhook contract docs) |
+| Code Review Lane | `DiffEditor` (right panel), `MarkdownViewer` (agent reasoning), `ExecutionLog` (validation results) |
+| Eval Dashboard | `MarkdownViewer` (eval reports) |
+| Review Queue | Card components (existing pattern) |
+| Token Spend Tracker | Chart components (new, not from jules-chop) |
+
+### Phase C: Integration & Polish
+
+All items from the original Phase C, plus:
+
+1. **VFS integration**: Wire `vfsService` to track file state across the Code Review lane, enabling "accept patch" to apply changes to the local VFS.
+2. **Plan service integration**: Wire `planService` to the Agent Studio preview, showing bot-generated plan steps with accept/reject per step.
+3. **Zip upload flow**: Wire `FileUploader` + `zipService` for eval fixture uploads and BYOA context bootstrap.
+4. **RPC bridge**: Implement the DFRPC positional-array translation layer as a thin adapter over `fetch()` calls to the gateway.
+5. **Terminal streaming**: Wire `runtimeService` to a WebSocket connection for live stdout/stderr from agent execution environments.
+
+---
+
+## 15. Non-Goals
 
 - On-chain settlement UI (deferred per `PRODUCT.md` v0 scope)
 - Wallet creation or management UI
@@ -1809,3 +2013,6 @@ Expected response:
 - Mobile-native surfaces (Android app remains deferred)
 - BYOA agent runtime hosting (operators host their own agents; the platform only routes jobs)
 - Automatic trust tier promotion (manual operator action for v0)
+- Full Emscripten/WASM engine (jukeswasm) — `markdown-it` + Prism.js replaces the 1.5MB CMark/RE2 bundle for v0
+- WebGPU acceleration (future research, not v0)
+- ZKP verification of bot-generated fixes (future research, not v0)
