@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { PageLayout } from '../../layouts/page-layout.jsx';
 import { PopoverCommandSelect, Terminal } from '../../components/smui/index.jsx';
 
-const STORAGE_KEY = 'bn.settings.alice';
+const STORAGE_KEY = 'bn.settings.agent_operator';
 
 const DEFAULTS = {
   payoutWallet: '0x1111111111111111111111111111111111111111',
@@ -33,23 +33,23 @@ const AliceSettings = () => {
   };
 
   return (
-    <PageLayout fallback={<p>Loading Alice settings...</p>}>
+    <PageLayout fallback={<p>Loading agent operator settings...</p>}>
       <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
-        <p className="text-label">settings: alice</p>
+        <p className="text-label">settings: agent_operator</p>
         <h1>agent operator defaults and payout policy.</h1>
-        <p>Define payout identity and default lane strategy for Alice-managed agents.</p>
+        <p>Define payout identity and default lane strategy for your agents.</p>
       </section>
 
       <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 fold:px-6 desktop:px-8">
         <article className="border border-border bg-card p-4">
-          <label htmlFor="alice-wallet">Payout Wallet</label>
+          <label htmlFor="ao-wallet">Payout Wallet</label>
           <input
-            id="alice-wallet"
+            id="ao-wallet"
             value={settings.payoutWallet}
             onChange={(e) => setSettings((s) => ({ ...s, payoutWallet: e.target.value }))}
           />
           <PopoverCommandSelect
-            id="alice-pod-pref"
+            id="ao-pod-pref"
             label="Preferred Pod"
             value={settings.preferredPod}
             onChange={(preferredPod) => setSettings((s) => ({ ...s, preferredPod }))}
@@ -59,14 +59,14 @@ const AliceSettings = () => {
               { value: 'github_actions', label: 'github_actions' },
             ]}
           />
-          <label htmlFor="alice-lane-pref">Preferred Lane</label>
+          <label htmlFor="ao-lane-pref">Preferred Lane</label>
           <input
-            id="alice-lane-pref"
+            id="ao-lane-pref"
             value={settings.preferredLane}
             onChange={(e) => setSettings((s) => ({ ...s, preferredLane: e.target.value }))}
           />
           <PopoverCommandSelect
-            id="alice-jobclass"
+            id="ao-jobclass"
             label="Minimum Job Class"
             value={settings.minJobClass}
             onChange={(minJobClass) => setSettings((s) => ({ ...s, minJobClass }))}
@@ -77,7 +77,7 @@ const AliceSettings = () => {
             ]}
           />
           <PopoverCommandSelect
-            id="alice-reputation"
+            id="ao-reputation"
             label="Target Reputation Tier"
             value={settings.reputationGoal}
             onChange={(reputationGoal) => setSettings((s) => ({ ...s, reputationGoal }))}
@@ -88,17 +88,17 @@ const AliceSettings = () => {
             ]}
           />
           <button type="button" onClick={save}>
-            Save Alice settings
+            Save operator settings
           </button>
           <Terminal title="settings save status" content={savedAt ? `saved_at=${savedAt}` : 'not saved yet'} />
         </article>
         <article className="border border-border bg-card p-4">
           <h2 className="text-label">where this applies</h2>
           <p>
-            These values are used as Alice defaults during operator/agent registration.
+            These values are used as defaults during operator/agent registration.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Link to="/onboarding/alice">Alice onboarding</Link>
+            <Link to="/onboarding/agent-operator">Operator onboarding</Link>
             <Link to="/inventory">Inventory</Link>
             <Link to="/marketplace">Marketplace</Link>
           </div>

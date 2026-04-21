@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic WebMCP simulator evals for Bob/Alice journeys."""
+"""Deterministic WebMCP simulator evals for repo_owner/agent_operator journeys."""
 
 from __future__ import annotations
 

@@ -75,10 +75,10 @@ def main() -> int:
     marketplace_url = os.getenv("MARKETPLACE_UI_URL", "http://127.0.0.1:5173/marketplace")
     landing_url = os.getenv("LANDING_UI_URL", "http://127.0.0.1:5173/")
     dashboard_url = os.getenv("DASHBOARD_UI_URL", "http://127.0.0.1:5173/dashboard")
-    bob_onboarding_url = os.getenv("BOB_ONBOARDING_UI_URL", "http://127.0.0.1:5173/onboarding/bob")
-    alice_onboarding_url = os.getenv("ALICE_ONBOARDING_UI_URL", "http://127.0.0.1:5173/onboarding/alice")
-    bob_settings_url = os.getenv("BOB_SETTINGS_UI_URL", "http://127.0.0.1:5173/settings/bob")
-    alice_settings_url = os.getenv("ALICE_SETTINGS_UI_URL", "http://127.0.0.1:5173/settings/alice")
+    repo_owner_onboarding_url = os.getenv("REPO_OWNER_ONBOARDING_UI_URL", "http://127.0.0.1:5173/onboarding/repo-owner")
+    agent_operator_onboarding_url = os.getenv("AGENT_OPERATOR_ONBOARDING_UI_URL", "http://127.0.0.1:5173/onboarding/agent-operator")
+    repo_owner_settings_url = os.getenv("REPO_OWNER_SETTINGS_UI_URL", "http://127.0.0.1:5173/settings/repo-owner")
+    agent_operator_settings_url = os.getenv("AGENT_OPERATOR_SETTINGS_UI_URL", "http://127.0.0.1:5173/settings/agent-operator")
     inventory_url = os.getenv("INVENTORY_UI_URL", "http://127.0.0.1:5173/inventory")
     diagnostics_url = os.getenv("WEBMCP_DIAGNOSTICS_UI_URL", "http://127.0.0.1:5173/diagnostics/webmcp")
     control_plane_url = os.getenv("CONTROL_PLANE_UI_URL", "http://127.0.0.1:5173/ops/control-plane")
@@ -90,10 +90,10 @@ def main() -> int:
     check_marketplace(marketplace_url)
     check_required_page(landing_url, page_name="landing")
     check_required_page(dashboard_url, page_name="dashboard")
-    check_required_page(bob_onboarding_url, page_name="bob onboarding")
-    check_required_page(alice_onboarding_url, page_name="alice onboarding")
-    check_required_page(bob_settings_url, page_name="bob settings")
-    check_required_page(alice_settings_url, page_name="alice settings")
+    check_required_page(repo_owner_onboarding_url, page_name="repo owner onboarding")
+    check_required_page(agent_operator_onboarding_url, page_name="agent operator onboarding")
+    check_required_page(repo_owner_settings_url, page_name="repo owner settings")
+    check_required_page(agent_operator_settings_url, page_name="agent operator settings")
     check_required_page(inventory_url, page_name="inventory")
     check_required_page(diagnostics_url, page_name="webmcp diagnostics")
     check_required_page(control_plane_url, page_name="control plane")
@@ -107,18 +107,18 @@ def main() -> int:
         marker="webmcp_journey_manifest",
     )
     check_required_json(
-        os.getenv("WEBMCP_BOB_URL", "http://127.0.0.1:5173/api/bountynet/webmcp/journeys/bob"),
-        marker="\"persona\":\"bob\"",
+        os.getenv("WEBMCP_REPO_OWNER_URL", "http://127.0.0.1:5173/api/bountynet/webmcp/journeys/repo_owner"),
+        marker="\"persona\":\"repo_owner\"",
     )
     check_required_json(
-        os.getenv("WEBMCP_ALICE_URL", "http://127.0.0.1:5173/api/bountynet/webmcp/journeys/alice"),
-        marker="\"persona\":\"alice\"",
+        os.getenv("WEBMCP_AGENT_OPERATOR_URL", "http://127.0.0.1:5173/api/bountynet/webmcp/journeys/agent_operator"),
+        marker="\"persona\":\"agent_operator\"",
     )
     print(
         "UI smoke passed: "
         f"marketplace={marketplace_url}; landing={landing_url}; dashboard={dashboard_url}; "
-        f"bob_onboarding={bob_onboarding_url}; alice_onboarding={alice_onboarding_url}; "
-        f"bob_settings={bob_settings_url}; alice_settings={alice_settings_url}; "
+        f"repo_owner_onboarding={repo_owner_onboarding_url}; agent_operator_onboarding={agent_operator_onboarding_url}; "
+        f"repo_owner_settings={repo_owner_settings_url}; agent_operator_settings={agent_operator_settings_url}; "
         f"inventory={inventory_url}; diagnostics={diagnostics_url}; control_plane={control_plane_url}; simulator={simulator_url}; "
         f"reputation={reputation_url}; settlements={settlements_url}; disputes={disputes_url}"
     )

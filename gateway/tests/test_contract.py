@@ -110,7 +110,7 @@ def test_auth_factor_contracts_without_extra_deps(asgi_app):
     factors = [
         ("wallet_sol", "solana:7r3nTTEST111111111111111111111111111111"),
         ("wallet_btc", "btc:bc1qtestnetaddress1111111111111111111111"),
-        ("passkey", "passkey:user-handle:alice"),
+        ("passkey", "passkey:user-handle:test-user"),
         ("nfc_euid", "euid:de:city:1234567890"),
     ]
 

@@ -28,7 +28,7 @@ const BobOnboarding = () => {
           installation_id: Number(form.installationId || 1),
           repos: [form.repo],
           local_path: form.localPath,
-          owner: 'bob',
+          owner: 'repo_owner',
           required_checks: ['CI'],
           budget_priority: ['platform_credits', 'api_key_pool'],
           monthly_spend_cap: Number(form.monthlyCap || 0),
@@ -81,9 +81,9 @@ const BobOnboarding = () => {
   };
 
   return (
-    <PageLayout fallback={<p>Loading Bob onboarding...</p>}>
+    <PageLayout fallback={<p>Loading repo owner onboarding...</p>}>
       <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
-        <p className="text-label">persona onboarding: bob</p>
+        <p className="text-label">persona onboarding: repo_owner</p>
         <h1>connect github and configure spend policy.</h1>
         <p>
           This is the repo-owner path: installation access, target repos, required checks,
@@ -102,44 +102,44 @@ const BobOnboarding = () => {
 
         <article className="border border-border bg-card p-4">
           <h2 className="text-label">step 2: repository + spend setup</h2>
-          <label htmlFor="bob-repo">Repo Full Name</label>
+          <label htmlFor="ro-repo">Repo Full Name</label>
           <input
-            id="bob-repo"
+            id="ro-repo"
             value={form.repo}
             onChange={(e) => setForm((s) => ({ ...s, repo: e.target.value }))}
           />
-          <label htmlFor="bob-local">Local Path</label>
+          <label htmlFor="ro-local">Local Path</label>
           <input
-            id="bob-local"
+            id="ro-local"
             value={form.localPath}
             onChange={(e) => setForm((s) => ({ ...s, localPath: e.target.value }))}
           />
-          <label htmlFor="bob-installation">GitHub Installation ID</label>
+          <label htmlFor="ro-installation">GitHub Installation ID</label>
           <input
-            id="bob-installation"
+            id="ro-installation"
             value={form.installationId}
             onChange={(e) => setForm((s) => ({ ...s, installationId: e.target.value }))}
           />
           <div className="grid grid-cols-1 gap-2 fold:grid-cols-2">
             <div>
-              <label htmlFor="bob-monthly">Monthly Cap</label>
+              <label htmlFor="ro-monthly">Monthly Cap</label>
               <input
-                id="bob-monthly"
+                id="ro-monthly"
                 value={form.monthlyCap}
                 onChange={(e) => setForm((s) => ({ ...s, monthlyCap: e.target.value }))}
               />
             </div>
             <div>
-              <label htmlFor="bob-perjob">Per-job Cap</label>
+              <label htmlFor="ro-perjob">Per-job Cap</label>
               <input
-                id="bob-perjob"
+                id="ro-perjob"
                 value={form.perJobCap}
                 onChange={(e) => setForm((s) => ({ ...s, perJobCap: e.target.value }))}
               />
             </div>
           </div>
           <PopoverCommandSelect
-            id="bob-preset"
+            id="ro-preset"
             label="Preset"
             value={form.preset}
             onChange={(preset) => setForm((s) => ({ ...s, preset }))}
@@ -150,18 +150,18 @@ const BobOnboarding = () => {
               { value: 'rust_porting', label: 'rust_porting' },
             ]}
           />
-          <button id="mcp-bob-save" type="button" onClick={save} disabled={busy}>
-            Save Bob configuration
+          <button id="mcp-repo-owner-save" type="button" onClick={save} disabled={busy}>
+            Save repo owner configuration
           </button>
-          <Terminal title="bob onboarding output" content={output} />
+          <Terminal title="repo owner onboarding output" content={output} />
         </article>
 
         <article className="border border-border bg-card p-4">
           <h2 className="text-label">next</h2>
-          <p>Once configured, Bob can monitor outcomes and spend from inventory/settings.</p>
+          <p>Once configured, you can monitor outcomes and spend from inventory/settings.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link to="/inventory">Open inventory</Link>
-            <Link to="/settings/bob">Bob settings</Link>
+            <Link to="/settings/repo-owner">Repo owner settings</Link>
             <Link to="/marketplace">Marketplace stream</Link>
           </div>
         </article>

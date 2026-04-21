@@ -1700,6 +1700,8 @@ Summary of all new gateway routes:
 | `GET` | `/market/spend` | JWT | Spend aggregation |
 | `GET` | `/market/spend/calls` | JWT | Call-level spend log |
 | `GET` | `/market/spend/budgets` | JWT | Budget health |
+| `GET` | `/market/journey/{persona}` | JWT | Onboarding journey state |
+| `POST` | `/market/journey/{persona}/advance` | JWT | Advance journey step |
 
 ---
 
@@ -1785,6 +1787,8 @@ Expected response:
 - **Code Review Lane**: Reviewer can open any submission into a split-pane view with agent reasoning/timeline on the left and Monaco inline diff on the right. Supports inline line-level comments anchored to specific diff lines. Approve, Request Changes, and Comment actions are available without leaving the view.
 - **Token Spend**: Per-agent and per-repo spend is visible with drill-down to individual inference calls. Managed spend is metered; BYOA spend is reported. Both are aggregated.
 - **Code Export**: Any managed agent can be exported as a Python `AgentServingProfile` dataclass, JSON manifest, or CLI command.
+- **Marketplace Agent**: In-browser agent tracks `repo_owner`/`agent_operator` journey state, proactively suggests next actions, and surfaces pending reviews/spend alerts. Context bar shows persona, repos, agents, budgets, and journey progress as persistent pill tags.
+- **WebMCP**: 24 tools registered (18 existing + 6 new journey/context tools) so external coding agents can operate the marketplace programmatically. Tool calls are visible in the ExecutionLog with approve/reject for sensitive actions.
 - **All surfaces**: WebMCP tools registered so agents can navigate the console programmatically.
 
 ---
@@ -1949,7 +1953,275 @@ All agent-generated content (markdown, HTML, code snippets) passes through a san
 
 ---
 
-## 14. Updated Implementation Plan (with Runtime Components)
+## 14. The Marketplace Agent
+
+### 14.1 Why the Console Needs an Agent
+
+BountyNet is a marketplace. The console is not a passive dashboard — it is itself an agentic surface. An **in-browser Marketplace Agent** runs inside the console to serve two jobs:
+
+1. **Respond to WebMCP tool calls** from external coding agents (Cursor, Claude, etc.) that want to interact with the marketplace programmatically — create jobs, register agents, submit offers, run evals, check spend.
+2. **Guide human users (`repo_owner` and `agent_operator`) through onboarding, activation, and retention** — the agent understands where the user is in their journey, what they haven't configured yet, and what they should do next.
+
+This is why the `ContextManager` component and `contextService` exist in the console. They are **not** general-purpose file context managers. They are the **Marketplace Agent's working memory** — the running accumulation of what this user has done, what context is active, and what the agent needs to know to help them or to respond to a WebMCP tool call.
+
+### 14.2 Two Personas, One Agent
+
+The Marketplace Agent operates differently depending on who is using the console:
+
+**`repo_owner` (repository owner / demand side)**
+- Onboarding journey: install GitHub App → select repos → configure policy → set budgets → activate lanes
+- The agent tracks which steps the repo owner has completed and which remain
+- WebMCP tools: `bn_repo_owner_onboard`, `bn_market_create_job`, `bn_market_award_offer`, `bn_market_open_dispute`
+- Retention: the agent surfaces jobs that need review, spend that's approaching caps, agents that are underperforming
+
+**`agent_operator` (agent operator / supply side)**
+- Onboarding journey: register operator → create agent (managed or BYOA) → configure capabilities → publish → earn
+- The agent tracks operator verification status, agent publish state, and first-job completion
+- WebMCP tools: `bn_agent_operator_register`, `bn_market_seed`, `bn_market_create_offer`, `bn_market_settlement_action`
+- Retention: the agent surfaces acceptance rates, payout status, eval results, and reputation changes
+
+### 14.3 Architecture
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                        Browser (Console UI)                        │
+│                                                                    │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │                    Marketplace Agent                          │  │
+│  │                                                              │  │
+│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐  │  │
+│  │  │  contextService  │  │   toolService   │  │ planService │  │  │
+│  │  │                  │  │                  │  │             │  │  │
+│  │  │ • user persona   │  │ • registered     │  │ • onboard   │  │  │
+│  │  │ • journey state  │  │   WebMCP tools   │  │   steps     │  │  │
+│  │  │ • active repos   │  │ • tool call log  │  │ • next      │  │  │
+│  │  │ • active agents  │  │ • approve/reject │  │   action    │  │  │
+│  │  │ • budget state   │  │                  │  │             │  │  │
+│  │  └────────┬─────────┘  └────────┬─────────┘  └──────┬──────┘  │  │
+│  │           │                     │                    │         │  │
+│  │  ┌────────▼─────────────────────▼────────────────────▼──────┐  │  │
+│  │  │              ContextManager (UI component)               │  │  │
+│  │  │  [repo_owner · org/repo] [CI lane active] [Budget: $25] │  │  │
+│  │  │  [3 agents assigned] [2 jobs pending review]             │  │  │
+│  │  └──────────────────────────────────────────────────────────┘  │  │
+│  └──────────────────────────┬───────────────────────────────────┘  │
+│                             │                                      │
+│                    navigator.modelContext                           │
+│                     (WebMCP interface)                              │
+│                             │                                      │
+└─────────────────────────────┼──────────────────────────────────────┘
+                              │
+              ┌───────────────▼───────────────┐
+              │    External Coding Agent       │
+              │  (Cursor, Claude, etc.)        │
+              │                                │
+              │  "Create a ci_repair job on    │
+              │   org/repo with rust-sentinel" │
+              │                                │
+              │  → calls bn_market_create_job  │
+              │  → agent executes via WebMCP   │
+              │  → contextService updates      │
+              │  → ContextManager re-renders   │
+              └───────────────────────────────┘
+```
+
+### 14.4 Context Items (What the Agent Tracks)
+
+The `contextService` manages these item types for the Marketplace Agent:
+
+| Type | Example | Source | Purpose |
+|------|---------|--------|---------|
+| `persona` | `repo_owner` | Login / onboarding route | Determines which journey the agent follows |
+| `repo` | `org/web` | `bn_repo_owner_onboard` or GitHub App install | Active repositories with policy/budget state |
+| `agent` | `rust-sentinel (managed)` | `bn_agent_operator_register` or agent creation | Agents the user owns or has assigned |
+| `job` | `job_a31 (ci_repair)` | `bn_market_create_job` or scan results | Jobs in progress, pending review, or completed |
+| `budget` | `$25.00/mo · 67% used` | spend API | Budget state for active repositories |
+| `onboard_step` | `Step 3/5: Set budgets` | Journey state machine | Current position in the onboarding flow |
+| `lane` | `typescript_ci_repair` | Preset application | Active lane configurations |
+| `review` | `sub_a31 (pending)` | Review queue | Submissions awaiting human decision |
+
+The `ContextManager` component renders these as pill tags at the top of the console. The agent uses them to decide what to suggest next.
+
+### 14.5 Existing WebMCP Tool Surface
+
+The Marketplace Agent's tool surface is already implemented in `clients/web/src/webmcp/registerTools.js`. These 18 tools are registered via `navigator.modelContext.registerTool`:
+
+**Navigation & State:**
+- `bn_navigate` — navigate to any BountyNet route
+- `bn_inventory_snapshot` — fetch jobs, agents, operators, sessions
+- `bn_market_reputation_snapshot` — agent and operator reputation data
+- `bn_voice_inbox_snapshot` / `push` / `consume` — cross-page voice transcript handoff
+- `bn_agent_track_snapshot` / `add_pair` — agent-track stream state
+
+**`repo_owner` (demand side):**
+- `bn_repo_owner_onboard` — configure repo, spend caps, lane preset in one call
+- `bn_market_create_job` — create a job on a repository
+- `bn_market_award_offer` — award a selected offer
+- `bn_market_open_dispute` — open a dispute
+- `bn_market_resolve_dispute` — resolve with a ruling
+
+**`agent_operator` (supply side):**
+- `bn_agent_operator_register` — register operator + agent + payout identity in one call
+- `bn_market_seed` — seed the managed fleet
+- `bn_market_create_offer` — submit a seller offer on a job
+- `bn_market_settlement_action` — pay or refund a settlement
+
+**Admin:**
+- `bn_market_admin_suspend_agent` — suspend/unsuspend an agent
+- `bn_market_admin_settlement_freeze` — freeze/unfreeze settlement
+
+### 14.6 Journey State Machine
+
+The Marketplace Agent tracks user progress through a simple state machine. Each step maps to a `contextService` item of type `onboard_step`.
+
+**`repo_owner` Journey:**
+
+```
+install_github_app → select_repos → configure_policy → set_budgets → activate_lanes → monitor
+       │                  │                │                │               │              │
+       ▼                  ▼                ▼                ▼               ▼              ▼
+  "Install the      "Pick which       "Set review      "Set monthly    "Apply a       "Your fleet
+   GitHub App"       repos to          and merge        and per-job     lane preset"    is running"
+                     protect"          policy"          caps"
+```
+
+**`agent_operator` Journey:**
+
+```
+register_operator → create_agent → configure_capabilities → test_agent → publish → earn
+       │                  │                  │                    │           │        │
+       ▼                  ▼                  ▼                    ▼           ▼        ▼
+  "Register as      "Build in         "Set job classes,    "Run a dry   "Go live"  "Check
+   an operator"      Studio or         ecosystems, and      test"                    payouts"
+                     register BYOA"    trust tier"
+```
+
+The agent can determine the current step by querying `contextService.getItems()` for `onboard_step` items and checking which steps have been completed.
+
+### 14.7 Console UI Integration
+
+The Marketplace Agent manifests in the console through three surfaces:
+
+**1. Context Bar (ContextManager component)**
+
+Always visible at the top of the console. Shows the user's active context as pill tags. Clicking a pill navigates to the relevant surface (repo → identity page, job → review queue, agent → agent studio).
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ [👤 repo_owner] [📦 org/web] [📦 org/api] [🤖 rust-sentinel ×3]│
+│ [💰 $18.20 / $25.00] [📋 2 pending reviews] [Step 5/5 ✓]      │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**2. Agent Chat Panel**
+
+A collapsible right-side panel (like the Analysis Stream in the jules-chop App.tsx layout) where the Marketplace Agent communicates with the human user. Uses `MarkdownViewer` to render agent responses. The agent proactively suggests next actions based on journey state.
+
+```
+┌─ Marketplace Agent ──────────────────────┐
+│                                           │
+│ You've configured 2 repositories and     │
+│ activated the TypeScript CI repair lane. │
+│                                           │
+│ **Next step:** Set a monthly spend cap.  │
+│ Your repos are generating ~3 jobs/day,   │
+│ so I'd recommend starting at $25/month.  │
+│                                           │
+│ [Set $25/mo cap]  [Customize amount]     │
+│                                           │
+│ ─────────────────────────────────────── │
+│                                           │
+│ Recent activity:                          │
+│ • rust-sentinel completed job_8f2        │
+│ • ts-migrator submitted PR #89           │
+│ • 2 submissions awaiting your review     │
+│                                           │
+│ [Open Review Queue →]                    │
+│                                           │
+└───────────────────────────────────────────┘
+```
+
+**3. Execution Log (tool call transparency)**
+
+When an external coding agent calls WebMCP tools, the `ExecutionLog` component shows the tool calls in real time. The human can see what the external agent is doing and approve/reject actions that require confirmation.
+
+```
+┌─ Tool Calls ─────────────────────────────────────────────────┐
+│ 14:02  ✓ bn_market_create_job  { repo: "org/web", ... }     │
+│ 14:02  ✓ bn_inventory_snapshot  {}                           │
+│ 14:03  ⏳ bn_market_award_offer  { jobId: "job_8f2", ... }  │
+│                                                    [APPROVE] │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### 14.8 New WebMCP Tools (to add)
+
+The existing 18 tools cover marketplace CRUD. The Marketplace Agent needs additional tools for journey-aware guidance:
+
+| Tool | Purpose |
+|------|---------|
+| `bn_journey_state` | Get current onboarding progress for the active persona (`repo_owner` or `agent_operator`) |
+| `bn_journey_next_step` | Get the recommended next action with context |
+| `bn_context_snapshot` | Get the full ContextManager state (all active items) |
+| `bn_agent_suggest` | Ask the Marketplace Agent for a recommendation based on current context |
+| `bn_review_queue_summary` | Get count and urgency of pending reviews |
+| `bn_spend_alert` | Get budget health — approaching caps, unusual spend |
+
+### 14.9 API Endpoints (new)
+
+#### `GET /market/journey/{persona}`
+Get the onboarding journey state for `repo_owner` or `agent_operator`.
+
+**Auth:** Dynamic JWT
+
+**Response 200:**
+```json
+{
+  "persona": "repo_owner",
+  "steps": [
+    { "id": "install_github_app", "status": "completed", "completed_at": "2026-04-20T10:00:00Z" },
+    { "id": "select_repos", "status": "completed", "completed_at": "2026-04-20T10:05:00Z" },
+    { "id": "configure_policy", "status": "completed", "completed_at": "2026-04-20T10:10:00Z" },
+    { "id": "set_budgets", "status": "current", "completed_at": null },
+    { "id": "activate_lanes", "status": "pending", "completed_at": null },
+    { "id": "monitor", "status": "pending", "completed_at": null }
+  ],
+  "current_step": "set_budgets",
+  "pct_complete": 50,
+  "context": {
+    "repos": ["org/web", "org/api"],
+    "agents_assigned": 3,
+    "jobs_pending_review": 2,
+    "budget_set": false
+  }
+}
+```
+
+#### `POST /market/journey/{persona}/advance`
+Mark the current step as completed and advance to the next.
+
+**Auth:** Dynamic JWT
+
+**Request:**
+```json
+{
+  "step_id": "set_budgets",
+  "metadata": { "monthly_cap": 2500, "per_job_cap": 150 }
+}
+```
+
+**Response 200:**
+```json
+{
+  "previous_step": "set_budgets",
+  "current_step": "activate_lanes",
+  "pct_complete": 67
+}
+```
+
+---
+
+## 15. Updated Implementation Plan (with Runtime Components + Marketplace Agent)
 
 ### Phase A: Foundation (API + Data + Components)
 
@@ -1975,6 +2247,9 @@ Each wireframe now references concrete components:
 | Eval Dashboard | `MarkdownViewer` (eval reports) |
 | Review Queue | Card components (existing pattern) |
 | Token Spend Tracker | Chart components (new, not from jules-chop) |
+| **Marketplace Agent — Context Bar** | `ContextManager` (persona, repos, agents, budgets, journey step as pill tags) |
+| **Marketplace Agent — Chat Panel** | `MarkdownViewer` (agent suggestions), action buttons, activity feed |
+| **Marketplace Agent — Tool Log** | `ExecutionLog` (WebMCP tool calls from external agents, approve/reject) |
 
 ### Phase C: Integration & Polish
 
@@ -1985,6 +2260,8 @@ All items from the original Phase C, plus:
 3. **Zip upload flow**: Wire `FileUploader` + `zipService` for eval fixture uploads and BYOA context bootstrap.
 4. **RPC bridge**: Implement the DFRPC positional-array translation layer as a thin adapter over `fetch()` calls to the gateway.
 5. **Terminal streaming**: Wire `runtimeService` to a WebSocket connection for live stdout/stderr from agent execution environments.
+6. **Marketplace Agent journey engine**: Wire `contextService` to the `GET /market/journey/{persona}` endpoint so the agent's context bar reflects real journey state from the gateway. Register the 6 new WebMCP tools (`bn_journey_state`, `bn_journey_next_step`, `bn_context_snapshot`, `bn_agent_suggest`, `bn_review_queue_summary`, `bn_spend_alert`).
+7. **Proactive agent suggestions**: The Marketplace Agent chat panel queries journey state + spend + review queue on page load and surfaces a recommended next action. This is the retention loop — the agent always has something useful to say.
 
 ---
 

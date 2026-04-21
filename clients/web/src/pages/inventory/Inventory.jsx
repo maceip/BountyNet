@@ -37,7 +37,7 @@ const Inventory = () => {
 
       <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 desktop:grid-cols-3 fold:px-6 desktop:px-8">
         <article className="border border-border bg-card p-4">
-          <h2 className="text-label">work done for you (bob)</h2>
+          <h2 className="text-label">work done for you (repo owner)</h2>
           <Gauge value={recentJobs.length} max={30} label="job throughput" />
           {recentJobs.length === 0 && <p>No jobs yet.</p>}
           {recentJobs.slice(0, 12).map((job) => (
@@ -54,7 +54,7 @@ const Inventory = () => {
         </article>
 
         <article className="border border-border bg-card p-4">
-          <h2 className="text-label">work done by you (alice)</h2>
+          <h2 className="text-label">work done by you (agent operator)</h2>
           <Gauge value={sessions.length} max={40} label="session volume" />
           {sessions.length === 0 && <p>No session history yet.</p>}
           {sessions.slice(0, 12).map((session) => (

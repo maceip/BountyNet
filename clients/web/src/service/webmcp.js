@@ -1,15 +1,15 @@
 const BASE_URL = process.env.WEB_BASE_URL || 'http://127.0.0.1:5173';
 
 const JOURNEYS = {
-  bob: {
-    persona: 'bob',
+  repo_owner: {
+    persona: 'repo_owner',
     role: 'github_owner',
     description:
       'Repo-owner onboarding and market participation flow for configuring repositories, policy, and spend.',
     routes: {
       landing: `${BASE_URL}/`,
-      onboarding: `${BASE_URL}/onboarding/bob`,
-      settings: `${BASE_URL}/settings/bob`,
+      onboarding: `${BASE_URL}/onboarding/repo-owner`,
+      settings: `${BASE_URL}/settings/repo-owner`,
       marketplace: `${BASE_URL}/marketplace`,
       inventory: `${BASE_URL}/inventory`,
       diagnostics: `${BASE_URL}/diagnostics/webmcp`,
@@ -18,15 +18,15 @@ const JOURNEYS = {
     },
     actions: [
       {
-        id: 'bob_open_onboarding',
-        route: '/onboarding/bob',
-        selector: '#mcp-bob-onboarding-link',
+        id: 'repo_owner_open_onboarding',
+        route: '/onboarding/repo-owner',
+        selector: '#mcp-repo-owner-onboarding-link',
         type: 'navigate',
       },
       {
-        id: 'bob_save_repo_policy',
-        route: '/onboarding/bob',
-        selector: '#mcp-bob-save',
+        id: 'repo_owner_save_repo_policy',
+        route: '/onboarding/repo-owner',
+        selector: '#mcp-repo-owner-save',
         type: 'submit',
         api: {
           method: 'POST',
@@ -34,9 +34,9 @@ const JOURNEYS = {
         },
       },
       {
-        id: 'bob_apply_repo_preset',
-        route: '/onboarding/bob',
-        selector: '#mcp-bob-save',
+        id: 'repo_owner_apply_repo_preset',
+        route: '/onboarding/repo-owner',
+        selector: '#mcp-repo-owner-save',
         type: 'submit',
         api: {
           method: 'POST',
@@ -44,51 +44,51 @@ const JOURNEYS = {
         },
       },
       {
-        id: 'bob_open_marketplace',
+        id: 'repo_owner_open_marketplace',
         route: '/marketplace',
         selector: '#mcp-marketplace-link',
         type: 'navigate',
       },
       {
-        id: 'bob_open_inventory',
+        id: 'repo_owner_open_inventory',
         route: '/inventory',
         selector: '#mcp-inventory-link',
         type: 'navigate',
       },
       {
-        id: 'bob_open_diagnostics',
+        id: 'repo_owner_open_diagnostics',
         route: '/diagnostics/webmcp',
         selector: '#mcp-diagnostics-link',
         type: 'navigate',
       },
       {
-        id: 'bob_offer_on_job',
+        id: 'repo_owner_offer_on_job',
         route: '/marketplace',
         selector: '#offer-agent',
         type: 'submit',
         api: { method: 'POST', path: '/api/bountynet/market/jobs/:jobId/offers' },
       },
       {
-        id: 'bob_award_offer',
+        id: 'repo_owner_award_offer',
         route: '/marketplace',
         selector: '#award-offer',
         type: 'submit',
         api: { method: 'POST', path: '/api/bountynet/market/jobs/:jobId/award' },
       },
       {
-        id: 'bob_open_control_plane',
+        id: 'repo_owner_open_control_plane',
         route: '/ops/control-plane',
         selector: '#mcp-control-plane-link',
         type: 'navigate',
       },
       {
-        id: 'bob_open_agent_track',
+        id: 'repo_owner_open_agent_track',
         route: '/agent-track',
         selector: '#mcp-agent-track-link',
         type: 'navigate',
       },
       {
-        id: 'bob_freeze_settlement',
+        id: 'repo_owner_freeze_settlement',
         route: '/ops/control-plane',
         selector: '#settlement-action',
         type: 'submit',
@@ -96,15 +96,15 @@ const JOURNEYS = {
       },
     ],
   },
-  alice: {
-    persona: 'alice',
+  agent_operator: {
+    persona: 'agent_operator',
     role: 'agent_operator',
     description:
       'Supply-side onboarding flow for registering operators, agents, payout identity, and participating in market execution.',
     routes: {
       landing: `${BASE_URL}/`,
-      onboarding: `${BASE_URL}/onboarding/alice`,
-      settings: `${BASE_URL}/settings/alice`,
+      onboarding: `${BASE_URL}/onboarding/agent-operator`,
+      settings: `${BASE_URL}/settings/agent-operator`,
       marketplace: `${BASE_URL}/marketplace`,
       inventory: `${BASE_URL}/inventory`,
       diagnostics: `${BASE_URL}/diagnostics/webmcp`,
@@ -113,15 +113,15 @@ const JOURNEYS = {
     },
     actions: [
       {
-        id: 'alice_open_onboarding',
-        route: '/onboarding/alice',
-        selector: '#mcp-alice-onboarding-link',
+        id: 'agent_operator_open_onboarding',
+        route: '/onboarding/agent-operator',
+        selector: '#mcp-agent-operator-onboarding-link',
         type: 'navigate',
       },
       {
-        id: 'alice_register_operator_and_agent',
-        route: '/onboarding/alice',
-        selector: '#mcp-alice-register',
+        id: 'agent_operator_register_operator_and_agent',
+        route: '/onboarding/agent-operator',
+        selector: '#mcp-agent-operator-register',
         type: 'submit',
         api: [
           { method: 'POST', path: '/api/bountynet/market/operators' },
@@ -133,7 +133,7 @@ const JOURNEYS = {
         ],
       },
       {
-        id: 'alice_seed_market',
+        id: 'agent_operator_seed_market',
         route: '/marketplace',
         selector: '#mcp-seed-fleet',
         type: 'submit',
@@ -143,39 +143,39 @@ const JOURNEYS = {
         },
       },
       {
-        id: 'alice_open_inventory',
+        id: 'agent_operator_open_inventory',
         route: '/inventory',
         selector: '#mcp-inventory-link',
         type: 'navigate',
       },
       {
-        id: 'alice_open_diagnostics',
+        id: 'agent_operator_open_diagnostics',
         route: '/diagnostics/webmcp',
         selector: '#mcp-diagnostics-link',
         type: 'navigate',
       },
       {
-        id: 'alice_submit_offer',
+        id: 'agent_operator_submit_offer',
         route: '/marketplace',
         selector: '#offer-agent',
         type: 'submit',
         api: { method: 'POST', path: '/api/bountynet/market/jobs/:jobId/offers' },
       },
       {
-        id: 'alice_open_dispute',
+        id: 'agent_operator_open_dispute',
         route: '/marketplace',
         selector: '#dispute-reason',
         type: 'submit',
         api: { method: 'POST', path: '/api/bountynet/market/jobs/:jobId/disputes' },
       },
       {
-        id: 'alice_open_reputation',
+        id: 'agent_operator_open_reputation',
         route: '/marketplace/reputation',
         selector: '#mcp-marketplace-link',
         type: 'navigate',
       },
       {
-        id: 'alice_open_agent_track',
+        id: 'agent_operator_open_agent_track',
         route: '/agent-track',
         selector: '#mcp-agent-track-link',
         type: 'navigate',

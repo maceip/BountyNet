@@ -114,7 +114,7 @@ export const initializeWebMcpTools = async () => {
         route: {
           type: 'string',
           description:
-            'Destination route. Examples: /, /marketplace, /onboarding/bob, /onboarding/alice, /settings/bob, /settings/alice, /inventory, /agent-track',
+            'Destination route. Examples: /, /marketplace, /onboarding/repo-owner, /onboarding/agent-operator, /settings/repo-owner, /settings/agent-operator, /inventory, /agent-track',
         },
       },
       required: ['route'],
@@ -127,8 +127,8 @@ export const initializeWebMcpTools = async () => {
   );
 
   await register(
-    'bn_bob_onboard',
-    'Configure Bob repo-owner onboarding: setup repository, spend caps, and lane preset.',
+    'bn_repo_owner_onboard',
+    'Configure repo-owner onboarding: setup repository, spend caps, and lane preset.',
     {
       type: 'object',
       properties: {
@@ -153,7 +153,7 @@ export const initializeWebMcpTools = async () => {
         installation_id: Number(installationId),
         repos: [repo],
         local_path: localPath,
-        owner: 'bob',
+        owner: 'repo_owner',
         required_checks: ['CI'],
         budget_priority: ['platform_credits', 'api_key_pool'],
         monthly_spend_cap: Number(monthlyCap),
@@ -169,8 +169,8 @@ export const initializeWebMcpTools = async () => {
   );
 
   await register(
-    'bn_alice_register',
-    'Register Alice operator and specialist agent with payout identity.',
+    'bn_agent_operator_register',
+    'Register agent operator and specialist agent with payout identity.',
     {
       type: 'object',
       properties: {
@@ -207,7 +207,7 @@ export const initializeWebMcpTools = async () => {
       const operator = await api('/api/bountynet/market/operators', 'POST', {
         slug: operatorSlug,
         display_name: operatorName,
-        summary: 'Alice supply-side operator',
+        summary: 'Supply-side agent operator',
         contact_email: email,
         status: 'active',
       });

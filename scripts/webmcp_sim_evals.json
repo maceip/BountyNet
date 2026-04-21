@@ -2,7 +2,7 @@
   "cases": [
     {
       "id": "manifest_surface",
-      "description": "WebMCP manifest endpoints expose Bob and Alice journeys.",
+      "description": "WebMCP manifest endpoints expose repo_owner and agent_operator journeys.",
       "steps": [
         {
           "name": "manifest_index",
@@ -10,41 +10,41 @@
           "path": "/api/bountynet/webmcp/journeys",
           "expect": {
             "status": 200,
-            "json_contains": ["webmcp_journey_manifest", "bob", "alice"]
+            "json_contains": ["webmcp_journey_manifest", "repo_owner", "agent_operator"]
           }
         },
         {
-          "name": "manifest_bob",
+          "name": "manifest_repo_owner",
           "method": "GET",
-          "path": "/api/bountynet/webmcp/journeys/bob",
+          "path": "/api/bountynet/webmcp/journeys/repo_owner",
           "expect": {
             "status": 200,
-            "json_contains": ["\"persona\":\"bob\"", "bob_save_repo_policy"]
+            "json_contains": ["\"persona\":\"repo_owner\"", "repo_owner_save_repo_policy"]
           }
         },
         {
-          "name": "manifest_alice",
+          "name": "manifest_agent_operator",
           "method": "GET",
-          "path": "/api/bountynet/webmcp/journeys/alice",
+          "path": "/api/bountynet/webmcp/journeys/agent_operator",
           "expect": {
             "status": 200,
-            "json_contains": ["\"persona\":\"alice\"", "alice_register_operator_and_agent"]
+            "json_contains": ["\"persona\":\"agent_operator\"", "agent_operator_register_operator_and_agent"]
           }
         }
       ]
     },
     {
-      "id": "bob_simulator_journey",
-      "description": "Simulate Bob onboarding and repository policy application.",
+      "id": "repo_owner_simulator_journey",
+      "description": "Simulate repo owner onboarding and repository policy application.",
       "steps": [
         {
-          "name": "bob_repo_setup",
+          "name": "repo_owner_repo_setup",
           "method": "POST",
           "path": "/api/bountynet/market/repositories/setup",
           "json_body": {
             "installation_id": 1,
-            "repos": ["local/bob-sim-{{run_id}}"],
-            "owner": "bob",
+            "repos": ["local/ro-sim-{{run_id}}"],
+            "owner": "repo_owner",
             "monthly_spend_cap": 1000,
             "per_job_spend_cap": 100,
             "required_checks": ["CI"]
@@ -54,9 +54,9 @@
           }
         },
         {
-          "name": "bob_apply_preset",
+          "name": "repo_owner_apply_preset",
           "method": "POST",
-          "path": "/api/bountynet/market/repositories/local%2Fbob-sim-{{run_id}}/apply-preset",
+          "path": "/api/bountynet/market/repositories/local%2Fro-sim-{{run_id}}/apply-preset",
           "json_body": {
             "preset": "typescript_ci_repair"
           },
@@ -67,18 +67,18 @@
       ]
     },
     {
-      "id": "alice_simulator_journey",
-      "description": "Simulate Alice operator+agent registration and inventory visibility.",
+      "id": "agent_operator_simulator_journey",
+      "description": "Simulate agent operator registration and inventory visibility.",
       "steps": [
         {
-          "name": "alice_create_operator",
+          "name": "ao_create_operator",
           "method": "POST",
           "path": "/api/bountynet/market/operators",
           "json_body": {
-            "slug": "alice-sim-{{run_id}}",
-            "display_name": "Alice Sim {{run_id}}",
+            "slug": "ao-sim-{{run_id}}",
+            "display_name": "Operator Sim {{run_id}}",
             "summary": "sim run",
-            "contact_email": "alice+{{run_id}}@example.test",
+            "contact_email": "operator+{{run_id}}@example.test",
             "status": "active"
           },
           "save": {
@@ -89,11 +89,11 @@
           }
         },
         {
-          "name": "alice_onboard_operator",
+          "name": "ao_onboard_operator",
           "method": "POST",
           "path": "/api/bountynet/market/operators/{{operator_id}}/onboard",
           "json_body": {
-            "identity_anchor": "dynamic:alice-sim-{{run_id}}",
+            "identity_anchor": "dynamic:ao-sim-{{run_id}}",
             "wallet": "0x1111111111111111111111111111111111111111",
             "verification_status": "verified"
           },
@@ -102,12 +102,12 @@
           }
         },
         {
-          "name": "alice_create_agent",
+          "name": "ao_create_agent",
           "method": "POST",
           "path": "/api/bountynet/market/agents",
           "json_body": {
-            "slug": "alice-agent-sim-{{run_id}}",
-            "display_name": "Alice Agent Sim {{run_id}}",
+            "slug": "ao-agent-sim-{{run_id}}",
+            "display_name": "Agent Sim {{run_id}}",
             "operator_id": "{{operator_id}}",
             "agent_kind": "specialist",
             "pod": "typescript",
@@ -118,7 +118,7 @@
             "status": "active"
           },
           "save": {
-            "alice_agent_id": "agent.id"
+            "sim_agent_id": "agent.id"
           },
           "expect": {
             "status": 200
@@ -130,7 +130,7 @@
           "path": "/api/bountynet/market/agents",
           "expect": {
             "status": 200,
-            "json_contains": ["alice-agent-sim-{{run_id}}"]
+            "json_contains": ["ao-agent-sim-{{run_id}}"]
           }
         }
       ]
@@ -144,7 +144,7 @@
           "method": "POST",
           "path": "/api/bountynet/market/jobs",
           "json_body": {
-            "repo_full_name": "local/bob-sim-{{run_id}}",
+            "repo_full_name": "local/ro-sim-{{run_id}}",
             "job_class": "ci_repair",
             "title": "Offer flow test {{run_id}}",
             "risk_level": "medium",
@@ -166,7 +166,7 @@
           "method": "POST",
           "path": "/api/bountynet/market/jobs/{{offer_job_id}}/offers",
           "json_body": {
-            "agent_id": "{{alice_agent_id}}",
+            "agent_id": "{{sim_agent_id}}",
             "amount": 400,
             "currency": "credits",
             "eta_seconds": 900,
@@ -205,7 +205,7 @@
           "json_body": {
             "reason_code": "quality",
             "reason": "sim dispute",
-            "opened_by": "bob"
+            "opened_by": "repo_owner"
           },
           "save": {
             "dispute_id": "dispute.id"
@@ -238,9 +238,9 @@
           "method": "POST",
           "path": "/api/bountynet/market/agents",
           "json_body": {
-            "id": "{{alice_agent_id}}",
-            "slug": "alice-agent-sim-{{run_id}}",
-            "display_name": "Alice Agent Sim {{run_id}}",
+            "id": "{{sim_agent_id}}",
+            "slug": "ao-agent-sim-{{run_id}}",
+            "display_name": "Agent Sim {{run_id}}",
             "operator_id": "{{operator_id}}",
             "agent_kind": "specialist",
             "pod": "typescript",
@@ -259,7 +259,7 @@
           "method": "POST",
           "path": "/api/bountynet/market/jobs/{{offer_job_id}}/offers",
           "json_body": {
-            "agent_id": "{{alice_agent_id}}",
+            "agent_id": "{{sim_agent_id}}",
             "amount": 123
           },
           "expect": {
