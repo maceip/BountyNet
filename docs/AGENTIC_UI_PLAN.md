@@ -1666,6 +1666,25 @@ CREATE TABLE IF NOT EXISTS spend_log (
     cost_source     TEXT DEFAULT 'metered',  -- 'metered' or 'reported'
     timestamp       REAL NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS marketplace_agent_sessions (
+    session_id      TEXT PRIMARY KEY,
+    user_id         TEXT,
+    persona         TEXT,              -- 'repo_owner' or 'agent_operator'
+    messages        TEXT NOT NULL,     -- JSON array of {role, content, timestamp}
+    context_snapshot TEXT,             -- JSON: contextService state at session start
+    created_at      REAL NOT NULL,
+    updated_at      REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS user_feedback (
+    id              TEXT PRIMARY KEY,
+    user_id         TEXT,
+    category        TEXT NOT NULL,     -- 'bug', 'feature_request', 'ux_issue', 'general'
+    message         TEXT NOT NULL,
+    surface         TEXT,
+    created_at      REAL NOT NULL
+);
 ```
 
 ---
@@ -2161,7 +2180,44 @@ When an external coding agent calls WebMCP tools, the `ExecutionLog` component s
 
 ### 14.8 New WebMCP Tools (to add)
 
-The existing 18 tools cover marketplace CRUD. The Marketplace Agent needs additional tools for journey-aware guidance and open-ended interaction:
+The existing 18 tools cover marketplace CRUD. The tools below are **not** thin REST wrappers — they pipe directly into the Marketplace Agent, which holds the full `contextService` state (persona, repos, agents, budget, journey step) and can reason over it before responding. The agent is the backend for these tools; the gateway endpoints are just the transport.
+
+```
+External Agent (Cursor, Claude, etc.)
+    │
+    │  bn_chat({ message: "What should I do next?" })
+    │
+    ▼
+navigator.modelContext (WebMCP)
+    │
+    │  POST /market/agent/chat
+    │
+    ▼
+┌──────────────────────────────────────────┐
+│           Marketplace Agent              │
+│                                          │
+│  contextService.getItems()               │
+│  → persona: repo_owner                   │
+│  → repos: [org/web, org/api]             │
+│  → journey: step 4/6 (set_budgets)       │
+│  → budget: not configured                │
+│  → pending_reviews: 2                    │
+│  → agents_assigned: [rust-sentinel, ...]  │
+│                                          │
+│  LLM inference (gateway model runtime)   │
+│  → synthesize answer from context        │
+│  → suggest concrete next actions         │
+│  → return tool calls the caller can run  │
+└──────────────────────────────────────────┘
+    │
+    ▼
+{ reply: "You haven't set budgets yet. I'd recommend $25/mo...",
+  suggested_actions: [
+    { tool: "bn_repo_owner_onboard", args: { monthlyCap: 2500 } }
+  ] }
+```
+
+The conversational tools (`bn_help`, `bn_chat`, `bn_explain`, `bn_troubleshoot`) are backed by the same LLM inference pipeline that runs managed agents (`gateway/model_runtime.py`), but with a system prompt specialized for marketplace guidance rather than code repair. The agent's context window is populated from `contextService` state, not from repository files.
 
 #### Journey & Context Tools
 
@@ -2329,7 +2385,47 @@ Response:
 }
 ```
 
-### 14.9 API Endpoints (new)
+### 14.9 Marketplace Agent Serving Profile
+
+The Marketplace Agent is built using the same `AgentServingProfile` pattern as the code agents in `gateway/agent_fleet.py`. It is the first non-code agent in the fleet — its job is marketplace guidance, not repository patches.
+
+```python
+AgentServingProfile(
+    slug="marketplace-agent",
+    display_name="Marketplace Agent",
+    pod="platform",
+    lane="guidance",
+    system_prompt=(
+        "You are the BountyNet Marketplace Agent. You help repository owners "
+        "and agent operators navigate the platform. You have access to the "
+        "caller's journey state, active repositories, assigned agents, budget "
+        "health, and pending reviews. Answer questions, explain concepts, "
+        "diagnose problems, and suggest concrete next actions. When suggesting "
+        "actions, return them as tool calls the caller can execute. Be concise. "
+        "Use the vocabulary from VOCABULARY.md: job, agent, operator, accepted "
+        "contribution, budget, earnings. Never say staker, solver, escrow, or mint."
+    ),
+    allowed_tools=("journey_state", "context_snapshot", "review_summary",
+                    "spend_summary", "agent_lookup", "repo_lookup"),
+    allowed_files=(),
+    validator_recipe=(),
+    runtime_model="agents/marketplace",
+    runtime_fallback_model="agents/fallback",
+    runtime_provider="litellm",
+    runtime_adapter="marketplace-agent",
+    reasoning_effort="medium",
+    plan_required=False,
+)
+```
+
+The agent's context window is assembled per-request from:
+1. **`contextService` snapshot** — persona, repos, agents, budget, journey step
+2. **Conversation history** — for `bn_chat` multi-turn sessions (stored in `gateway/store.py`)
+3. **Live marketplace data** — fetched from `store.py` at inference time (pending reviews, spend totals, agent acceptance rates)
+
+This means the Marketplace Agent can answer questions like "Why did my last submission get rejected?" by actually looking up the submission, reading the review thread, and checking the validator results — not by guessing.
+
+### 14.10 API Endpoints (new)
 
 #### `GET /market/journey/{persona}`
 Get the onboarding journey state for `repo_owner` or `agent_operator`.
@@ -2382,7 +2478,7 @@ Mark the current step as completed and advance to the next.
 ```
 
 #### `POST /market/agent/help`
-Natural-language help endpoint. The gateway uses the user's journey state, active context, and marketplace data to generate a contextual answer.
+Pipes directly into the Marketplace Agent. The agent loads the caller's `contextService` state (persona, journey step, repos, budget, agents) and runs a single LLM inference turn to produce a contextual answer. Uses the `agents/marketplace` model alias through `model_runtime.py`.
 
 **Auth:** Dynamic JWT
 
@@ -2403,7 +2499,7 @@ Natural-language help endpoint. The gateway uses the user's journey state, activ
 ```
 
 #### `POST /market/agent/chat`
-Multi-turn conversational endpoint. Maintains session state for follow-up messages.
+Multi-turn conversational endpoint piped into the Marketplace Agent. The agent maintains session state (stored in `gateway/store.py` keyed by `session_id`) so follow-up messages carry full conversation history. Each turn runs LLM inference with the conversation history + current `contextService` snapshot as context. The agent can return `suggested_actions` — pre-formed WebMCP tool calls that the caller can execute directly.
 
 **Auth:** Dynamic JWT
 
@@ -2427,7 +2523,7 @@ Multi-turn conversational endpoint. Maintains session state for follow-up messag
 ```
 
 #### `POST /market/agent/explain`
-Topic-based explanation endpoint.
+Topic-based explanation piped into the Marketplace Agent. The agent has a knowledge base of marketplace concepts (trust tiers, lane presets, job classes, review policies, budget types, BYOA contracts) and generates explanations grounded in the actual platform schema. No auth required — explanations are public.
 
 **Auth:** none (public)
 
@@ -2449,7 +2545,7 @@ Topic-based explanation endpoint.
 ```
 
 #### `POST /market/agent/troubleshoot`
-Problem diagnosis endpoint. Inspects user context to identify issues.
+Problem diagnosis piped into the Marketplace Agent. The agent loads the caller's full context (agent acceptance history, repo `required_checks`, agent `validator_recipe`, budget state, recent submissions) and runs LLM inference to identify the root cause and suggest fixes. This is the agent doing actual reasoning over live data, not a canned FAQ lookup.
 
 **Auth:** Dynamic JWT
 
