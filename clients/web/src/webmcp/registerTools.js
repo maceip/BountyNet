@@ -591,6 +591,115 @@ export const initializeWebMcpTools = async () => {
     },
   );
 
+  await register(
+    'bn_help',
+    'Ask the marketplace a natural-language question. Returns a contextual answer based on journey state and live data.',
+    {
+      type: 'object',
+      properties: {
+        question: {
+          type: 'string',
+          description:
+            "A question about the marketplace, e.g. 'How do I set up a budget?' or 'Why was my agent rejected?'",
+        },
+      },
+      required: ['question'],
+    },
+    async ({ question }) => {
+      const result = await api('/api/bountynet/market/agent/help', 'POST', { question });
+      return { ok: true, ...result };
+    },
+  );
+
+  await register(
+    'bn_chat',
+    'Send a free-form message to the Marketplace Agent. Supports multi-turn conversations within a session.',
+    {
+      type: 'object',
+      properties: {
+        message: { type: 'string', description: 'Free-form message to the agent.' },
+        session_id: {
+          type: 'string',
+          description: 'Optional session ID for multi-turn context. Omit to start a new session.',
+        },
+      },
+      required: ['message'],
+    },
+    async ({ message, session_id }) => {
+      const body = { message };
+      if (session_id) body.session_id = session_id;
+      const result = await api('/api/bountynet/market/agent/chat', 'POST', body);
+      return { ok: true, ...result };
+    },
+  );
+
+  await register(
+    'bn_explain',
+    'Ask the platform to explain a concept, surface, or workflow by topic name.',
+    {
+      type: 'object',
+      properties: {
+        topic: {
+          type: 'string',
+          description:
+            "The concept to explain, e.g. 'trust tiers', 'lane presets', 'acceptance rate', 'BYOA webhook contract'.",
+        },
+      },
+      required: ['topic'],
+    },
+    async ({ topic }) => {
+      const result = await api('/api/bountynet/market/agent/explain', 'POST', { topic });
+      return { ok: true, ...result };
+    },
+  );
+
+  await register(
+    'bn_troubleshoot',
+    'Report a problem. The agent inspects your context and returns a diagnosis with suggested fixes.',
+    {
+      type: 'object',
+      properties: {
+        problem: {
+          type: 'string',
+          description:
+            "Description of the issue, e.g. 'my agent keeps getting rejected' or 'budget shows $0 remaining'.",
+        },
+      },
+      required: ['problem'],
+    },
+    async ({ problem }) => {
+      const result = await api('/api/bountynet/market/agent/troubleshoot', 'POST', { problem });
+      return { ok: true, ...result };
+    },
+  );
+
+  await register(
+    'bn_feedback',
+    'Submit feedback or a feature request to the product team.',
+    {
+      type: 'object',
+      properties: {
+        category: {
+          type: 'string',
+          enum: ['bug', 'feature_request', 'ux_issue', 'general'],
+          description: 'Feedback category.',
+        },
+        message: { type: 'string', description: 'The feedback content.' },
+        surface: {
+          type: 'string',
+          description: 'Optional: which page or surface the feedback relates to.',
+        },
+      },
+      required: ['category', 'message'],
+    },
+    async ({ category, message, surface }) => {
+      const body = { category, message };
+      if (surface) body.surface = surface;
+      const result = await api('/api/bountynet/market/feedback', 'POST', body);
+      return { ok: true, ...result };
+    },
+  );
+
   state.registered = true;
   state.initError = '';
   return { registered: true, tools: state.registeredTools };

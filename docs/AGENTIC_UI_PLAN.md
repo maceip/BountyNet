@@ -1702,6 +1702,11 @@ Summary of all new gateway routes:
 | `GET` | `/market/spend/budgets` | JWT | Budget health |
 | `GET` | `/market/journey/{persona}` | JWT | Onboarding journey state |
 | `POST` | `/market/journey/{persona}/advance` | JWT | Advance journey step |
+| `POST` | `/market/agent/help` | JWT | Natural-language help |
+| `POST` | `/market/agent/chat` | JWT | Multi-turn conversational agent |
+| `POST` | `/market/agent/explain` | public | Topic-based explanations |
+| `POST` | `/market/agent/troubleshoot` | JWT | Problem diagnosis |
+| `POST` | `/market/feedback` | JWT | User feedback collection |
 
 ---
 
@@ -2156,7 +2161,9 @@ When an external coding agent calls WebMCP tools, the `ExecutionLog` component s
 
 ### 14.8 New WebMCP Tools (to add)
 
-The existing 18 tools cover marketplace CRUD. The Marketplace Agent needs additional tools for journey-aware guidance:
+The existing 18 tools cover marketplace CRUD. The Marketplace Agent needs additional tools for journey-aware guidance and open-ended interaction:
+
+#### Journey & Context Tools
 
 | Tool | Purpose |
 |------|---------|
@@ -2166,6 +2173,161 @@ The existing 18 tools cover marketplace CRUD. The Marketplace Agent needs additi
 | `bn_agent_suggest` | Ask the Marketplace Agent for a recommendation based on current context |
 | `bn_review_queue_summary` | Get count and urgency of pending reviews |
 | `bn_spend_alert` | Get budget health — approaching caps, unusual spend |
+
+#### Help & Conversational Tools
+
+These tools let an external agent (or the in-browser Marketplace Agent) have open-ended conversations with the platform, ask questions, and get contextual help — not just fire structured CRUD calls.
+
+| Tool | Purpose |
+|------|---------|
+| `bn_help` | Ask the platform a natural-language question. Returns a contextual answer based on the user's current persona, journey state, active repos, and budget. The platform agent synthesizes an answer from documentation, journey state, and live marketplace data. |
+| `bn_chat` | Send a free-form message to the Marketplace Agent. The agent responds conversationally, can ask clarifying questions, and can trigger tool calls on the user's behalf (with confirmation). Supports multi-turn context within a session. |
+| `bn_explain` | Ask the platform to explain a specific concept, surface, or workflow. Input is a topic string (e.g. `"trust tiers"`, `"how do evals work"`, `"what is a lane preset"`). Returns a concise explanation with links to relevant surfaces. |
+| `bn_troubleshoot` | Report a problem or unexpected state. The agent inspects the user's context (journey state, recent tool calls, budget, agent status) and returns a diagnosis with suggested fixes. |
+| `bn_feedback` | Submit feedback or a feature request. Stored in the gateway for product review. |
+
+#### Tool Schemas
+
+**`bn_help`**
+```json
+{
+  "type": "object",
+  "properties": {
+    "question": {
+      "type": "string",
+      "description": "A natural-language question about the marketplace, e.g. 'How do I set up a budget?' or 'Why was my agent's submission rejected?'"
+    }
+  },
+  "required": ["question"]
+}
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "answer": "To set up a budget, navigate to /onboarding/repo-owner and configure your monthly and per-job spend caps in Step 4. Your current journey shows you've completed repo selection but haven't set budgets yet.",
+  "related_surfaces": ["/onboarding/repo-owner", "/spend"],
+  "journey_context": { "persona": "repo_owner", "current_step": "set_budgets" }
+}
+```
+
+**`bn_chat`**
+```json
+{
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "description": "Free-form message to the Marketplace Agent."
+    },
+    "session_id": {
+      "type": "string",
+      "description": "Optional session ID for multi-turn conversations. Omit to start a new session."
+    }
+  },
+  "required": ["message"]
+}
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "session_id": "chat_a1b2c3",
+  "reply": "I see you have 2 submissions pending review. Would you like me to open the review queue, or would you prefer a summary of what each agent proposed?",
+  "suggested_actions": [
+    { "label": "Open review queue", "tool": "bn_navigate", "args": { "route": "/reviews" } },
+    { "label": "Show submission summaries", "tool": "bn_review_queue_summary", "args": {} }
+  ],
+  "context_used": ["2 pending reviews", "repo_owner persona", "org/web active"]
+}
+```
+
+**`bn_explain`**
+```json
+{
+  "type": "object",
+  "properties": {
+    "topic": {
+      "type": "string",
+      "description": "The concept to explain, e.g. 'trust tiers', 'lane presets', 'acceptance rate', 'BYOA webhook contract'."
+    }
+  },
+  "required": ["topic"]
+}
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "topic": "trust tiers",
+  "explanation": "Trust tiers control which job classes an agent can accept. There are three levels: **standard** (ci_repair, dependency_update), **trusted** (adds codemod, config_remediation), and **critical** (adds security_update). New agents start at standard. Operators can request promotion through the identity page.",
+  "related_surfaces": ["/identity", "/studio"],
+  "see_also": ["acceptance rate", "review requirement"]
+}
+```
+
+**`bn_troubleshoot`**
+```json
+{
+  "type": "object",
+  "properties": {
+    "problem": {
+      "type": "string",
+      "description": "Description of the issue, e.g. 'my agent keeps getting rejected' or 'budget shows $0 remaining but I just deposited'."
+    }
+  },
+  "required": ["problem"]
+}
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "diagnosis": "Your agent rust-sentinel has a 91% acceptance rate but the last 3 submissions to org/api were rejected because the repository requires the 'Audit' check which your agent's validator recipe doesn't include.",
+  "suggested_fixes": [
+    "Add 'audit' to the validator recipe in Agent Studio",
+    "Contact the repo owner to remove the Audit requirement"
+  ],
+  "context_inspected": ["agent acceptance history", "repo required_checks", "agent validator_recipe"]
+}
+```
+
+**`bn_feedback`**
+```json
+{
+  "type": "object",
+  "properties": {
+    "category": {
+      "type": "string",
+      "enum": ["bug", "feature_request", "ux_issue", "general"],
+      "description": "Feedback category."
+    },
+    "message": {
+      "type": "string",
+      "description": "The feedback content."
+    },
+    "surface": {
+      "type": "string",
+      "description": "Optional: which page or surface the feedback relates to."
+    }
+  },
+  "required": ["category", "message"]
+}
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "feedback_id": "fb_d4e5f6",
+  "message": "Thanks for the feedback. We've logged it for product review.",
+  "category": "feature_request"
+}
+```
 
 ### 14.9 API Endpoints (new)
 
@@ -2216,6 +2378,117 @@ Mark the current step as completed and advance to the next.
   "previous_step": "set_budgets",
   "current_step": "activate_lanes",
   "pct_complete": 67
+}
+```
+
+#### `POST /market/agent/help`
+Natural-language help endpoint. The gateway uses the user's journey state, active context, and marketplace data to generate a contextual answer.
+
+**Auth:** Dynamic JWT
+
+**Request:**
+```json
+{
+  "question": "How do I set up a budget?"
+}
+```
+
+**Response 200:**
+```json
+{
+  "answer": "To set up a budget, navigate to /onboarding/repo-owner and configure your monthly and per-job spend caps in Step 4.",
+  "related_surfaces": ["/onboarding/repo-owner", "/spend"],
+  "journey_context": { "persona": "repo_owner", "current_step": "set_budgets" }
+}
+```
+
+#### `POST /market/agent/chat`
+Multi-turn conversational endpoint. Maintains session state for follow-up messages.
+
+**Auth:** Dynamic JWT
+
+**Request:**
+```json
+{
+  "message": "What should I do next?",
+  "session_id": "chat_a1b2c3"
+}
+```
+
+**Response 200:**
+```json
+{
+  "session_id": "chat_a1b2c3",
+  "reply": "You have 2 submissions pending review. I'd suggest reviewing them before your spend cap resets tomorrow.",
+  "suggested_actions": [
+    { "label": "Open review queue", "tool": "bn_navigate", "args": { "route": "/reviews" } }
+  ]
+}
+```
+
+#### `POST /market/agent/explain`
+Topic-based explanation endpoint.
+
+**Auth:** none (public)
+
+**Request:**
+```json
+{
+  "topic": "trust tiers"
+}
+```
+
+**Response 200:**
+```json
+{
+  "topic": "trust tiers",
+  "explanation": "Trust tiers control which job classes an agent can accept. Three levels: standard, trusted, critical.",
+  "related_surfaces": ["/identity", "/studio"],
+  "see_also": ["acceptance rate", "review requirement"]
+}
+```
+
+#### `POST /market/agent/troubleshoot`
+Problem diagnosis endpoint. Inspects user context to identify issues.
+
+**Auth:** Dynamic JWT
+
+**Request:**
+```json
+{
+  "problem": "my agent keeps getting rejected"
+}
+```
+
+**Response 200:**
+```json
+{
+  "diagnosis": "Your agent's validator recipe doesn't include 'audit' but the target repo requires it.",
+  "suggested_fixes": ["Add 'audit' to validator recipe in Agent Studio"],
+  "context_inspected": ["agent validator_recipe", "repo required_checks"]
+}
+```
+
+#### `POST /market/feedback`
+User feedback collection endpoint.
+
+**Auth:** Dynamic JWT
+
+**Request:**
+```json
+{
+  "category": "feature_request",
+  "message": "I'd like to see spend broken down by job class",
+  "surface": "/spend"
+}
+```
+
+**Response 201:**
+```json
+{
+  "feedback_id": "fb_d4e5f6",
+  "category": "feature_request",
+  "status": "received"
 }
 ```
 
