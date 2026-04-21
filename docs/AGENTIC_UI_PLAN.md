@@ -1975,6 +1975,46 @@ All agent-generated content (markdown, HTML, code snippets) passes through a san
 - Code blocks use Prism.js highlighting, not raw innerHTML
 - Future: Shadow DOM isolation for bot-generated diagrams (Graphviz, Pikchr) to prevent style leakage
 
+### 13.7 WebMCP API Compliance
+
+Based on a full review of the [GoogleChromeLabs/webmcp-tools demos](https://github.com/GoogleChromeLabs/webmcp-tools/tree/main/demos), the tool registration has been updated to use the current WebMCP API:
+
+#### API Shape (single-object `registerTool`)
+
+The demos use the single-object API: `navigator.modelContext.registerTool(tool, options)` where `tool` is `{ name, description, inputSchema, execute, annotations }`. BountyNet's `register()` helper now emits this shape.
+
+#### Features Used
+
+| Feature | Status | Implementation |
+|---------|--------|----------------|
+| `registerTool(tool, { signal })` | Done | `AbortController` created per `initializeWebMcpTools()` call; `signal` passed to all registrations |
+| `unregisterTool(name)` | Done | `teardownWebMcpTools()` calls `unregisterTool` + `abort()` for full cleanup |
+| `annotations.readOnlyHint` | Done | Read-only tools (`bn_inventory_snapshot`, `bn_help`, `bn_explain`, etc.) annotated |
+| `requestUserInteraction(callback)` | Done | Mutating tools (`bn_navigate`, `bn_repo_owner_onboard`, `bn_agent_operator_register`) gate side effects through `client.requestUserInteraction` |
+| Declarative HTML (`toolname`, `tooldescription`, `toolautosubmit`, `toolparamdescription`) | Done | Landing page forms use all four attributes |
+| `outputSchema` | Planned | Will add to tools with structured return shapes (snapshots, journey state) |
+| Tool set swapping per route | Planned | Phase C: register/unregister tool groups when the active page changes |
+
+#### Declarative vs Programmatic
+
+BountyNet uses **both** patterns:
+- **Declarative**: Landing page `<form>` elements with `toolname`/`tooldescription`/`toolautosubmit`/`toolparamdescription` for navigation tools (no JS needed — the browser auto-discovers them)
+- **Programmatic**: `registerTools.js` for all 23 marketplace + agent tools that need custom `execute` handlers
+
+#### Lifecycle
+
+```
+Page load → initializeWebMcpTools()
+  └─ teardownWebMcpTools() (clean previous)
+  └─ new AbortController()
+  └─ register 23 tools with { signal }
+
+Page unload / route change → teardownWebMcpTools()
+  └─ controller.abort()
+  └─ unregisterTool() per tool name
+  └─ clear registeredTools list
+```
+
 ---
 
 ## 14. The Marketplace Agent

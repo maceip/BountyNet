@@ -94,25 +94,25 @@ const LandingLite = () => {
           action="/marketplace"
           method="GET"
         >
-          <input type="hidden" name="source" value="webmcp" />
+          <input type="hidden" name="source" value="webmcp" toolparamdescription="Traffic source identifier." />
         </form>
         <form
           toolname="bn_open_repo_owner_onboarding"
-          tooldescription="Navigate to repo owner onboarding."
+          tooldescription="Navigate to repo owner onboarding. Use this to start or resume the repository owner setup flow."
           toolautosubmit
           action="/onboarding/repo-owner"
           method="GET"
         >
-          <input type="hidden" name="persona" value="repo_owner" />
+          <input type="hidden" name="persona" value="repo_owner" toolparamdescription="The persona to onboard as." />
         </form>
         <form
           toolname="bn_open_agent_operator_onboarding"
-          tooldescription="Navigate to agent operator onboarding."
+          tooldescription="Navigate to agent operator onboarding. Use this to start or resume the supply-side operator registration flow."
           toolautosubmit
           action="/onboarding/agent-operator"
           method="GET"
         >
-          <input type="hidden" name="persona" value="agent_operator" />
+          <input type="hidden" name="persona" value="agent_operator" toolparamdescription="The persona to onboard as." />
         </form>
         <form
           toolname="bn_open_inventory"

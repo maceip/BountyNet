@@ -63,17 +63,30 @@ const api = async (path, method = 'GET', body) => {
   return payload;
 };
 
-const register = async (name, description, inputSchema, handler) => {
+let _abortController = null;
+
+/**
+ * Register a WebMCP tool using the single-object API shape.
+ * Supports annotations (readOnlyHint), outputSchema, and
+ * requestUserInteraction for side-effect gating.
+ */
+const register = (name, description, inputSchema, handler, opts = {}) => {
   const state = getDiagnosticsState();
-  await navigator.modelContext.registerTool(
+  const { readOnly = false, outputSchema, requireInteraction = false } = opts;
+
+  const tool = {
     name,
-    {
-      description,
-      inputSchema,
-    },
-    async (args) => {
+    description,
+    inputSchema,
+    execute: async (input, client) => {
+      const args = input || {};
       try {
-        const result = await handler(args || {});
+        if (requireInteraction && client?.requestUserInteraction) {
+          await new Promise((resolve) => {
+            client.requestUserInteraction(() => resolve());
+          });
+        }
+        const result = await handler(args);
         recordToolCall({ name, args, result });
         return result;
       } catch (error) {
@@ -81,7 +94,18 @@ const register = async (name, description, inputSchema, handler) => {
         throw error;
       }
     },
-  );
+  };
+
+  if (readOnly || outputSchema) {
+    tool.annotations = {};
+    if (readOnly) tool.annotations.readOnlyHint = true;
+    if (outputSchema) tool.outputSchema = outputSchema;
+  }
+
+  navigator.modelContext.registerTool(tool, {
+    signal: _abortController?.signal,
+  });
+
   if (!state.registeredTools.includes(name)) {
     state.registeredTools.push(name);
   }
@@ -96,6 +120,26 @@ const routeHref = (route) => {
     : `${window.location.origin}${route.startsWith('/') ? route : `/${route}`}`;
 };
 
+/**
+ * Tear down all registered tools. Call before re-registering
+ * (e.g. on route change) or on unmount.
+ */
+export const teardownWebMcpTools = () => {
+  if (_abortController) {
+    _abortController.abort();
+    _abortController = null;
+  }
+  const state = getDiagnosticsState();
+  const mc = navigator.modelContext;
+  if (mc?.unregisterTool) {
+    state.registeredTools.forEach((name) => {
+      try { mc.unregisterTool(name); } catch { /* already gone */ }
+    });
+  }
+  state.registeredTools = [];
+  state.registered = false;
+};
+
 export const initializeWebMcpTools = async () => {
   const state = getDiagnosticsState();
   state.webmcpAvailable = hasWebMcp();
@@ -105,7 +149,10 @@ export const initializeWebMcpTools = async () => {
     return { registered: false, reason: 'navigator.modelContext unavailable' };
   }
 
-  await register(
+  teardownWebMcpTools();
+  _abortController = new AbortController();
+
+  register(
     'bn_navigate',
     'Navigate to a BountyNet route by path.',
     {
@@ -124,9 +171,10 @@ export const initializeWebMcpTools = async () => {
       window.location.assign(href);
       return { ok: true, navigated_to: href };
     },
+    { requireInteraction: true },
   );
 
-  await register(
+  register(
     'bn_repo_owner_onboard',
     'Configure repo-owner onboarding: setup repository, spend caps, and lane preset.',
     {
@@ -166,9 +214,10 @@ export const initializeWebMcpTools = async () => {
       );
       return { ok: true, setup, preset: presetResult };
     },
+    { requireInteraction: true },
   );
 
-  await register(
+  register(
     'bn_agent_operator_register',
     'Register agent operator and specialist agent with payout identity.',
     {
@@ -238,9 +287,10 @@ export const initializeWebMcpTools = async () => {
       });
       return { ok: true, operator, onboarding, agent };
     },
+    { requireInteraction: true },
   );
 
-  await register(
+  register(
     'bn_market_seed',
     'Seed managed fleet in marketplace.',
     { type: 'object', properties: {} },
@@ -250,7 +300,7 @@ export const initializeWebMcpTools = async () => {
     },
   );
 
-  await register(
+  register(
     'bn_market_create_job',
     'Create a marketplace job on a repository.',
     {
@@ -300,7 +350,7 @@ export const initializeWebMcpTools = async () => {
     },
   );
 
-  await register(
+  register(
     'bn_inventory_snapshot',
     'Fetch a machine-readable snapshot of jobs, agents, operators, and sessions.',
     { type: 'object', properties: {} },
@@ -319,9 +369,10 @@ export const initializeWebMcpTools = async () => {
         sessions: dashboard.sessions || [],
       };
     },
+    { readOnly: true },
   );
 
-  await register(
+  register(
     'bn_market_create_offer',
     'Create a seller offer on a marketplace job.',
     {
@@ -348,7 +399,7 @@ export const initializeWebMcpTools = async () => {
     },
   );
 
-  await register(
+  register(
     'bn_market_award_offer',
     'Award a selected offer for a marketplace job.',
     {
@@ -369,7 +420,7 @@ export const initializeWebMcpTools = async () => {
     },
   );
 
-  await register(
+  register(
     'bn_market_open_dispute',
     'Open a dispute for a marketplace job.',
     {
@@ -397,7 +448,7 @@ export const initializeWebMcpTools = async () => {
     },
   );
 
-  await register(
+  register(
     'bn_market_resolve_dispute',
     'Resolve an existing dispute with a ruling.',
     {
@@ -423,7 +474,7 @@ export const initializeWebMcpTools = async () => {
     },
   );
 
-  await register(
+  register(
     'bn_market_settlement_action',
     'Pay or refund a settlement by id.',
     {
@@ -446,7 +497,7 @@ export const initializeWebMcpTools = async () => {
     },
   );
 
-  await register(
+  register(
     'bn_market_reputation_snapshot',
     'Fetch agent and operator reputation snapshots.',
     { type: 'object', properties: {} },
@@ -461,9 +512,10 @@ export const initializeWebMcpTools = async () => {
         operators: operators.reputation || [],
       };
     },
+    { readOnly: true },
   );
 
-  await register(
+  register(
     'bn_market_admin_suspend_agent',
     'Suspend or unsuspend an agent profile.',
     {
@@ -485,7 +537,7 @@ export const initializeWebMcpTools = async () => {
     },
   );
 
-  await register(
+  register(
     'bn_market_admin_settlement_freeze',
     'Freeze or unfreeze settlement execution.',
     {
@@ -507,7 +559,7 @@ export const initializeWebMcpTools = async () => {
     },
   );
 
-  await register(
+  register(
     'bn_voice_inbox_snapshot',
     'Read queued voice transcripts captured across pages.',
     { type: 'object', properties: {} },
@@ -520,9 +572,10 @@ export const initializeWebMcpTools = async () => {
         updated_at: state.updatedAt || '',
       };
     },
+    { readOnly: true },
   );
 
-  await register(
+  register(
     'bn_voice_inbox_push',
     'Store text in the cross-page voice inbox for later agent handoff.',
     {
@@ -543,7 +596,7 @@ export const initializeWebMcpTools = async () => {
     },
   );
 
-  await register(
+  register(
     'bn_voice_inbox_consume',
     'Consume the next queued voice transcript for agent track processing.',
     { type: 'object', properties: {} },
@@ -556,7 +609,7 @@ export const initializeWebMcpTools = async () => {
     },
   );
 
-  await register(
+  register(
     'bn_agent_track_snapshot',
     'Read current agent-track stream state (agents, repos, events).',
     { type: 'object', properties: {} },
@@ -570,9 +623,10 @@ export const initializeWebMcpTools = async () => {
         updated_at: state.updatedAt || '',
       };
     },
+    { readOnly: true },
   );
 
-  await register(
+  register(
     'bn_agent_track_add_pair',
     'Add a synthetic agent+repo pair to the agent-track stream.',
     {
@@ -591,7 +645,7 @@ export const initializeWebMcpTools = async () => {
     },
   );
 
-  await register(
+  register(
     'bn_help',
     'Ask the marketplace a natural-language question. Returns a contextual answer based on journey state and live data.',
     {
@@ -609,9 +663,10 @@ export const initializeWebMcpTools = async () => {
       const result = await api('/api/bountynet/market/agent/help', 'POST', { question });
       return { ok: true, ...result };
     },
+    { readOnly: true },
   );
 
-  await register(
+  register(
     'bn_chat',
     'Send a free-form message to the Marketplace Agent. Supports multi-turn conversations within a session.',
     {
@@ -633,7 +688,7 @@ export const initializeWebMcpTools = async () => {
     },
   );
 
-  await register(
+  register(
     'bn_explain',
     'Ask the platform to explain a concept, surface, or workflow by topic name.',
     {
@@ -651,9 +706,10 @@ export const initializeWebMcpTools = async () => {
       const result = await api('/api/bountynet/market/agent/explain', 'POST', { topic });
       return { ok: true, ...result };
     },
+    { readOnly: true },
   );
 
-  await register(
+  register(
     'bn_troubleshoot',
     'Report a problem. The agent inspects your context and returns a diagnosis with suggested fixes.',
     {
@@ -673,7 +729,7 @@ export const initializeWebMcpTools = async () => {
     },
   );
 
-  await register(
+  register(
     'bn_feedback',
     'Submit feedback or a feature request to the product team.',
     {
