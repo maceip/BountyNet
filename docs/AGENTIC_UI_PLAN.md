@@ -1821,7 +1821,7 @@ Source: `jules-chop/src/components/` and `jules-chop/src/services/`
 | `Terminal` | `components/Terminal.tsx` | Scrolling terminal for live `stdout`/`stderr` with line numbers, auto-scroll, clear/copy controls | Agent Studio preview mode (4.4 execution log), runtime validation output |
 | `ExecutionLog` | `components/ExecutionLog.tsx` | Tool call timeline with status (pending/running/success/error), approve button, result display | Agent Studio dry-run output, managed agent invocation trace |
 | `FileUploader` | `components/FileUploader.tsx` | File System Access API directory picker, recursive walk, `.git`/`node_modules` filtering, zip handoff | BYOA agent test context upload, eval suite fixture upload |
-| `ContextManager` | `components/ContextManager.tsx` | Pill-tag UI for active context items (files, links, shards), remove buttons, "Ready for Sharding" status | Agent Studio context panel, task context display |
+| `ContextManager` | `components/ContextManager.tsx` | Pill-tag UI for active context items (files, links), remove buttons | Agent Studio context panel, task context display |
 
 ### 12.2 Integration Map
 
@@ -1863,8 +1863,8 @@ Source: `jules-chop/src/services/`
 |---------|------|---------|-------------------|
 | `zipService` | `services/zip.service.ts` | Web Worker-backed zip packaging for repository context bootstrap | Repo context upload for eval runs, agent dry-run test fixtures |
 | `vfsService` | `services/vfs.service.ts` | Virtual File System — tracks file state, dirty flags, opaque handles, patch application | Code Review lane (tracks original vs modified state for diff rendering) |
-| `contextService` | `services/context.service.ts` | Manages active context items (files, issues, links, shards) with pub/sub notifications | Agent Studio context panel, task creation payload assembly |
-| `handleRegistry` | `services/handle.service.ts` | Opaque handle registry — registers sensitive context, returns IDs instead of raw data | Identity/security layer for context references in BYOA webhook payloads |
+| `contextService` | `services/context.service.ts` | Manages active context items (files, issues, links) with pub/sub notifications | Agent Studio context panel, task creation payload assembly |
+| `handleRegistry` | `services/handle.service.ts` | Opaque handle registry — registers context, returns IDs instead of raw data | Identity layer for context references in BYOA webhook payloads |
 | `planService` | `services/plan.service.ts` | Manages bot-generated plan steps with accept/reject workflow and associated diffs | Agent Studio preview output, Code Review agent reasoning panel |
 | `toolService` | `services/tool.service.ts` | Tool call orchestration — register, approve, execute, track status with pub/sub | Execution Log component, managed agent invocation pipeline |
 | `runtimeService` | `services/runtime.service.ts` | Secure VM lifecycle — provision, execute commands, stream stdout/stderr | Terminal component, agent dry-run execution |
@@ -1873,27 +1873,13 @@ Source: `jules-chop/src/services/`
 
 Source: `jules-chop/src/workers/zip.worker.ts`
 
-The zip worker uses `JSZip` to package repository contents into a transferable blob. It also integrates with the `DataPartitioner` for t-of-n cluster distribution (from `extracted_logic/data_partitioner.js`).
+The zip worker uses `JSZip` to package repository contents into a transferable blob.
 
 **Integration**: The zip worker feeds into two flows:
 1. **Eval fixture packaging** — when an operator uploads a test repository for eval suite runs, the directory is zipped client-side and uploaded to the gateway.
 2. **BYOA context bootstrap** — when the platform dispatches a job to a BYOA agent, the repo context can be pre-packaged as a zip for the webhook payload.
 
-### 13.3 Data Partitioner
-
-Source: `jules-chop/extracted_logic/data_partitioner.js` and `sharding_helper.js`
-
-Implements Shamir's Secret Sharing over the Mersenne Prime field (2^127 - 1) for t-of-n data partitioning. Two modules:
-
-- `DataPartitioner` — creates partitions for cluster distribution of task descriptors
-- `MPCAuth_SSS` — full Shamir sharding with reconstruction for verification
-
-**Integration**: Not in the critical path for v0 but provides the foundation for:
-- Sharded context distribution to parallel compute nodes
-- Secure handle partitioning where no single node holds the full un-fragmented context
-- Future zero-knowledge proof integration for verification of bot-generated fixes
-
-### 13.4 Wire Protocol: Data Forge RPC (DFRPC)
+### 13.3 Wire Protocol: Data Forge RPC (DFRPC)
 
 The spec defines a positional array-based serialization format for communication between the browser client and the parallel cluster:
 
@@ -1917,7 +1903,7 @@ The spec defines a positional array-based serialization format for communication
 
 | Method | Purpose | Maps to Gateway API |
 |--------|---------|---------------------|
-| `GetContext` | Resolve handles to data fragments | `GET /market/submissions/:id` |
+| `GetContext` | Resolve handles to context data | `GET /market/submissions/:id` |
 | `ListToolProviders` | Discover cluster compute nodes | `GET /market/agents` |
 | `ListTools` | Enumerate MCP capabilities | `GET /market/agents/:id/manifest` |
 
@@ -1938,8 +1924,6 @@ The spec defines a positional array-based serialization format for communication
 | Field | Type | Maps to |
 |-------|------|---------|
 | `id` | String | `handle_id` from `handleRegistry` |
-| `is_partitioned` | Boolean | whether context is sharded |
-| `target_nodes` | Repeated Integer | cluster node IDs |
 
 ### 13.5 Gateway API Bridge
 
@@ -2015,4 +1999,3 @@ All items from the original Phase C, plus:
 - Automatic trust tier promotion (manual operator action for v0)
 - Full Emscripten/WASM engine (jukeswasm) — `markdown-it` + Prism.js replaces the 1.5MB CMark/RE2 bundle for v0
 - WebGPU acceleration (future research, not v0)
-- ZKP verification of bot-generated fixes (future research, not v0)
