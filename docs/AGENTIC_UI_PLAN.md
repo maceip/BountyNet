@@ -2021,28 +2021,66 @@ Page unload / route change → teardownWebMcpTools()
 
 ### 14.1 Why the Console Needs an Agent
 
-BountyNet is a marketplace. The console is not a passive dashboard — it is itself an agentic surface. An **in-browser Marketplace Agent** runs inside the console to serve two jobs:
+BountyNet is a marketplace. The console is not a passive dashboard — it is itself an agentic surface. An **always-on Marketplace Agent** runs inside the console on every page load, for every session, for every user. It is not a setup wizard that disappears after onboarding. It is a persistent co-pilot that:
 
-1. **Respond to WebMCP tool calls** from external coding agents (Cursor, Claude, etc.) that want to interact with the marketplace programmatically — create jobs, register agents, submit offers, run evals, check spend.
-2. **Guide human users (`repo_owner` and `agent_operator`) through onboarding, activation, and retention** — the agent understands where the user is in their journey, what they haven't configured yet, and what they should do next.
+1. **Responds to WebMCP tool calls** from external coding agents (Cursor, Claude, etc.) that want to interact with the marketplace programmatically — create jobs, register agents, submit offers, run evals, check spend.
+2. **Greets the user on login with something useful** — not a generic "Welcome back" but a context-aware briefing: "You have 3 submissions pending review, your spend is at 82% of monthly cap, and rust-sentinel's acceptance rate dropped to 74% this week."
+3. **Proactively surfaces issues and opportunities** — a repo owner's CI is failing more than usual, an agent operator's agent is being outbid on jobs, a budget is about to run out, a new lane preset is available for their ecosystem.
+4. **Guides through onboarding when needed** — but onboarding is just one state the agent handles, not its primary purpose.
+5. **Stays available for help, troubleshooting, and open-ended questions** at any point in the lifecycle, not just during setup.
 
-This is why the `ContextManager` component and `contextService` exist in the console. They are **not** general-purpose file context managers. They are the **Marketplace Agent's working memory** — the running accumulation of what this user has done, what context is active, and what the agent needs to know to help them or to respond to a WebMCP tool call.
+This is why the `ContextManager` component and `contextService` exist in the console. They are **not** general-purpose file context managers. They are the **Marketplace Agent's working memory** — the running accumulation of what this user has done, what's changed since their last session, what context is active, and what the agent needs to know to help them or to respond to a WebMCP tool call.
 
 ### 14.2 Two Personas, One Agent
 
 The Marketplace Agent operates differently depending on who is using the console:
 
 **`repo_owner` (repository owner / demand side)**
-- Onboarding journey: install GitHub App → select repos → configure policy → set budgets → activate lanes
-- The agent tracks which steps the repo owner has completed and which remain
-- WebMCP tools: `bn_repo_owner_onboard`, `bn_market_create_job`, `bn_market_award_offer`, `bn_market_open_dispute`
-- Retention: the agent surfaces jobs that need review, spend that's approaching caps, agents that are underperforming
+
+Lifecycle phases (the agent is present in all of them):
+
+| Phase | What the agent does |
+|-------|---------------------|
+| **First visit** | Walks through GitHub App install → repo selection → policy → budgets → lanes |
+| **Early activation** | Monitors first jobs, flags check failures, explains how the review queue works |
+| **Steady state** | Opens each session with a briefing: pending reviews, spend vs cap, agent performance. Nudges when reviews pile up or budgets approach limits |
+| **Scaling** | Suggests adding repos, adjusting budgets, trying new lane presets, or upgrading trust tiers for high-performing agents |
+| **Issues** | Alerts on spend spikes, rejection streaks, revert rate increases, or agent suspension |
+
+WebMCP tools: `bn_repo_owner_onboard`, `bn_market_create_job`, `bn_market_award_offer`, `bn_market_open_dispute`
 
 **`agent_operator` (agent operator / supply side)**
-- Onboarding journey: register operator → create agent (managed or BYOA) → configure capabilities → publish → earn
-- The agent tracks operator verification status, agent publish state, and first-job completion
-- WebMCP tools: `bn_agent_operator_register`, `bn_market_seed`, `bn_market_create_offer`, `bn_market_settlement_action`
-- Retention: the agent surfaces acceptance rates, payout status, eval results, and reputation changes
+
+| Phase | What the agent does |
+|-------|---------------------|
+| **First visit** | Walks through operator registration → agent creation (Studio or BYOA) → capabilities → test → publish |
+| **Early activation** | Monitors first submissions, explains eval metrics, suggests capability tuning |
+| **Steady state** | Opens each session with: acceptance rate trend, recent payouts, eval warnings, competitive landscape (are other agents winning your job classes?) |
+| **Growth** | Suggests new job classes, new ecosystems, trust tier promotion applications, or creating additional specialized agents |
+| **Issues** | Alerts on rejection streaks, payout disputes, validator failures, or webhook downtime (BYOA) |
+
+WebMCP tools: `bn_agent_operator_register`, `bn_market_seed`, `bn_market_create_offer`, `bn_market_settlement_action`
+
+### 14.2.1 Login Briefing
+
+Every time a user opens the console, the Marketplace Agent runs a **login briefing** — a single inference call that loads the user's current state and produces a concise, actionable summary. This is the first thing the user sees in the Agent Chat Panel.
+
+The briefing is assembled from:
+- **Changes since last session** — new submissions, completed jobs, payout status changes, budget movements
+- **Urgent items** — pending reviews older than 24h, budgets above 90% utilization, agents with acceptance rate drops
+- **Opportunities** — new job classes available, repos with no active lanes, agents eligible for trust tier promotion
+
+Example briefings:
+
+**`repo_owner` returning after 2 days:**
+> You have **4 submissions** pending review (2 are older than 24h). Your monthly spend is at **$21.40 / $25.00** (86%). rust-sentinel completed 3 jobs since your last visit — all accepted. ts-migrator had 1 rejection on org/web due to a missing Typecheck requirement.
+>
+> **Suggested:** [Review pending submissions] [Adjust monthly cap]
+
+**`agent_operator` returning after a day:**
+> Your agent rust-sentinel earned **$8.40** yesterday across 3 accepted submissions. Acceptance rate is holding at 91%. You have a **payout of $42.10** processing — expected to settle tomorrow. There are 6 open ci_repair jobs in the rust ecosystem that match your agent's capabilities.
+>
+> **Suggested:** [View open jobs] [Check payout status]
 
 ### 14.3 Architecture
 
@@ -2134,33 +2172,58 @@ The Marketplace Agent's tool surface is already implemented in `clients/web/src/
 - `bn_market_admin_suspend_agent` — suspend/unsuspend an agent
 - `bn_market_admin_settlement_freeze` — freeze/unfreeze settlement
 
-### 14.6 Journey State Machine
+### 14.6 Lifecycle State Machine
 
-The Marketplace Agent tracks user progress through a simple state machine. Each step maps to a `contextService` item of type `onboard_step`.
+The Marketplace Agent tracks user state across the full lifecycle, not just onboarding. The `contextService` stores the current phase as a `lifecycle_phase` item.
 
-**`repo_owner` Journey:**
-
-```
-install_github_app → select_repos → configure_policy → set_budgets → activate_lanes → monitor
-       │                  │                │                │               │              │
-       ▼                  ▼                ▼                ▼               ▼              ▼
-  "Install the      "Pick which       "Set review      "Set monthly    "Apply a       "Your fleet
-   GitHub App"       repos to          and merge        and per-job     lane preset"    is running"
-                     protect"          policy"          caps"
-```
-
-**`agent_operator` Journey:**
+**`repo_owner` Lifecycle:**
 
 ```
-register_operator → create_agent → configure_capabilities → test_agent → publish → earn
-       │                  │                  │                    │           │        │
-       ▼                  ▼                  ▼                    ▼           ▼        ▼
-  "Register as      "Build in         "Set job classes,    "Run a dry   "Go live"  "Check
-   an operator"      Studio or         ecosystems, and      test"                    payouts"
-                     register BYOA"    trust tier"
+onboarding ──→ early_activation ──→ steady_state ──→ scaling
+    │                │                    │               │
+    ▼                ▼                    ▼               ▼
+ Setup flow     First jobs run,      Login briefings,  Suggest new
+ (5 steps)      explain reviews,     review nudges,    repos, lanes,
+                flag issues          spend alerts      budget bumps
+                                          │
+                                          ├──→ issue_detected
+                                          │    (spend spike, rejection
+                                          │     streak, revert surge)
+                                          │    → alert + diagnosis
+                                          └──→ steady_state
 ```
 
-The agent can determine the current step by querying `contextService.getItems()` for `onboard_step` items and checking which steps have been completed.
+Onboarding sub-steps (only active during `onboarding` phase):
+`install_github_app` → `select_repos` → `configure_policy` → `set_budgets` → `activate_lanes`
+
+**`agent_operator` Lifecycle:**
+
+```
+onboarding ──→ early_activation ──→ steady_state ──→ growth
+    │                │                    │               │
+    ▼                ▼                    ▼               ▼
+ Register,       First submissions,  Login briefings,  Suggest new
+ create agent,   explain evals,      payout status,    job classes,
+ test, publish   tune capabilities   acceptance trend  trust promotion
+                                          │
+                                          ├──→ issue_detected
+                                          │    (rejection streak,
+                                          │     webhook down, dispute)
+                                          │    → alert + diagnosis
+                                          └──→ steady_state
+```
+
+Onboarding sub-steps (only active during `onboarding` phase):
+`register_operator` → `create_agent` → `configure_capabilities` → `test_agent` → `publish`
+
+**Phase transitions** are determined by the agent on each login based on concrete signals:
+
+| Signal | Transition |
+|--------|-----------|
+| All onboarding steps completed | `onboarding` → `early_activation` |
+| First 3 jobs completed (repo_owner) or first 3 submissions accepted (agent_operator) | `early_activation` → `steady_state` |
+| User has 3+ repos or 3+ agents active | `steady_state` → `scaling`/`growth` |
+| Spend spike, rejection streak, revert surge, webhook failure | `steady_state` → `issue_detected` → `steady_state` (after resolution) |
 
 ### 14.7 Console UI Integration
 
@@ -2468,7 +2531,7 @@ This means the Marketplace Agent can answer questions like "Why did my last subm
 ### 14.10 API Endpoints (new)
 
 #### `GET /market/journey/{persona}`
-Get the onboarding journey state for `repo_owner` or `agent_operator`.
+Get the full lifecycle state for `repo_owner` or `agent_operator`. This is the primary data source for the login briefing and the Marketplace Agent's context window.
 
 **Auth:** Dynamic JWT
 
@@ -2476,21 +2539,34 @@ Get the onboarding journey state for `repo_owner` or `agent_operator`.
 ```json
 {
   "persona": "repo_owner",
-  "steps": [
+  "lifecycle_phase": "steady_state",
+  "onboarding_complete": true,
+  "onboarding_steps": [
     { "id": "install_github_app", "status": "completed", "completed_at": "2026-04-20T10:00:00Z" },
     { "id": "select_repos", "status": "completed", "completed_at": "2026-04-20T10:05:00Z" },
     { "id": "configure_policy", "status": "completed", "completed_at": "2026-04-20T10:10:00Z" },
-    { "id": "set_budgets", "status": "current", "completed_at": null },
-    { "id": "activate_lanes", "status": "pending", "completed_at": null },
-    { "id": "monitor", "status": "pending", "completed_at": null }
+    { "id": "set_budgets", "status": "completed", "completed_at": "2026-04-20T10:15:00Z" },
+    { "id": "activate_lanes", "status": "completed", "completed_at": "2026-04-20T10:20:00Z" }
   ],
-  "current_step": "set_budgets",
-  "pct_complete": 50,
   "context": {
     "repos": ["org/web", "org/api"],
     "agents_assigned": 3,
-    "jobs_pending_review": 2,
-    "budget_set": false
+    "jobs_pending_review": 4,
+    "jobs_completed_total": 31,
+    "budget_monthly_cap_cents": 2500,
+    "budget_spent_cents": 2140,
+    "budget_utilization": 0.86,
+    "last_session_at": "2026-04-18T09:00:00Z"
+  },
+  "since_last_session": {
+    "new_submissions": 4,
+    "completed_jobs": 3,
+    "spend_delta_cents": 820,
+    "acceptance_rate_change": -0.02,
+    "alerts": [
+      { "type": "budget_warning", "message": "Monthly spend at 86% with 10 days remaining" },
+      { "type": "review_backlog", "message": "2 submissions pending review for >24h" }
+    ]
   }
 }
 ```
