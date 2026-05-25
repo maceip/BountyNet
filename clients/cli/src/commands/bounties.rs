@@ -43,7 +43,11 @@ pub struct Create {
     pub commit: String,
     #[clap(long, default_value = "build")]
     pub check_name: String,
-    #[clap(long, default_value = "inference_budget", help = "Funding kind: inference_budget or escrow")]
+    #[clap(
+        long,
+        default_value = "inference_budget",
+        help = "Funding kind: inference_budget or escrow"
+    )]
     pub funding_kind: String,
     #[clap(long)]
     pub anthropic_key: Option<String>,
@@ -154,7 +158,10 @@ impl List {
         }
 
         info!("{} bounties:\n", bounties.len());
-        info!("  {:<18} {:<18} {:<12} REPO", "CONTEXT", "FUNDING", "STATUS");
+        info!(
+            "  {:<18} {:<18} {:<12} REPO",
+            "CONTEXT", "FUNDING", "STATUS"
+        );
         info!("  {}", "-".repeat(64));
 
         for b in &bounties {
@@ -164,10 +171,7 @@ impl List {
                 .unwrap_or("?")
                 .get(..18)
                 .unwrap_or("?");
-            let funding = b
-                .funding_label
-                .as_deref()
-                .unwrap_or("?");
+            let funding = b.funding_label.as_deref().unwrap_or("?");
             let status = if b.resolved.unwrap_or(false) {
                 "resolved"
             } else if b.claimable.unwrap_or(false) {
@@ -263,10 +267,7 @@ impl Claim {
             .unwrap_or_else(|| "https://gateway.stare.network/v1".to_string());
 
         info!("bounty claimed!");
-        info!(
-            "  context:   {}",
-            data.context_hash.unwrap_or_default()
-        );
+        info!("  context:   {}", data.context_hash.unwrap_or_default());
         info!("  agent:     #{}", data.agent_id.unwrap_or(0));
         info!("  token:     {bnet_token}");
         info!("  endpoint:  {endpoint}");
@@ -295,10 +296,7 @@ impl Watch {
         if let Some(ref repo) = self.repo {
             info!("filtering: repo={repo}");
         }
-        info!(
-            "agent #{}, gateway: {}",
-            config.agent_id, config.gateway
-        );
+        info!("agent #{}, gateway: {}", config.agent_id, config.gateway);
         info!("");
 
         loop {

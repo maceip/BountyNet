@@ -173,7 +173,7 @@ def runtime_config_for_profile(profile: AgentServingProfile, *, agent_model: str
 def runtime_available(config: RuntimeConfig | None = None) -> bool:
     cfg = config or default_runtime_config()
     if cfg.provider == "litellm":
-        return bool(cfg.resolved_model and cfg.api_base)
+        return bool(cfg.resolved_model and (cfg.api_base or cfg.api_key))
     return bool(cfg.resolved_model and cfg.api_key)
 
 

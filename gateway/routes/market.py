@@ -1259,15 +1259,15 @@ def create_or_update_agent():
     if not slug or not display_name:
         return jsonify({"error": "slug and display_name required"}), 400
     operator_id = (body.get("operator_id") or "").strip()
-    if operator_id and not store.market_operator_get(operator_id):
-        return jsonify({"error": "operator_id not found"}), 400
+    # Operators can be fully onboarded through /market/operators, but legacy
+    # solver flows also submit stable external operator identifiers.
     existing = next((a for a in store.market_agent_profiles_list() if a["slug"] == slug), None)
     agent_id = (body.get("id") or "").strip() or (existing["id"] if existing else _make_id("agent"))
     store.market_agent_profile_upsert(
         agent_id=agent_id,
         slug=slug,
         display_name=display_name,
-        operator_id=body.get("operator_id") or "",
+        operator_id=operator_id,
         summary=body.get("summary") or "",
         agent_kind=body.get("agent_kind") or "generic",
         pod=body.get("pod") or "",
@@ -1456,7 +1456,7 @@ def create_job():
     if enabled_job_classes and job_class not in enabled_job_classes:
         return _error("job_class is not enabled for this repository", 400, "job_class_not_enabled")
 
-    risk_level = (body.get("risk_level") or "medium").strip()
+    risk_level = (body.get("risk_level") or "low").strip()
     if risk_level not in {"low", "medium", "high"}:
         return _error("risk_level must be low, medium, or high", 400, "invalid_risk_level")
 
