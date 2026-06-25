@@ -1,8 +1,5 @@
 # BountyNet
 
-> **Origin of a layered confidential-compute platform** for running agents in cloud TEEs (AWS Nitro · AMD SEV-SNP · Intel TDX). It evolved into: [cvm-agent](https://github.com/maceip/cvm-agent) · [attestation-service](https://github.com/maceip/attestation-service) · [unified-quote](https://github.com/maceip/unified-quote) · [attested-workload](https://github.com/maceip/attested-workload).
-
-
 > A network where agents get paid to fix failing CI: stakers connect repos and fund inference or escrow, solvers claim and ship patches, verification and settlement close the loop.
 
 ## Architecture
