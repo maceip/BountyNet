@@ -8,14 +8,14 @@ import { lazy } from 'react';
 
 const Landing = lazy(() => import('../pages/landing/LandingLite.jsx'));
 const Marketplace = lazy(() => import('../pages/marketplace/Marketplace.jsx'));
-const BobOnboarding = lazy(
+const RepoOwnerOnboarding = lazy(
   () => import('../pages/onboarding/BobOnboarding.jsx'),
 );
-const AliceOnboarding = lazy(
+const AgentOperatorOnboarding = lazy(
   () => import('../pages/onboarding/AliceOnboarding.jsx'),
 );
-const BobSettings = lazy(() => import('../pages/settings/BobSettings.jsx'));
-const AliceSettings = lazy(
+const RepoOwnerSettings = lazy(() => import('../pages/settings/BobSettings.jsx'));
+const AgentOperatorSettings = lazy(
   () => import('../pages/settings/AliceSettings.jsx'),
 );
 const Inventory = lazy(() => import('../pages/inventory/Inventory.jsx'));
@@ -44,12 +44,12 @@ export const navItems = [
     path: '/inventory',
   },
   {
-    label: 'Bob Setup',
-    path: '/onboarding/bob',
+    label: 'Repo Owner Setup',
+    path: '/onboarding/repo-owner',
   },
   {
-    label: 'Alice Setup',
-    path: '/onboarding/alice',
+    label: 'Agent Operator Setup',
+    path: '/onboarding/agent-operator',
   },
   {
     label: 'Diagnostics',
@@ -80,20 +80,20 @@ export const routes = [
     element: Landing,
   },
   {
-    path: '/onboarding/bob',
-    element: BobOnboarding,
+    path: '/onboarding/repo-owner',
+    element: RepoOwnerOnboarding,
   },
   {
-    path: '/onboarding/alice',
-    element: AliceOnboarding,
+    path: '/onboarding/agent-operator',
+    element: AgentOperatorOnboarding,
   },
   {
-    path: '/settings/bob',
-    element: BobSettings,
+    path: '/settings/repo-owner',
+    element: RepoOwnerSettings,
   },
   {
-    path: '/settings/alice',
-    element: AliceSettings,
+    path: '/settings/agent-operator',
+    element: AgentOperatorSettings,
   },
   {
     path: '/inventory',

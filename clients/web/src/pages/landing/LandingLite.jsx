@@ -16,18 +16,18 @@ const LandingLite = () => {
     <PageLayout fallback={<p>Loading landing...</p>}>
       <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
         <p className="text-label">bountynet marketplace</p>
-        <h1>best-in-class code upgrades for bob, and clout + earnings for alice.</h1>
+        <h1>best-in-class code upgrades for repo owners, and clout + earnings for agent operators.</h1>
         <p>
-          Bob (GitHub owner) connects repos, budget, and policy. Alice (agent expert)
-          registers specialist agents and wins work in the market. We launch as Alice
-          first to seed high-quality supply.
+          Repository owners connect repos, budget, and policy. Agent operators
+          register specialist agents and win work in the market. We launch with
+          agent operators first to seed high-quality supply.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Link className="border border-border bg-secondary px-3 py-2 text-sm no-underline" id="mcp-bob-onboarding-link" to="/onboarding/bob">
-            Bob onboarding
+          <Link className="border border-border bg-secondary px-3 py-2 text-sm no-underline" id="mcp-repo-owner-onboarding-link" to="/onboarding/repo-owner">
+            Repo owner onboarding
           </Link>
-          <Link className="border border-border bg-secondary px-3 py-2 text-sm no-underline" id="mcp-alice-onboarding-link" to="/onboarding/alice">
-            Alice onboarding
+          <Link className="border border-border bg-secondary px-3 py-2 text-sm no-underline" id="mcp-agent-operator-onboarding-link" to="/onboarding/agent-operator">
+            Agent operator onboarding
           </Link>
           <Link className="border border-border bg-secondary px-3 py-2 text-sm no-underline" id="mcp-marketplace-link" to="/marketplace">
             Open marketplace
@@ -51,22 +51,22 @@ const LandingLite = () => {
 
       <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 fold:px-6 desktop:grid-cols-3 desktop:px-8">
         <article className="border border-border bg-card p-4">
-          <h3 className="text-label">for bob (repo owner)</h3>
+          <h3 className="text-label">for repo owners</h3>
           <ul>
             <li>Connect GitHub installation + repos.</li>
             <li>Define spend policy and checks that matter.</li>
             <li>Receive vetted agent outcomes, not random noise.</li>
           </ul>
-          <Link to="/settings/bob">Bob settings</Link>
+          <Link to="/settings/repo-owner">Repo owner settings</Link>
         </article>
         <article className="border border-border bg-card p-4">
-          <h3 className="text-label">for alice (agent expert)</h3>
+          <h3 className="text-label">for agent operators</h3>
           <ul>
             <li>Register operators and specialist agents.</li>
             <li>Show outcomes and build reputation quickly.</li>
             <li>Configure payout identity and compete on quality/cost.</li>
           </ul>
-          <Link to="/settings/alice">Alice settings</Link>
+          <Link to="/settings/agent-operator">Agent operator settings</Link>
         </article>
         <article className="border border-border bg-card p-4">
           <h3 className="text-label">inventory and proof</h3>
@@ -94,25 +94,25 @@ const LandingLite = () => {
           action="/marketplace"
           method="GET"
         >
-          <input type="hidden" name="source" value="webmcp" />
+          <input type="hidden" name="source" value="webmcp" toolparamdescription="Traffic source identifier." />
         </form>
         <form
-          toolname="bn_open_bob_onboarding"
-          tooldescription="Navigate to Bob onboarding."
+          toolname="bn_open_repo_owner_onboarding"
+          tooldescription="Navigate to repo owner onboarding. Use this to start or resume the repository owner setup flow."
           toolautosubmit
-          action="/onboarding/bob"
+          action="/onboarding/repo-owner"
           method="GET"
         >
-          <input type="hidden" name="persona" value="bob" />
+          <input type="hidden" name="persona" value="repo_owner" toolparamdescription="The persona to onboard as." />
         </form>
         <form
-          toolname="bn_open_alice_onboarding"
-          tooldescription="Navigate to Alice onboarding."
+          toolname="bn_open_agent_operator_onboarding"
+          tooldescription="Navigate to agent operator onboarding. Use this to start or resume the supply-side operator registration flow."
           toolautosubmit
-          action="/onboarding/alice"
+          action="/onboarding/agent-operator"
           method="GET"
         >
-          <input type="hidden" name="persona" value="alice" />
+          <input type="hidden" name="persona" value="agent_operator" toolparamdescription="The persona to onboard as." />
         </form>
         <form
           toolname="bn_open_inventory"

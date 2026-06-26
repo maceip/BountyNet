@@ -16,7 +16,7 @@ const AGENT_PREFIX = [
 
 const AGENT_SUFFIX = ['lint', 'fix', 'ops', 'ci', 'guard', 'solver', 'pilot', 'patch'];
 
-const REPO_OWNER = ['octo', 'bounty', 'rail', 'ship', 'market', 'alice', 'bob', 'cargo'];
+const REPO_OWNER = ['octo', 'bounty', 'rail', 'ship', 'market', 'forge', 'oxide', 'cargo'];
 const REPO_NAME = [
   'web-core',
   'gateway-runtime',

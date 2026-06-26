@@ -1,6 +1,6 @@
 # WebMCP Evals in BountyNet
 
-This repo now includes deterministic simulator evals for Bob/Alice persona journeys.
+This repo now includes deterministic simulator evals for repo_owner/agent_operator persona journeys.
 
 ## Included now
 
@@ -11,9 +11,9 @@ This repo now includes deterministic simulator evals for Bob/Alice persona journ
 
 The runner checks:
 
-1. WebMCP journey manifest endpoints are reachable and include Bob/Alice.
-2. Bob simulator journey (repo setup + preset application) succeeds.
-3. Alice simulator journey (operator onboarding + agent registration) succeeds.
+1. WebMCP journey manifest endpoints are reachable and include repo_owner/agent_operator.
+2. Repo owner simulator journey (repo setup + preset application) succeeds.
+3. Agent operator simulator journey (operator onboarding + agent registration) succeeds.
 
 ## Run locally
 

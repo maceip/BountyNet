@@ -5,21 +5,21 @@ import { PopoverCommandSelect, Terminal } from '../../components/smui/index.jsx'
 
 const AliceOnboarding = () => {
   const [operator, setOperator] = useState({
-    slug: `alice-operator-${Date.now()}`,
-    displayName: 'Alice Operator',
-    email: 'alice@example.com',
+    slug: `operator-${Date.now()}`,
+    displayName: 'My Operator',
+    email: 'operator@example.com',
     wallet: '0x1111111111111111111111111111111111111111',
   });
   const [agent, setAgent] = useState({
-    slug: `alice-agent-${Date.now()}`,
-    displayName: 'Alice Agent',
+    slug: `agent-${Date.now()}`,
+    displayName: 'My Agent',
     pod: 'typescript',
     lane: 'migration',
   });
   const [output, setOutput] = useState('idle');
   const [busy, setBusy] = useState(false);
 
-  const registerAlice = async () => {
+  const registerOperator = async () => {
     try {
       setBusy(true);
       const createOperator = await fetch('/api/bountynet/market/operators', {
@@ -31,7 +31,7 @@ const AliceOnboarding = () => {
         body: JSON.stringify({
           slug: operator.slug,
           display_name: operator.displayName,
-          summary: 'Alice supply-side operator',
+          summary: 'Supply-side agent operator',
           contact_email: operator.email,
           status: 'active',
         }),
@@ -115,12 +115,12 @@ const AliceOnboarding = () => {
   };
 
   return (
-    <PageLayout fallback={<p>Loading Alice onboarding...</p>}>
+    <PageLayout fallback={<p>Loading agent operator onboarding...</p>}>
       <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
-        <p className="text-label">persona onboarding: alice</p>
+        <p className="text-label">persona onboarding: agent_operator</p>
         <h1>register operators, agents, and payout identity.</h1>
         <p>
-          This is the supply-side path. We launch as Alice first to establish quality
+          This is the supply-side path. Register your operator to establish quality
           inventory and market credibility.
         </p>
       </section>
@@ -128,27 +128,27 @@ const AliceOnboarding = () => {
       <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 desktop:grid-cols-3 fold:px-6 desktop:px-8">
         <article className="border border-border bg-card p-4">
           <h2 className="text-label">step 1: operator</h2>
-          <label htmlFor="alice-operator-slug">Operator Slug</label>
+          <label htmlFor="ao-operator-slug">Operator Slug</label>
           <input
-            id="alice-operator-slug"
+            id="ao-operator-slug"
             value={operator.slug}
             onChange={(e) => setOperator((s) => ({ ...s, slug: e.target.value }))}
           />
-          <label htmlFor="alice-operator-name">Display Name</label>
+          <label htmlFor="ao-operator-name">Display Name</label>
           <input
-            id="alice-operator-name"
+            id="ao-operator-name"
             value={operator.displayName}
             onChange={(e) => setOperator((s) => ({ ...s, displayName: e.target.value }))}
           />
-          <label htmlFor="alice-email">Contact Email</label>
+          <label htmlFor="ao-email">Contact Email</label>
           <input
-            id="alice-email"
+            id="ao-email"
             value={operator.email}
             onChange={(e) => setOperator((s) => ({ ...s, email: e.target.value }))}
           />
-          <label htmlFor="alice-wallet">Payout Wallet</label>
+          <label htmlFor="ao-wallet">Payout Wallet</label>
           <input
-            id="alice-wallet"
+            id="ao-wallet"
             value={operator.wallet}
             onChange={(e) => setOperator((s) => ({ ...s, wallet: e.target.value }))}
           />
@@ -156,20 +156,20 @@ const AliceOnboarding = () => {
 
         <article className="border border-border bg-card p-4">
           <h2 className="text-label">step 2: agent</h2>
-          <label htmlFor="alice-agent-slug">Agent Slug</label>
+          <label htmlFor="ao-agent-slug">Agent Slug</label>
           <input
-            id="alice-agent-slug"
+            id="ao-agent-slug"
             value={agent.slug}
             onChange={(e) => setAgent((s) => ({ ...s, slug: e.target.value }))}
           />
-          <label htmlFor="alice-agent-name">Display Name</label>
+          <label htmlFor="ao-agent-name">Display Name</label>
           <input
-            id="alice-agent-name"
+            id="ao-agent-name"
             value={agent.displayName}
             onChange={(e) => setAgent((s) => ({ ...s, displayName: e.target.value }))}
           />
           <PopoverCommandSelect
-            id="alice-pod"
+            id="ao-pod"
             label="Pod"
             value={agent.pod}
             onChange={(pod) => setAgent((s) => ({ ...s, pod }))}
@@ -179,32 +179,32 @@ const AliceOnboarding = () => {
               { value: 'github_actions', label: 'github_actions' },
             ]}
           />
-          <label htmlFor="alice-lane">Lane</label>
+          <label htmlFor="ao-lane">Lane</label>
           <input
-            id="alice-lane"
+            id="ao-lane"
             value={agent.lane}
             onChange={(e) => setAgent((s) => ({ ...s, lane: e.target.value }))}
           />
           <button
-            id="mcp-alice-register"
+            id="mcp-agent-operator-register"
             type="button"
-            onClick={registerAlice}
+            onClick={registerOperator}
             disabled={busy}
           >
-            Register Alice operator + agent
+            Register operator + agent
           </button>
-          <Terminal title="alice onboarding output" content={output} />
+          <Terminal title="agent operator onboarding output" content={output} />
         </article>
 
         <article className="border border-border bg-card p-4">
           <h2 className="text-label">next</h2>
           <p>
             After registration, track outcomes in inventory and tune payout/preferences
-            in Alice settings.
+            in settings.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link to="/inventory">Open inventory</Link>
-            <Link to="/settings/alice">Alice settings</Link>
+            <Link to="/settings/agent-operator">Operator settings</Link>
             <Link to="/marketplace">Marketplace stream</Link>
           </div>
         </article>

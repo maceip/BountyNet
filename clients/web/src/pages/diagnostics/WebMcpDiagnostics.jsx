@@ -44,7 +44,7 @@ const WebMcpDiagnostics = () => {
         <h1>webmcp capability and tool telemetry.</h1>
         <p>
           Confirms browser support, registered tools, last tool call, and journey
-          manifest availability for Bob/Alice automation.
+          manifest availability for repo_owner/agent_operator automation.
         </p>
       </section>
 
@@ -85,8 +85,8 @@ const WebMcpDiagnostics = () => {
         <article className="border border-border bg-card p-4">
           <h2 className="text-label">quick actions</h2>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Link to="/onboarding/bob">Bob onboarding</Link>
-            <Link to="/onboarding/alice">Alice onboarding</Link>
+            <Link to="/onboarding/repo-owner">Repo owner onboarding</Link>
+            <Link to="/onboarding/agent-operator">Agent operator onboarding</Link>
             <Link to="/marketplace">Marketplace</Link>
             <Link to="/inventory">Inventory</Link>
             <Link to="/ops/control-plane">Control plane</Link>

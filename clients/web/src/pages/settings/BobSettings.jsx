@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { PageLayout } from '../../layouts/page-layout.jsx';
 import { PopoverCommandSelect, Terminal } from '../../components/smui/index.jsx';
 
-const STORAGE_KEY = 'bn.settings.bob';
+const STORAGE_KEY = 'bn.settings.repo_owner';
 
 const DEFAULTS = {
   defaultBudgetType: 'platform_credits',
@@ -33,17 +33,17 @@ const BobSettings = () => {
   };
 
   return (
-    <PageLayout fallback={<p>Loading Bob settings...</p>}>
+    <PageLayout fallback={<p>Loading repo owner settings...</p>}>
       <section className="mx-auto w-full max-w-6xl px-3 py-6 fold:px-6 desktop:px-8">
-        <p className="text-label">settings: bob</p>
+        <p className="text-label">settings: repo_owner</p>
         <h1>repository-owner policy controls.</h1>
-        <p>Set default spend and promotion policy for Bob-owned repositories.</p>
+        <p>Set default spend and promotion policy for your repositories.</p>
       </section>
 
       <section className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 px-3 fold:grid-cols-2 fold:px-6 desktop:px-8">
         <article className="border border-border bg-card p-4">
           <PopoverCommandSelect
-            id="bob-budget-type"
+            id="ro-budget-type"
             label="Default Budget Type"
             value={settings.defaultBudgetType}
             onChange={(defaultBudgetType) => setSettings((s) => ({ ...s, defaultBudgetType }))}
@@ -52,17 +52,17 @@ const BobSettings = () => {
               { value: 'api_key_pool', label: 'api_key_pool' },
             ]}
           />
-          <label htmlFor="bob-checks">Required Checks (comma separated)</label>
+          <label htmlFor="ro-checks">Required Checks (comma separated)</label>
           <input
-            id="bob-checks"
+            id="ro-checks"
             value={settings.requireChecks}
             onChange={(e) => setSettings((s) => ({ ...s, requireChecks: e.target.value }))}
           />
           <div className="grid grid-cols-1 gap-2 fold:grid-cols-2">
             <div>
-              <label htmlFor="bob-monthly-cap">Monthly Spend Cap</label>
+              <label htmlFor="ro-monthly-cap">Monthly Spend Cap</label>
               <input
-                id="bob-monthly-cap"
+                id="ro-monthly-cap"
                 value={settings.monthlySpendCap}
                 onChange={(e) =>
                   setSettings((s) => ({ ...s, monthlySpendCap: e.target.value }))
@@ -70,16 +70,16 @@ const BobSettings = () => {
               />
             </div>
             <div>
-              <label htmlFor="bob-perjob-cap">Per-job Cap</label>
+              <label htmlFor="ro-perjob-cap">Per-job Cap</label>
               <input
-                id="bob-perjob-cap"
+                id="ro-perjob-cap"
                 value={settings.perJobCap}
                 onChange={(e) => setSettings((s) => ({ ...s, perJobCap: e.target.value }))}
               />
             </div>
           </div>
           <PopoverCommandSelect
-            id="bob-promote-threshold"
+            id="ro-promote-threshold"
             label="Auto-promote threshold"
             value={settings.autoPromoteThreshold}
             onChange={(autoPromoteThreshold) => setSettings((s) => ({ ...s, autoPromoteThreshold }))}
@@ -90,18 +90,18 @@ const BobSettings = () => {
             ]}
           />
           <button type="button" onClick={save}>
-            Save Bob settings
+            Save repo owner settings
           </button>
           <Terminal title="settings save status" content={savedAt ? `saved_at=${savedAt}` : 'not saved yet'} />
         </article>
         <article className="border border-border bg-card p-4">
           <h2 className="text-label">where this applies</h2>
           <p>
-            These values are used as Bob defaults during onboarding and repository
+            These values are used as defaults during onboarding and repository
             setup decisions.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Link to="/onboarding/bob">Bob onboarding</Link>
+            <Link to="/onboarding/repo-owner">Repo owner onboarding</Link>
             <Link to="/inventory">Inventory</Link>
             <Link to="/marketplace">Marketplace</Link>
           </div>

@@ -256,7 +256,7 @@ const Marketplace = () => {
           method: 'POST',
           body: JSON.stringify({
             offer_id: awardOfferId,
-            awarded_by: 'bob',
+            awarded_by: 'repo_owner',
           }),
         },
       );
@@ -278,7 +278,7 @@ const Marketplace = () => {
             reason_code: disputeForm.reasonCode,
             reason: disputeForm.reason,
             settlement_id: disputeForm.settlementId,
-            opened_by: 'bob',
+            opened_by: 'repo_owner',
           }),
         },
       );
