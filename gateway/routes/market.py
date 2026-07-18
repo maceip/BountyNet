@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac as _hmac
 import time
 import uuid
 import os
@@ -148,7 +149,7 @@ def _ops_authorized() -> bool:
     if auth.lower().startswith("bearer "):
         supplied = auth.split(" ", 1)[1].strip()
     supplied = supplied or (request.headers.get("X-Market-Token") or "").strip()
-    if expected_token and supplied == expected_token:
+    if expected_token and supplied and _hmac.compare_digest(supplied, expected_token):
         return True
     return request_session_authorized(role="admin", min_aal=2)
 
@@ -269,7 +270,7 @@ def _require_market_auth():
     if auth.lower().startswith("bearer "):
         supplied = auth.split(" ", 1)[1].strip()
     supplied = supplied or (request.headers.get("X-Market-Token") or "").strip()
-    if supplied != expected_token:
+    if not supplied or not _hmac.compare_digest(supplied, expected_token):
         if request.path.startswith("/ops/") and request_session_authorized(role="admin", min_aal=2):
             return None
         return _error("unauthorized market write", status_code=401, code="unauthorized")

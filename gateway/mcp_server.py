@@ -33,15 +33,18 @@ def _mcp_transport_security() -> TransportSecuritySettings | None:
       MCP_ALLOWED_HOSTS=gateway.example.com:443,gateway.example.com
       MCP_ALLOWED_ORIGINS=https://chatgpt.com,https://cursor.com
     """
-    if os.environ.get("MCP_DNS_REBINDING_PROTECTION", "").lower() not in ("1", "true", "yes"):
+    explicit = os.environ.get("MCP_DNS_REBINDING_PROTECTION", "").lower()
+    if explicit in ("0", "false", "no"):
         return TransportSecuritySettings(enable_dns_rebinding_protection=False)
     hosts = [h.strip() for h in os.environ.get("MCP_ALLOWED_HOSTS", "").split(",") if h.strip()]
     origins = [o.strip() for o in os.environ.get("MCP_ALLOWED_ORIGINS", "").split(",") if o.strip()]
-    return TransportSecuritySettings(
-        enable_dns_rebinding_protection=True,
-        allowed_hosts=hosts,
-        allowed_origins=origins,
-    )
+    if explicit in ("1", "true", "yes") or hosts:
+        return TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=hosts,
+            allowed_origins=origins,
+        )
+    return TransportSecuritySettings(enable_dns_rebinding_protection=False)
 
 _WIDGET_URI = "ui://widget/bountynet.html"
 _WIDGET_PATH = Path(__file__).resolve().parent / "mcp_widget.html"

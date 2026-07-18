@@ -18,11 +18,13 @@ _logger = logging.getLogger(__name__)
 
 
 def _auth_ok() -> bool:
+    import hmac as _hmac
+
     token = (os.environ.get("BOUNTYNET_CLIENT_LOG_TOKEN") or "").strip()
     if not token:
         return False
     auth = request.headers.get("Authorization", "")
-    return auth == f"Bearer {token}"
+    return _hmac.compare_digest(auth, f"Bearer {token}")
 
 
 @log_ingest_bp.route("/logs/android", methods=["POST"])
