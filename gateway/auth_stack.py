@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -177,7 +178,7 @@ def _verify_factor_generic(
             nonce=challenge["nonce"],
             identifier=identifier,
         )
-        if proof != expected:
+        if not hmac.compare_digest(proof, expected):
             return {"ok": False, "error": "invalid proof"}
         return {
             "ok": True,
@@ -279,7 +280,7 @@ def resolve_request_session(min_aal: int = 1) -> dict[str, Any] | None:
     expected_device_hash = (session.get("device_fingerprint_hash") or "").strip()
     if expected_device_hash:
         supplied = (request.headers.get("X-BN-Device-Fingerprint") or "").strip()
-        if not supplied or _sha256(supplied) != expected_device_hash:
+        if not supplied or not hmac.compare_digest(_sha256(supplied), expected_device_hash):
             return None
     principal = store.auth_principal_get(session["principal_id"])
     if not principal:
