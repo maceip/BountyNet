@@ -146,12 +146,11 @@ def ccip_read(sender: str, data: str):
     expiry = int(time.time()) + TTL
     extra = call_data
 
-    if GATEWAY_KEY:
-        msg_hash = keccak(result + expiry.to_bytes(8, "big") + extra)
-        sig = Account.sign_message(encode_defunct(msg_hash), private_key=GATEWAY_KEY)
-        signature = sig.signature
-    else:
-        signature = b"\x00" * 65
+    if not GATEWAY_KEY:
+        return jsonify({"error": "CCIP signing key not configured"}), 500
+    msg_hash = keccak(result + expiry.to_bytes(8, "big") + extra)
+    sig = Account.sign_message(encode_defunct(msg_hash), private_key=GATEWAY_KEY)
+    signature = sig.signature
 
     response = encode(["bytes", "uint64", "bytes"], [result, expiry, signature])
     return jsonify({"data": "0x" + response.hex()})
