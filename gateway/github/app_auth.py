@@ -15,9 +15,10 @@ APP_ID = os.environ.get("GITHUB_APP_ID", "")
 
 
 def _load_private_key() -> str:
-    for path in ["github_app_key.pem"]:
+    explicit_path = os.environ.get("GITHUB_APP_KEY_PATH", "").strip()
+    if explicit_path:
         try:
-            with open(path) as f:
+            with open(explicit_path) as f:
                 return f.read()
         except OSError:
             pass
