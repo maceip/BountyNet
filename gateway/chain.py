@@ -1,5 +1,6 @@
 """Shared Web3 connection + contract helpers for all routes."""
 import os
+import threading
 from web3 import Web3
 from eth_account import Account
 from eth_utils import keccak
@@ -69,20 +70,24 @@ def native_balance(addr: str) -> float:
     raise RuntimeError(" | ".join(errors))
 
 
+_nonce_lock = threading.Lock()
+
+
 def send_tx(to: str, data: str, key: str = ORACLE_KEY) -> dict:
     acct = Account.from_key(key)
-    nonce = w3.eth.get_transaction_count(acct.address)
-    tx = {
-        "from": acct.address,
-        "to": w3.to_checksum_address(to),
-        "data": data,
-        "nonce": nonce,
-        "gasPrice": w3.eth.gas_price,
-        "gas": 300000,
-        "chainId": int(os.environ.get("BOUNTYNET_CHAIN_ID", "5042002")),
-    }
-    signed = acct.sign_transaction(tx)
-    tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+    with _nonce_lock:
+        nonce = w3.eth.get_transaction_count(acct.address)
+        tx = {
+            "from": acct.address,
+            "to": w3.to_checksum_address(to),
+            "data": data,
+            "nonce": nonce,
+            "gasPrice": w3.eth.gas_price,
+            "gas": 300000,
+            "chainId": int(os.environ.get("BOUNTYNET_CHAIN_ID", "5042002")),
+        }
+        signed = acct.sign_transaction(tx)
+        tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
     return {"tx": tx_hash.hex(), "status": receipt.status, "block": receipt.blockNumber}
 
@@ -121,10 +126,12 @@ def eurc_balance(addr: str) -> float:
 
 
 def get_health():
+    from pathlib import Path as _Path
+    from gateway.store import db_path
+
     try:
         block, source = current_block()
         agents = get_next_agent_id() - 1
-        from gateway.store import db_path
 
         return jsonify({
             "status": "ok",
@@ -133,7 +140,7 @@ def get_health():
             "registered_agents": agents,
             "escrow": ESCROW,
             "identity": IDENTITY,
-            "storage_db": db_path(),
+            "storage_ok": _Path(db_path()).is_file(),
         })
     except Exception as e:
         # Local bootstrap can opt into a non-fatal health response when RPC is not present.
@@ -145,8 +152,6 @@ def get_health():
             "on",
         }
         if allow_degraded:
-            from gateway.store import db_path
-
             return jsonify(
                 {
                     "status": "degraded",
@@ -154,7 +159,7 @@ def get_health():
                     "evm_rpc_source": "unavailable",
                     "escrow": ESCROW,
                     "identity": IDENTITY,
-                    "storage_db": db_path(),
+                    "storage_ok": _Path(db_path()).is_file(),
                 }
             )
         return jsonify({"status": "error", "error": str(e)}), 500
